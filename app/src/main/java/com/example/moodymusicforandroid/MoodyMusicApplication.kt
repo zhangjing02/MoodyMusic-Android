@@ -2,6 +2,7 @@ package com.example.moodymusicforandroid
 
 import android.app.Application
 import com.example.moodymusicforandroid.common.preferences.PreferencesManager
+import com.example.moodymusicforandroid.data.manager.UserManager
 
 import com.example.moodymusicforandroid.common.utils.FontManager
 import com.example.moodymusicforandroid.common.utils.ThemeManager
@@ -22,7 +23,7 @@ class MoodyMusicApplication : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .crossfade(false)
-            .allowHardware(true)
+            .allowHardware(false) // 必须设为 false，否则在含 BlurView/软件渲染绘制中会触发 'Software rendering doesn't support hardware bitmaps' 崩溃
             .memoryCache {
                 coil.memory.MemoryCache.Builder(this)
                     .maxSizePercent(0.25)
@@ -49,25 +50,38 @@ class MoodyMusicApplication : Application(), ImageLoaderFactory {
         // 初始化 PreferencesManager
         PreferencesManager.init(this)
 
+        // 初始化 UserManager (本地 SQLite 数据库与用户状态中枢)
+        UserManager.init(this)
+
         // 初始化主题
         ThemeManager.initTheme(this)
 
         // 应用组合主题（字体 + 颜色）
         applyCombinedTheme()
 
-        // 异步预热 60MB 本地字体库与后台服务，彻底避免首次滑入列表时在 UI 主线程耗时 60~80ms 同步解析字体
+        // 异步预热默认字体与后台服务
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
-                androidx.core.content.res.ResourcesCompat.getFont(this@MoodyMusicApplication, R.font.source_han_serif_sc_regular)
-                androidx.core.content.res.ResourcesCompat.getFont(this@MoodyMusicApplication, R.font.source_han_serif_sc_bold)
-                androidx.core.content.res.ResourcesCompat.getFont(this@MoodyMusicApplication, R.font.source_han_sans_sc_regular)
-                androidx.core.content.res.ResourcesCompat.getFont(this@MoodyMusicApplication, R.font.source_han_sans_sc_bold)
                 androidx.core.content.res.ResourcesCompat.getFont(this@MoodyMusicApplication, R.font.lxgw_wenkai_gb_regular)
             } catch (_: Exception) {}
 
             try {
                 cn.jpush.android.api.JPushInterface.setDebugMode(false)
                 cn.jpush.android.api.JPushInterface.init(this@MoodyMusicApplication)
+
+                // 如果用户已登录，主动上报当前 RegistrationId（处理 App 重启场景）
+                // onRegister 回调仅在 ID 首次生成或变更时触发，
+                // App 重启后 ID 通常已存在，需主动获取并上报
+                val regId = cn.jpush.android.api.JPushInterface.getRegistrationID(this@MoodyMusicApplication)
+                if (!regId.isNullOrEmpty()) {
+                    PreferencesManager.saveJPushRegistrationId(regId)
+                    if (PreferencesManager.isLoggedIn()) {
+                        try {
+                            com.example.moodymusicforandroid.data.api.MoodyApiProvider.apiService
+                                .updateJPushRegistrationId(mapOf("jpush_registration_id" to regId))
+                        } catch (_: Exception) {}
+                    }
+                }
             } catch (_: Exception) {}
         }
     }

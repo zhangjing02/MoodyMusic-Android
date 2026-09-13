@@ -4,9 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,76 +20,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.moodymusicforandroid.R
+import com.example.moodymusicforandroid.data.manager.UserManager
+import com.example.moodymusicforandroid.data.model.AlbumWithSongs
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
-/**
- * 艺术家主页 (Artist Detail Screen)
- *
- * 特色：
- * 1. 阿比盖尔·陈巨幅肖像立绘与 Contemporary Folk 杂志风角标；
- * 2. 气势磅礴的衬线姓名排版与生平导读；
- * 3. 月收听人数与精选作品数据面板；
- * 4. 作品全集排序 Tab 与双列唱片封面网格。
- */
+private val NON_DIGIT_REGEX = Regex("\\D")
+
 @Composable
 fun ArtistDetailScreen(
-    artistId: String = "abigail_chen",
-    artistName: String = "阿比盖尔·陈",
+    artistId: String = "",
+    artistName: String = "",
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
-    onAlbumClick: (String, String) -> Unit = { _, _ -> },
+    onAlbumClick: (artistId: String, albumTitle: String) -> Unit = { _, _ -> },
     onPlayAllClick: () -> Unit = {}
 ) {
-    var isFollowing by remember { mutableStateOf(false) }
+    val viewModel: ArtistDetailViewModel = viewModel(
+        key = "ArtistDetailViewModel_$artistId",
+        factory = viewModelFactory {
+            initializer {
+                val ssh = SavedStateHandle(mapOf("artistId" to artistId, "artistName" to artistName))
+                ArtistDetailViewModel(ssh)
+            }
+        }
+    )
+
+    val uiState by viewModel.uiState.collectAsState()
+    val followedArtistIds by UserManager.followedArtistIds.collectAsState()
+    val isFollowing = artistId.isNotBlank() && artistId in followedArtistIds
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("按时间排序", "按热度排序", "录音室专辑")
-
-    val discography = listOf(
-        ArtistAlbumItem(
-            id = "afternoon_echo",
-            title = "午后的回声",
-            yearAndTracks = "2024 • 12 TRACKS",
-            imageUrl = "/storage/covers/albums/album__2_8.jpg",
-            fallbackRes = R.drawable.album_afternoon_echo
-        ),
-        ArtistAlbumItem(
-            id = "wild_roam",
-            title = "荒野散策",
-            yearAndTracks = "2023 • 10 TRACKS",
-            imageUrl = "/storage/covers/albums/album__2_3.jpg",
-            fallbackRes = R.drawable.album_wild_roam
-        ),
-        ArtistAlbumItem(
-            id = "blue_monsoon",
-            title = "蓝色季候风",
-            yearAndTracks = "2022 • 14 TRACKS",
-            imageUrl = "/storage/covers/albums/album__2_4.jpg",
-            fallbackRes = R.drawable.album_blue_monsoon
-        ),
-        ArtistAlbumItem(
-            id = "forest_mist",
-            title = "沉默的见证",
-            yearAndTracks = "2021 • 8 TRACKS",
-            imageUrl = "/storage/covers/hero/hero_forest_mist.jpg",
-            fallbackRes = R.drawable.hero_forest_mist
-        ),
-        ArtistAlbumItem(
-            id = "stone_poem",
-            title = "石上的诗篇",
-            yearAndTracks = "2020 • 11 TRACKS",
-            imageUrl = "/storage/covers/albums/album_electronic_vibes.jpg",
-            fallbackRes = R.drawable.album_electronic_vibes
-        ),
-        ArtistAlbumItem(
-            id = "rainy_talk",
-            title = "雨夜谈话",
-            yearAndTracks = "2019 • 13 TRACKS",
-            imageUrl = "/storage/covers/albums/album__2_7.jpg",
-            fallbackRes = R.drawable.album_rainy_talk
-        )
-    )
 
     Scaffold(
         topBar = {
@@ -116,7 +79,7 @@ fun ArtistDetailScreen(
                     text = "艺术家",
                     style = MaterialTheme.typography.titleLarge,
                     color = SongbookColors.BurntOrange,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -126,10 +89,28 @@ fun ArtistDetailScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = 140.dp)
+            contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // 1. 艺术家巨幅肖像与标签
+            // 1. 艺术家封面（优先用 API 头像，否则用占位）
             item {
+                val currentAvatar = uiState.artistAvatar
+                val resolvedHeroModel = remember(currentAvatar, artistId) {
+                    val hasCustom = !currentAvatar.isNullOrBlank() &&
+                        !currentAvatar.contains("default.png") &&
+                        !currentAvatar.contains("landing_cover.png") &&
+                        !currentAvatar.startsWith("/src/")
+                    if (hasCustom) {
+                        com.example.moodymusicforandroid.common.config.AppConfig.resolveUrl(currentAvatar)
+                    } else {
+                        val rawId = artistId.replace(NON_DIGIT_REGEX, "")
+                        if (rawId.isNotBlank()) {
+                            "file:///android_asset/avatars/artists/artist_$rawId.jpg"
+                        } else {
+                            ""
+                        }
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -139,13 +120,11 @@ fun ArtistDetailScreen(
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
                     SongbookImage(
-                        model = "/storage/artists/artist_abigail_chen.jpg",
+                        model = resolvedHeroModel,
                         contentDescription = artistName,
                         fallbackRes = R.drawable.artist_abigail_chen,
                         modifier = Modifier.fillMaxSize()
                     )
-
-                    // 底部黑色渐变与风格标签
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -160,85 +139,77 @@ fun ArtistDetailScreen(
                         contentAlignment = Alignment.BottomStart
                     ) {
                         Text(
-                            text = "CONTEMPORARY FOLK",
+                            text = "ARTIST",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
                             letterSpacing = 2.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Normal
                         )
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // 2. 艺术家宏伟衬线大名与导言
+            // 2. 艺术家名称与数据面板
             item {
                 Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                     Text(
                         text = artistName,
                         style = MaterialTheme.typography.displayMedium,
                         color = SongbookColors.BurntOrange,
-                        fontWeight = FontWeight.Black
+                        fontWeight = FontWeight.Medium
                     )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = "在极简主义与叙事民谣的交汇点，阿比盖尔·陈以其独特的“现代颂歌”风格重新定义了独立乐坛。她的作品如同一本散发着墨香的旧乐谱，在喧嚣的数字时代提供了一片宁静的听觉绿洲。",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 24.sp
-                    )
-
                     Spacer(modifier = Modifier.height(20.dp))
-
-                    // 统计数据
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(32.dp)
                     ) {
                         Column {
                             Text(
-                                text = "月收听人数",
+                                text = "专辑数量",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SongbookColors.Outline,
                                 letterSpacing = 1.sp
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "2,840,192",
+                                text = "${uiState.albums.size} Albums",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Medium
                             )
                         }
-
                         Column {
                             Text(
-                                text = "精选作品",
+                                text = "歌曲总数",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SongbookColors.Outline,
                                 letterSpacing = 1.sp
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "12 Albums",
+                                text = "${uiState.albums.sumOf { it.songs.size }} Tracks",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
-
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // 关注与播放按钮组
+                    // 关注与播放按钮
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(
-                            onClick = { isFollowing = !isFollowing },
+                            onClick = {
+                                if (artistId.isNotBlank()) {
+                                    val name = uiState.artistName.ifBlank { artistName }
+                                    val avatar = uiState.artistAvatar
+                                    UserManager.toggleFollowArtist(artistId, name, avatar)
+                                }
+                            },
                             shape = RoundedCornerShape(4.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isFollowing) SongbookColors.MutedOlive else SongbookColors.BurntOrange,
@@ -253,12 +224,8 @@ fun ArtistDetailScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isFollowing) "已关注" else "关注歌手",
-                                style = MaterialTheme.typography.labelLarge
-                            )
+                            Text(text = if (isFollowing) "已关注" else "关注歌手", style = MaterialTheme.typography.labelLarge)
                         }
-
                         Button(
                             onClick = onPlayAllClick,
                             shape = RoundedCornerShape(4.dp),
@@ -269,18 +236,14 @@ fun ArtistDetailScreen(
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(vertical = 12.dp)
                         ) {
-                            Text(
-                                text = "播放全部",
-                                style = MaterialTheme.typography.labelLarge
-                            )
+                            Text(text = "播放全部", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(36.dp))
             }
 
-            // 3. 作品全集标题与 Tab 排序
+            // 3. 作品全集标题
             item {
                 Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                     Row(
@@ -292,9 +255,8 @@ fun ArtistDetailScreen(
                             text = "作品全集",
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Medium
                         )
-
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             tabs.forEachIndexed { index, tabName ->
                                 val isSelected = selectedTab == index
@@ -302,7 +264,7 @@ fun ArtistDetailScreen(
                                     text = tabName,
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (isSelected) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                                     modifier = Modifier.clickable { selectedTab = index }
                                 )
                             }
@@ -314,34 +276,62 @@ fun ArtistDetailScreen(
                 }
             }
 
-            // 4. 双列专辑网格
-            item {
-                Column(
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
-                ) {
-                    for (i in discography.indices step 2) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            val albumLeft = discography[i]
-                            val albumRight = discography.getOrNull(i + 1)
+            // 4. 加载状态
+            if (uiState.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = SongbookColors.BurntOrange)
+                    }
+                }
+            }
 
-                            ArtistAlbumCard(
-                                album = albumLeft,
-                                modifier = Modifier.weight(1f),
-                                onClick = { onAlbumClick(albumLeft.id, albumLeft.title) }
-                            )
+            // 5. 错误状态
+            if (uiState.error != null && !uiState.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = uiState.error ?: "加载失败",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
 
-                            if (albumRight != null) {
+            // 6. 双列专辑网格（真实数据）
+            if (!uiState.isLoading && uiState.albums.isNotEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        val albums = uiState.albums
+                        for (i in albums.indices step 2) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
                                 ArtistAlbumCard(
-                                    album = albumRight,
+                                    album = albums[i],
                                     modifier = Modifier.weight(1f),
-                                    onClick = { onAlbumClick(albumRight.id, albumRight.title) }
+                                    onClick = { onAlbumClick(artistId, albums[i].title) }
                                 )
-                            } else {
-                                Spacer(modifier = Modifier.weight(1f))
+                                val albumRight = albums.getOrNull(i + 1)
+                                if (albumRight != null) {
+                                    ArtistAlbumCard(
+                                        album = albumRight,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { onAlbumClick(artistId, albumRight.title) }
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }
@@ -353,7 +343,7 @@ fun ArtistDetailScreen(
 
 @Composable
 private fun ArtistAlbumCard(
-    album: ArtistAlbumItem,
+    album: AlbumWithSongs,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -370,28 +360,24 @@ private fun ArtistAlbumCard(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
         ) {
             SongbookImage(
-                model = album.imageUrl,
+                model = album.cover,
                 contentDescription = album.title,
-                fallbackRes = album.fallbackRes,
+                fallbackRes = R.drawable.album_afternoon_echo,
                 modifier = Modifier.fillMaxSize()
             )
         }
-
         Spacer(modifier = Modifier.height(8.dp))
-
         Text(
             text = album.title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-
         Spacer(modifier = Modifier.height(2.dp))
-
         Text(
-            text = album.yearAndTracks,
+            text = "${album.year} • ${album.songs.size} TRACKS",
             style = MaterialTheme.typography.labelSmall,
             color = SongbookColors.Outline,
             maxLines = 1
@@ -399,6 +385,7 @@ private fun ArtistAlbumCard(
     }
 }
 
+// 保留旧版数据类型兼容性（如果其他地方引用了 ArtistAlbumItem）
 data class ArtistAlbumItem(
     val id: String,
     val title: String,

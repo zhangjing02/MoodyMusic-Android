@@ -86,39 +86,23 @@
 
     <!-- Green 变体 -->
     <style name="Theme.MoodyMusicForAndroid.Green.Handwriting" parent="Theme.MoodyMusicForAndroid.Green" />
-    <style name="Theme.MoodyMusicForAndroid.Green.Modern" parent="Theme.MoodyMusicForAndroid.Green">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
-    </style>
-    <style name="Theme.MoodyMusicForAndroid.Green.Elegant" parent="Theme.MoodyMusicForAndroid.Green">
-        <item name="android:fontFamily">@font/source_han_serif_sc_regular</item>
-    </style>
+    <style name="Theme.MoodyMusicForAndroid.Green.Modern" parent="Theme.MoodyMusicForAndroid.Green" />
+    <style name="Theme.MoodyMusicForAndroid.Green.Elegant" parent="Theme.MoodyMusicForAndroid.Green" />
 
     <!-- Ocean 变体 -->
     <style name="Theme.MoodyMusicForAndroid.Ocean.Handwriting" parent="Theme.MoodyMusicForAndroid.Ocean" />
-    <style name="Theme.MoodyMusicForAndroid.Ocean.Modern" parent="Theme.MoodyMusicForAndroid.Ocean">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
-    </style>
-    <style name="Theme.MoodyMusicForAndroid.Ocean.Elegant" parent="Theme.MoodyMusicForAndroid.Ocean">
-        <item name="android:fontFamily">@font/source_han_serif_sc_regular</item>
-    </style>
+    <style name="Theme.MoodyMusicForAndroid.Ocean.Modern" parent="Theme.MoodyMusicForAndroid.Ocean" />
+    <style name="Theme.MoodyMusicForAndroid.Ocean.Elegant" parent="Theme.MoodyMusicForAndroid.Ocean" />
 
     <!-- Sunset 变体 -->
     <style name="Theme.MoodyMusicForAndroid.Sunset.Handwriting" parent="Theme.MoodyMusicForAndroid.Sunset" />
-    <style name="Theme.MoodyMusicForAndroid.Sunset.Modern" parent="Theme.MoodyMusicForAndroid.Sunset">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
-    </style>
-    <style name="Theme.MoodyMusicForAndroid.Sunset.Elegant" parent="Theme.MoodyMusicForAndroid.Sunset">
-        <item name="android:fontFamily">@font/source_han_serif_sc_regular</item>
-    </style>
+    <style name="Theme.MoodyMusicForAndroid.Sunset.Modern" parent="Theme.MoodyMusicForAndroid.Sunset" />
+    <style name="Theme.MoodyMusicForAndroid.Sunset.Elegant" parent="Theme.MoodyMusicForAndroid.Sunset" />
 
     <!-- Night 变体 -->
     <style name="Theme.MoodyMusicForAndroid.Night.Handwriting" parent="Theme.MoodyMusicForAndroid.Night" />
-    <style name="Theme.MoodyMusicForAndroid.Night.Modern" parent="Theme.MoodyMusicForAndroid.Night">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
-    </style>
-    <style name="Theme.MoodyMusicForAndroid.Night.Elegant" parent="Theme.MoodyMusicForAndroid.Night">
-        <item name="android:fontFamily">@font/source_han_serif_sc_regular</item>
-    </style>
+    <style name="Theme.MoodyMusicForAndroid.Night.Modern" parent="Theme.MoodyMusicForAndroid.Night" />
+    <style name="Theme.MoodyMusicForAndroid.Night.Elegant" parent="Theme.MoodyMusicForAndroid.Night" />
 
     <!-- UI Component Styles (Legacy/Helper) -->
     <style name="PrimaryButton" parent="Widget.MaterialComponents.Button">

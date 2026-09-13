@@ -10,14 +10,14 @@
         <item name="android:fontFamily">@font/lxgw_wenkai_gb_regular</item>
     </style>
 
-    <!-- 现代轻盈风主题 - 使用思源黑体 (Sans) -->
+    <!-- 现代轻盈风主题 - 统一使用默认字体 -->
     <style name="Theme.MoodyMusicForAndroid.Modern" parent="Theme.MoodyMusicForAndroid">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
+        <item name="android:fontFamily">@font/lxgw_wenkai_gb_regular</item>
     </style>
 
-    <!-- 清秀文艺风主题 - 使用思源宋体 (Serif) -->
+    <!-- 清秀文艺风主题 - 统一使用默认字体 -->
     <style name="Theme.MoodyMusicForAndroid.Elegant" parent="Theme.MoodyMusicForAndroid">
-        <item name="android:fontFamily">@font/source_han_serif_sc_regular</item>
+        <item name="android:fontFamily">@font/lxgw_wenkai_gb_regular</item>
     </style>
 
 </resources>

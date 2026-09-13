@@ -1,13 +1,21 @@
 package com.example.moodymusicforandroid.ui.home.activity
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.util.Log
+import android.view.FrameMetrics
+import android.view.Window
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -20,58 +28,83 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.example.moodymusicforandroid.MoodyMusicApplication
+import com.example.moodymusicforandroid.common.config.AppConfig
 import com.example.moodymusicforandroid.common.eventbus.BaseEvent
 import com.example.moodymusicforandroid.common.eventbus.EventBusManager
 import com.example.moodymusicforandroid.common.eventbus.EventType
 import com.example.moodymusicforandroid.common.preferences.PreferencesManager
+import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.common.utils.AppFlags
 import com.example.moodymusicforandroid.common.utils.FontManager
 import com.example.moodymusicforandroid.common.utils.ThemeManager
 import com.example.moodymusicforandroid.ui.album.AlbumDetailScreen
 import com.example.moodymusicforandroid.ui.artist.ArtistDetailScreen
 import com.example.moodymusicforandroid.ui.auth.activity.LoginActivity
-import com.example.moodymusicforandroid.ui.classroom.activity.ClassroomActivity
+import com.example.moodymusicforandroid.ui.collection.CollectionManagerScreen
 import com.example.moodymusicforandroid.ui.home.DiscoverScreen
 import com.example.moodymusicforandroid.ui.home.HomeScreen
 import com.example.moodymusicforandroid.ui.home.LibraryScreen
+import com.example.moodymusicforandroid.ui.theme_detail.ThemeDetailScreen
+import com.example.moodymusicforandroid.ui.components.SongbookBlurContainer
 import com.example.moodymusicforandroid.ui.home.components.AppDrawerContent
 import com.example.moodymusicforandroid.ui.home.components.FloatingMiniPlayer
+import com.example.moodymusicforandroid.ui.home.components.FloatingMiniPlayerContent
 import com.example.moodymusicforandroid.ui.home.components.MainBottomBar
+import com.example.moodymusicforandroid.ui.home.components.MainBottomBarContent
 import com.example.moodymusicforandroid.ui.home.viewmodel.MainViewModel
+import com.example.moodymusicforandroid.ui.theme.SongbookColors
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.example.moodymusicforandroid.ui.navigation.*
+import com.example.moodymusicforandroid.ui.player.MusicPlayerService
+import com.example.moodymusicforandroid.ui.settings.SettingsScreen
+import com.example.moodymusicforandroid.ui.version.VersionUpdateScreen
+import com.example.moodymusicforandroid.ui.player.NowPlayingScreen
+import com.example.moodymusicforandroid.ui.player.PlayQueueItem
+import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookTheme
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import kotlin.math.roundToInt
 
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.view.FrameMetrics
-import android.view.Window
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
-
-/**
- * 应用的主 Activity，承担单 Activity 架构的宿主角色。
- */
 class MainActivity : AppCompatActivity() {
 
     private val TAG = "MainActivity"
     private val viewModel: MainViewModel by viewModels()
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.d(TAG, "POST_NOTIFICATIONS permission granted")
+        } else {
+            Log.w(TAG, "POST_NOTIFICATIONS permission denied, media notification may not be visible")
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(permission)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(MoodyMusicApplication.currentThemeResId)
         super.onCreate(savedInstanceState)
-        
         enableEdgeToEdge()
+        requestNotificationPermission()
         EventBusManager.register(this)
         ThemeManager.initTheme(this)
         setupJankMonitor()
@@ -84,10 +117,10 @@ class MainActivity : AppCompatActivity() {
                 SongbookTheme {
                     MainScreen(
                         onAuthClick = {
-                            startActivity(Intent(this, ClassroomActivity::class.java))
+                            startActivity(Intent(this, LoginActivity::class.java))
                         },
                         onThemeClick = { mode ->
-                            ThemeManager.setTheme(this, mode)
+                            UserManager.updateThemeMode(mode.value, this)
                             (application as MoodyMusicApplication).updateTheme()
                             Toast.makeText(this, "已切换主题", Toast.LENGTH_SHORT).show()
                             recreate()
@@ -98,9 +131,9 @@ class MainActivity : AppCompatActivity() {
                             recreate()
                         },
                         onLogoutClick = {
-                            PreferencesManager.clearUserInfo()
-                            EventBusManager.post(EventType.USER_LOGOUT, "用户退出登录")
+                            UserManager.onLogout()
                             Toast.makeText(this, "已退出当前认证", Toast.LENGTH_SHORT).show()
+                            startActivity(Intent(this, LoginActivity::class.java))
                         }
                     )
                 }
@@ -110,18 +143,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (AppFlags.showKickOutDialog) {
-            AppFlags.showKickOutDialog = false
-            android.app.AlertDialog.Builder(this)
-                .setTitle("下线通知")
-                .setMessage("您的账号已在其他设备登录。当前设备已下线，您可以继续使用无需登录的功能。")
-                .setPositiveButton("我知道了", null)
-                .setNegativeButton("重新登录") { _, _ ->
-                    startActivity(Intent(this, LoginActivity::class.java))
-                }
-                .setCancelable(false)
-                .show()
-        }
     }
 
     private fun setupJankMonitor() {
@@ -134,33 +155,18 @@ class MainActivity : AppCompatActivity() {
             }
             val frameDeadlineMs = 1000f / refreshRate
             val jankThresholdMs = frameDeadlineMs * 1.5f
-
-            // 使用独立后台线程处理掉帧监控日志，彻底避免监控代码本身在主线程进行字符串格式化和 Logcat IPC 引起掉帧
             val monitorThread = android.os.HandlerThread("JankMonitorThread").apply { start() }
             val handler = Handler(monitorThread.looper)
             window.addOnFrameMetricsAvailableListener(
                 Window.OnFrameMetricsAvailableListener { _, frameMetrics, _ ->
                     val totalDurationNs = frameMetrics.getMetric(FrameMetrics.TOTAL_DURATION)
                     val durationMs = totalDurationNs / 1_000_000f
-                    val layoutDurationMs = frameMetrics.getMetric(FrameMetrics.LAYOUT_MEASURE_DURATION) / 1_000_000f
-                    val drawDurationMs = frameMetrics.getMetric(FrameMetrics.DRAW_DURATION) / 1_000_000f
-                    val syncDurationMs = frameMetrics.getMetric(FrameMetrics.SYNC_DURATION) / 1_000_000f
-                    val commandIssueMs = frameMetrics.getMetric(FrameMetrics.COMMAND_ISSUE_DURATION) / 1_000_000f
-                    val swapBuffersMs = frameMetrics.getMetric(FrameMetrics.SWAP_BUFFERS_DURATION) / 1_000_000f
-                    val animDurationMs = frameMetrics.getMetric(FrameMetrics.ANIMATION_DURATION) / 1_000_000f
-                    val inputDurationMs = frameMetrics.getMetric(FrameMetrics.INPUT_HANDLING_DURATION) / 1_000_000f
-                    val gpuDurationMs = frameMetrics.getMetric(FrameMetrics.GPU_DURATION) / 1_000_000f
-
                     if (durationMs > jankThresholdMs) {
-                        Log.w(
-                            "JankMonitor",
-                            "⚠️ [掉帧] 总耗时:${"%.1f".format(durationMs)}ms (基准:${"%.1f".format(frameDeadlineMs)}ms) | 排版:${"%.1f".format(layoutDurationMs)}ms | 绘制:${"%.1f".format(drawDurationMs)}ms | 同步(Sync):${"%.1f".format(syncDurationMs)}ms | 交换缓冲(Swap):${"%.1f".format(swapBuffersMs)}ms | 指令(Cmd):${"%.1f".format(commandIssueMs)}ms | 动画:${"%.1f".format(animDurationMs)}ms | 输入:${"%.1f".format(inputDurationMs)}ms | GPU:${"%.1f".format(gpuDurationMs)}ms"
-                        )
+                        Log.w("JankMonitor", "⚠️ [掉帧] 总耗时:${"%.1f".format(durationMs)}ms")
                     }
                 },
                 handler
             )
-            Log.i("JankMonitor", "🚀 [JankMonitor] 掉帧监控器已启动(后台线程监听)，当前屏幕刷新率: ${refreshRate.toInt()}Hz，单帧预算: ${"%.1f".format(frameDeadlineMs)}ms")
         }
     }
 
@@ -168,19 +174,12 @@ class MainActivity : AppCompatActivity() {
     fun onEventReceived(event: BaseEvent) {
         if (event.eventType == EventType.AUTH_TOKEN_EXPIRED) {
             val isKickedOut = event.eventData == "KICKED_OUT"
-            if (isKickedOut) {
-                if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                    AppFlags.showKickOutDialog = true
-                    onResume()
-                }
+            val message = if (isKickedOut) {
+                "您的账号已在其他设备登录，当前已退出登录"
             } else {
-                val intent = Intent(this, LoginActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    putExtra("KICKED_OUT", false)
-                }
-                startActivity(intent)
-                finish()
+                "登录状态已失效，当前已转为未登录模式"
             }
+            com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(this, message)
         }
     }
 
@@ -191,9 +190,6 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-/**
- * 整个应用的主屏幕 Compose 入口组件
- */
 @Composable
 fun MainScreen(
     onAuthClick: () -> Unit,
@@ -203,29 +199,15 @@ fun MainScreen(
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
-    
-    var isLoggedIn by remember { mutableStateOf(PreferencesManager.isLoggedIn()) }
-    var userName by remember { mutableStateOf(PreferencesManager.getUserName() ?: "同学") }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
-    var currentTrackTitle by remember { mutableStateOf("苔藓上的私语") }
-    var currentTrackArtist by remember { mutableStateOf("周深处 & 森林合唱团") }
-    var isPlaying by remember { mutableStateOf(true) }
-    
-    DisposableEffect(Unit) {
-        val subscriber = object {
-            @Subscribe(threadMode = ThreadMode.MAIN)
-            fun onEvent(event: BaseEvent) {
-                if (event.eventType == EventType.USER_LOGIN || event.eventType == EventType.USER_LOGOUT) {
-                    isLoggedIn = PreferencesManager.isLoggedIn()
-                    userName = PreferencesManager.getUserName() ?: "同学"
-                }
-            }
-        }
-        EventBusManager.register(subscriber)
-        onDispose {
-            EventBusManager.unregister(subscriber)
-        }
-    }
+    val userProfile by UserManager.userProfile.collectAsState()
+    val isLoggedIn by UserManager.isLoggedIn.collectAsState()
+    val userName = userProfile?.getDisplayName() ?: PreferencesManager.getUserName() ?: "同学"
+
+    // 全局 PlayerViewModel
+    val playerViewModel: PlayerViewModel = viewModel()
+    val playState by playerViewModel.playState.collectAsState()
 
     val navigationState = rememberNavigationState(
         startRoute = RouteHome,
@@ -243,6 +225,7 @@ fun MainScreen(
                 AppDrawerContent(
                     isLoggedIn = isLoggedIn,
                     userName = userName,
+                    currentVersionName = "1.0",
                     onCloseClick = { coroutineScope.launch { drawerState.close() } },
                     onAuthClick = {
                         coroutineScope.launch { drawerState.close() }
@@ -252,8 +235,26 @@ fun MainScreen(
                         coroutineScope.launch { drawerState.close() }
                         onLogoutClick()
                     },
-                    onThemeClick = onThemeClick,
-                    onFontClick = onFontClick
+                    onMessageBoardClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        android.widget.Toast.makeText(context, "留言板手札即将开放，静候慢调笔谈", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onStylePreferenceClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        android.widget.Toast.makeText(context, "风格喜好设置正在筹备中", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onSettingsClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        navigator.navigate(RouteSettings)
+                    },
+                    onVersionClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        navigator.navigate(RouteVersion)
+                    },
+                    onAboutClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        android.widget.Toast.makeText(context, "音信 · TunePost v1.0\nThe Modern Songbook © 2026", android.widget.Toast.LENGTH_LONG).show()
+                    }
                 )
             }
         }
@@ -263,21 +264,78 @@ fun MainScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            val entryProvider = remember {
+            val entryProvider = remember(playState) {
                 entryProvider {
                     entry<RouteHome> {
                         HomeScreen(
+                            playerViewModel = playerViewModel,
                             onMenuClick = { coroutineScope.launch { drawerState.open() } },
                             onAvatarClick = onAuthClick,
                             onAlbumClick = { id, title ->
-                                navigator.navigate(RouteAlbumDetail(id, title))
+                                if (id == "butterfly_lovers_album") {
+                                    playerViewModel.playSingleUrl(
+                                        audioUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/butterfly_lovers_concerto.mp3",
+                                        songTitle = "《梁祝》小提琴协奏曲",
+                                        artistName = "何占豪 & 陈钢 (宋知垣 小提琴独奏)",
+                                         albumTitle = "深度名作解析 · 东方交响",
+                                        coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/butterfly_lovers_cover_clean.jpg"
+                                    )
+                                } else {
+                                    navigator.navigate(RouteAlbumDetail(id, title))
+                                }
                             },
                             onArtistClick = { id, name ->
                                 navigator.navigate(RouteArtistDetail(id, name))
                             },
-                            onArticleClick = { _ ->
-                                navigator.navigate(RouteAlbumDetail("vinyl_soul", "回响：寻找消失的黑胶灵魂"))
+                            onArticleClick = { articleId ->
+                                if (articleId == "butterfly_lovers_deep_dive") {
+                                    navigator.navigate(
+                                        RouteThemeDetail(
+                                            themeId = "butterfly_lovers_deep_dive",
+                                            title = "《梁祝》小提琴协奏曲",
+                                            audioUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/butterfly_lovers_concerto.mp3",
+                                            coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/hero/butterfly_lovers_hero_clean.jpg",
+                                            artistName = "何占豪 & 陈钢 (宋知垣 小提琴独奏)"
+                                        )
+                                    )
+                                } else {
+                                    navigator.navigate(RouteAlbumDetail("vinyl_soul", "回响：寻找消失的黑胶灵魂"))
+                                }
+                            },
+                            onThemeClick = { themeId, title, audioUrl, coverUrl, artistName ->
+                                if (UserManager.isCardClickDirectPlay() && audioUrl.isNotBlank()) {
+                                    playerViewModel.playSingleUrl(
+                                        audioUrl = audioUrl,
+                                        songTitle = title.substringBefore("—").replace("《", "").replace("》", "").trim(),
+                                        artistName = artistName,
+                                        albumTitle = when (themeId) {
+                                            "butterfly_lovers_deep_dive" -> "深度名作解析 · 东方交响"
+                                            "bach_cello_theme" -> "今日胶片精选 · 古典大提琴"
+                                            "pop_piano_theme" -> "今日胶片精选 · 流行钢琴"
+                                            "jonathan_lee_theme" -> "今日胶片精选 · 华语大师"
+                                            "lofi_chill_theme" -> "今日胶片精选 · 治愈旋律"
+                                            else -> "慢调阅读 · 深度专栏"
+                                        },
+                                        coverUrl = if (themeId == "butterfly_lovers_deep_dive") {
+                                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/butterfly_lovers_cover_clean.jpg"
+                                        } else if (themeId == "bach_cello_theme") {
+                                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/bach_cello_cover.jpg"
+                                        } else {
+                                            coverUrl
+                                        }
+                                    )
+                                }
+                                navigator.navigate(
+                                    RouteThemeDetail(
+                                        themeId = themeId,
+                                        title = title,
+                                        audioUrl = audioUrl,
+                                        coverUrl = coverUrl,
+                                        artistName = artistName
+                                    )
+                                )
                             }
+
                         )
                     }
 
@@ -291,7 +349,55 @@ fun MainScreen(
                     }
 
                     entry<RouteLibrary> {
-                        LibraryScreen()
+                        LibraryScreen(
+                            onSongClick = { song ->
+                                val path = song.filePath
+                                if (!path.isNullOrBlank()) {
+                                    playerViewModel.playSingleUrl(
+                                        audioUrl = path,
+                                        songTitle = song.title,
+                                        artistName = song.artistName ?: "未知歌手",
+                                        albumTitle = song.albumTitle ?: "",
+                                        coverUrl = song.coverUrl ?: ""
+                                    )
+                                }
+                            },
+                            onAlbumClick = { id, title ->
+                                navigator.navigate(RouteAlbumDetail(id, title))
+                            },
+                            onArtistClick = { id, name ->
+                                navigator.navigate(RouteArtistDetail(id, name))
+                            },
+                            onOpenCollectionManager = { initialTab ->
+                                navigator.navigate(RouteCollectionManager(initialTab = initialTab))
+                            },
+                            onAuthClick = onAuthClick
+                        )
+                    }
+
+                    entry<RouteCollectionManager> { key ->
+                        CollectionManagerScreen(
+                            initialTab = key.initialTab,
+                            onBackClick = { navigator.goBack() },
+                            onSongClick = { song ->
+                                val path = song.filePath
+                                if (!path.isNullOrBlank()) {
+                                    playerViewModel.playSingleUrl(
+                                        audioUrl = path,
+                                        songTitle = song.title,
+                                        artistName = song.artistName ?: "未知歌手",
+                                        albumTitle = song.albumTitle ?: "",
+                                        coverUrl = song.coverUrl ?: ""
+                                    )
+                                }
+                            },
+                            onAlbumClick = { id, title ->
+                                navigator.navigate(RouteAlbumDetail(id, title))
+                            },
+                            onArtistClick = { id, name ->
+                                navigator.navigate(RouteArtistDetail(id, name))
+                            }
+                        )
                     }
 
                     entry<RouteArtistDetail> { key ->
@@ -299,13 +405,18 @@ fun MainScreen(
                             artistId = key.artistId,
                             artistName = key.artistName,
                             onBackClick = { navigator.goBack() },
-                            onAlbumClick = { id, title ->
-                                navigator.navigate(RouteAlbumDetail(id, title))
+                            onAlbumClick = { artistId, albumTitle ->
+                                navigator.navigate(
+                                    RouteAlbumDetail(
+                                        albumId = albumTitle,
+                                        albumTitle = albumTitle,
+                                        artistId = artistId,
+                                        artistName = key.artistName
+                                    )
+                                )
                             },
                             onPlayAllClick = {
-                                currentTrackTitle = "午后的回声"
-                                currentTrackArtist = key.artistName
-                                isPlaying = true
+                                // 播放该艺人第一首歌（占位，由 ViewModel 实际处理）
                             }
                         )
                     }
@@ -314,70 +425,162 @@ fun MainScreen(
                         AlbumDetailScreen(
                             albumId = key.albumId,
                             albumTitle = key.albumTitle,
+                            artistId = key.artistId,
+                            artistName = key.artistName.ifBlank { key.albumTitle },
+                            playerViewModel = playerViewModel,
+                            playState = playState,
+                            currentPlayingTitle = playState.songTitle,
+                            isPlayingAudio = playState.isPlaying,
                             onBackClick = { navigator.goBack() },
-                            onTrackClick = { track ->
-                                currentTrackTitle = track.title
-                                currentTrackArtist = "周深处 & 森林合唱团"
-                                isPlaying = true
+                            onTrackClick = { songs, index, coverUrl ->
+                                playerViewModel.play(
+                                    songs = songs,
+                                    index = index,
+                                    artistName = key.artistName.ifBlank { key.albumTitle },
+                                    albumTitle = key.albumTitle,
+                                    coverUrl = coverUrl
+                                )
                             },
-                            onPlayAllClick = {
-                                currentTrackTitle = "晨露中的第一道光"
-                                currentTrackArtist = "周深处 & 森林合唱团"
-                                isPlaying = true
+                            onPlayAllClick = { songs, coverUrl ->
+                                if (songs.isNotEmpty()) {
+                                    playerViewModel.play(
+                                        songs = songs,
+                                        index = 0,
+                                        artistName = key.artistName.ifBlank { key.albumTitle },
+                                        albumTitle = key.albumTitle,
+                                        coverUrl = coverUrl
+                                    )
+                                }
                             }
                         )
                     }
 
                     entry<RouteMusicDetail> { key ->
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "🎵 音乐详情 (Navigation 3)\n\n当前歌曲 ID: ${key.songId}",
+                                text = "🎵 音乐详情\n\n当前歌曲 ID: ${key.songId}",
                                 style = MaterialTheme.typography.headlineSmall
                             )
                         }
                     }
+
+                    entry<RouteThemeDetail> { key ->
+                        val isThisThemePlaying = playState.isPlaying && playState.audioUrl == key.audioUrl
+                        val isThisThemeActive = playState.audioUrl == key.audioUrl && playState.songTitle.isNotBlank()
+                        val isMiniPlayerVisible = playState.songTitle.isNotBlank()
+                        ThemeDetailScreen(
+                            themeId = key.themeId,
+                            title = key.title,
+                            audioUrl = key.audioUrl,
+                            coverUrl = key.coverUrl,
+                            artistName = key.artistName,
+                            isPlaying = isThisThemePlaying,
+                            isThisThemeActive = isThisThemeActive,
+                            isMiniPlayerVisible = isMiniPlayerVisible,
+                            onBackClick = { navigator.goBack() },
+                            onPlayToggle = {
+                                if (isThisThemePlaying) {
+                                    playerViewModel.togglePlayPause()
+                                } else if (isThisThemeActive) {
+                                    playerViewModel.togglePlayPause()
+                                } else {
+                                    playerViewModel.playSingleUrl(
+                                        audioUrl = key.audioUrl,
+                                        songTitle = key.title.substringBefore("—").trim(),
+                                        artistName = key.artistName,
+                                        albumTitle = when (key.themeId) {
+                                            "butterfly_lovers_deep_dive" -> "深度名作解析 · 东方交响"
+                                            "bach_cello_theme" -> "今日胶片精选 · 古典大提琴"
+                                            "pop_piano_theme" -> "今日胶片精选 · 流行钢琴"
+                                            "jonathan_lee_theme" -> "今日胶片精选 · 华语大师"
+                                            "lofi_chill_theme" -> "今日胶片精选 · 治愈旋律"
+                                            else -> "慢调阅读 · 深度专栏"
+                                        },
+                                        coverUrl = if (key.themeId == "butterfly_lovers_deep_dive") {
+                                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/butterfly_lovers_cover_clean.jpg"
+                                        } else if (key.themeId == "bach_cello_theme") {
+                                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/bach_cello_cover.jpg"
+                                        } else {
+                                            key.coverUrl
+                                        }
+                                    )
+                                }
+                            }
+                        )
+                    }
+
+                    entry<RouteVersion> {
+                        VersionUpdateScreen(
+                            onBackClick = { navigator.goBack() }
+                        )
+                    }
+
+                    entry<RouteSettings> {
+                        SettingsScreen(
+                            onBackClick = { navigator.goBack() }
+                        )
+                    }
                 }
             }
 
-            val hazeState = remember { HazeState() }
+            val isBottomBarVisible = remember { mutableStateOf(true) }
+            val isTopLevel = navigationState.isTopLevel
+            var isNowPlayingOpen by rememberSaveable { mutableStateOf(false) }
 
-            // 类似 YouTube 的滑动自适应智能感知：上滑下潜隐藏，下滑弹性浮现
-            var isBottomBarVisible by remember { mutableStateOf(true) }
+            // 切换页面时重置底栏显示状态
+            LaunchedEffect(navigationState.topLevelRoute, isTopLevel) {
+                isBottomBarVisible.value = true
+            }
 
-            val nestedScrollConnection = remember {
+            // YouTube 风格：手指向下滑动浏览内容时收起底栏，向上回看时顺滑滑出
+            val nestedScrollConnection = remember(isTopLevel) {
                 object : NestedScrollConnection {
-                    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                        // available.y < -6f: 手指上滑（页面向下滚）-> 隐藏底栏
-                        // available.y > 6f: 手指下滑（页面向上滚）-> 显示底栏
-                        if (available.y < -6f && isBottomBarVisible) {
-                            isBottomBarVisible = false
-                        } else if (available.y > 6f && !isBottomBarVisible) {
-                            isBottomBarVisible = true
+                    override fun onPreScroll(
+                        available: Offset,
+                        source: NestedScrollSource
+                    ): Offset {
+                        // 仅在一级页面（有底栏）时响应滑动隐现底栏
+                        if (!isTopLevel) return Offset.Zero
+                        val delta = available.y
+                        if (delta < -15f) {
+                            // 浏览下方内容 -> 隐藏底栏以释放最大全屏视界
+                            isBottomBarVisible.value = false
+                        } else if (delta > 15f) {
+                            // 回看上方内容 -> 顺滑滑出底栏
+                            isBottomBarVisible.value = true
                         }
                         return Offset.Zero
                     }
                 }
             }
 
-            // 切换 Tab 或页面时自动唤醒并升起底栏
-            LaunchedEffect(navigationState.topLevelRoute) {
-                isBottomBarVisible = true
-            }
-
-            val bottomBarOffsetY by androidx.compose.animation.core.animateDpAsState(
-                targetValue = if (isBottomBarVisible) 0.dp else 110.dp,
+            val bottomBarOffset by androidx.compose.animation.core.animateDpAsState(
+                targetValue = if (isBottomBarVisible.value) 0.dp else 140.dp,
                 animationSpec = androidx.compose.animation.core.spring(
                     dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
                     stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
                 ),
-                label = "BottomBarScrollAnimation"
+                label = "BottomBarOffset"
             )
 
+            // 悬浮播放器底部间距：
+            // 一级页面且底栏显示时：浮于底栏上方 (62.dp + navigationBarsPadding)
+            // 一级页面且底栏隐藏时：顺滑贴近底部 (10.dp + navigationBarsPadding)
+            // 二级页面（无底栏）：常驻贴近底部 (10.dp + navigationBarsPadding)
+            // 只要有音乐在播放，播放悬浮窗永远常驻屏幕内，绝不滑出隐藏！
+            val miniPlayerBottomPadding by androidx.compose.animation.core.animateDpAsState(
+                targetValue = if (isTopLevel && isBottomBarVisible.value) 62.dp else 10.dp,
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                ),
+                label = "MiniPlayerBottomPadding"
+            )
+
+            val hazeState = remember { HazeState() }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -391,43 +594,85 @@ fun MainScreen(
                         .hazeSource(state = hazeState)
                 )
 
-                val density = LocalDensity.current
-                // 全局悬浮组件区域（Capsule Dock）- 使用 GPU 硬件变换矩阵 translationY，0 帧率重排开销
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp)
-                        .graphicsLayer {
-                            translationY = with(density) { bottomBarOffsetY.toPx() }
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // 1. 全局悬浮 Mini 播放器 (暂隐藏，后续定制样式)
-                    /*
-                    FloatingMiniPlayer(
-                        trackTitle = currentTrackTitle,
-                        artistName = currentTrackArtist,
-                        isPlaying = isPlaying,
-                        onPlayPauseClick = { isPlaying = !isPlaying },
-                        onPlayerClick = {
-                            navigator.navigate(RouteAlbumDetail("playing_album", currentTrackTitle))
-                        }
-                    )
-                    */
+                // 1. 一级页面全宽毛玻璃贴底底栏（随列表滑动自适应隐现）
+                if (isTopLevel) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .offset(y = bottomBarOffset)
+                    ) {
+                        MainBottomBar(
+                            currentRoute = navigationState.topLevelRoute,
+                            onNavigate = { route ->
+                                navigationState.topLevelRoute = route as androidx.navigation3.runtime.NavKey
+                                navigator.navigate(route as androidx.navigation3.runtime.NavKey)
+                            },
+                            hazeState = hazeState
+                        )
+                    }
+                }
 
-                    // 2. 悬浮胶囊 Dock 底栏 (Compose 官方推荐 Haze 真实高斯模糊)
-                    MainBottomBar(
-                        currentRoute = navigationState.topLevelRoute,
-                        onNavigate = { route ->
-                            navigationState.topLevelRoute = route as androidx.navigation3.runtime.NavKey
-                            navigator.navigate(route as androidx.navigation3.runtime.NavKey)
+                // 2. 全局悬浮迷你播放器：只要有音乐播放，无论一级/二级页面均常驻显示，绝不随列表滑动隐藏
+                if (playState.songTitle.isNotBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = miniPlayerBottomPadding)
+                    ) {
+                        FloatingMiniPlayer(
+                            trackTitle = playState.songTitle,
+                            artistName = playState.artistName,
+                            coverUrl = playState.coverUrl,
+                            isPlaying = playState.isPlaying,
+                            position = playState.position,
+                            duration = playState.duration,
+                            hazeState = hazeState,
+                            onPlayerClick = {
+                                isNowPlayingOpen = true
+                            },
+                            onPlayPauseClick = { playerViewModel.togglePlayPause() },
+                            onPreviousClick = { playerViewModel.playPrevious() },
+                            onNextClick = { playerViewModel.playNext() },
+                            onSeekTo = { posMs -> playerViewModel.seekTo(posMs) }
+                        )
+                    }
+                }
+
+                // 3. 全屏沉浸式专属播放页面 (Apple Music 风格自底向上滑出)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isNowPlayingOpen && playState.songTitle.isNotBlank(),
+                    enter = androidx.compose.animation.slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = androidx.compose.animation.core.tween(350, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                    ) + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(250)),
+                    exit = androidx.compose.animation.slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                    ) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    NowPlayingScreen(
+                        playState = playState,
+                        onCollapse = { isNowPlayingOpen = false },
+                        onClose = {
+                            isNowPlayingOpen = false
+                            playerViewModel.stop()
                         },
-                        hazeState = hazeState
+                        onPlayPauseToggle = { playerViewModel.togglePlayPause() },
+                        onPrevious = { playerViewModel.playPrevious() },
+                        onNext = { playerViewModel.playNext() },
+                        onSeekTo = { posMs -> playerViewModel.seekTo(posMs) },
+                        onTogglePlayMode = { playerViewModel.togglePlayMode() },
+                        onSelectQueueItem = { index -> playerViewModel.playTrackInQueue(index) },
+                        onRemoveQueueItem = { index -> playerViewModel.removeFromQueue(index) },
+                        onClearQueue = { playerViewModel.clearQueue() }
                     )
                 }
             }
-
         }
     }
 }

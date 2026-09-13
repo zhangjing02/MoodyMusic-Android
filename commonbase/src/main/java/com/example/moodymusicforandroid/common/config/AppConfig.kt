@@ -25,10 +25,29 @@ object AppConfig {
      */
     fun resolveUrl(path: String?): String {
         if (path.isNullOrBlank()) return ""
-        if (path.startsWith("http://") || path.startsWith("https://")) {
+        if (path.startsWith("http://") || path.startsWith("https://") ||
+            path.startsWith("file:///") || path.startsWith("content://") ||
+            path.startsWith("android.resource://")
+        ) {
             return path
         }
         val cleanPath = if (path.startsWith("/")) path else "/$path"
         return "${BuildConfig.API_BASE_URL.trimEnd('/')}$cleanPath"
+    }
+
+    /**
+     * 辅助方法：将媒体与歌词资源路径（例如 "lyrics/xxx.lrc" 或 "storage/lyrics/xxx.lrc"）
+     * 规范化并拼接为带有 /storage/ 的完整访问 URL，与 Web 端保持一致。
+     */
+    fun resolveStorageUrl(path: String?): String {
+        if (path.isNullOrBlank()) return ""
+        if (path.startsWith("http://") || path.startsWith("https://") ||
+            path.startsWith("file:///") || path.startsWith("content://")
+        ) {
+            return path
+        }
+        val trimmed = path.trim().trimStart('/')
+        val finalPath = if (trimmed.startsWith("storage/")) trimmed else "storage/$trimmed"
+        return resolveUrl(finalPath)
     }
 }

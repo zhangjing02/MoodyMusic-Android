@@ -26,69 +26,69 @@ val SongbookTypography = Typography(
     // 巨幅标题 (Display) - 艺术家巨幅立绘与刊头
     displayLarge = TextStyle(
         fontFamily = SongbookSerifFontFamily,
-        fontWeight = FontWeight.Black,
-        fontSize = 52.sp,
-        lineHeight = 56.sp,
-        letterSpacing = (-1.0).sp
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 48.sp,
+        lineHeight = 52.sp,
+        letterSpacing = (-0.5).sp
     ),
     displayMedium = TextStyle(
         fontFamily = SongbookSerifFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 40.sp,
-        lineHeight = 46.sp,
-        letterSpacing = (-0.5).sp
+        fontWeight = FontWeight.Medium,
+        fontSize = 36.sp,
+        lineHeight = 42.sp,
+        letterSpacing = (-0.25).sp
     ),
     displaySmall = TextStyle(
         fontFamily = SongbookSerifFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 38.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 30.sp,
+        lineHeight = 36.sp,
         letterSpacing = 0.sp
     ),
 
     // 重点章节头 (Headline) - 杂志专题与大栏目
     headlineLarge = TextStyle(
         fontFamily = SongbookSerifFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        letterSpacing = (-0.2).sp
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 26.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.1).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = SongbookSerifFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
         letterSpacing = 0.sp
     ),
     headlineSmall = TextStyle(
         fontFamily = SongbookSerifFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.sp
     ),
 
     // 标题级别 (Title) - 专辑名、歌曲名、卡片标题
     titleLarge = TextStyle(
         fontFamily = SongbookSerifFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 17.sp,
+        lineHeight = 23.sp,
         letterSpacing = 0.sp
     ),
     titleMedium = TextStyle(
         fontFamily = SongbookSansFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        letterSpacing = 0.15.sp
+        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+        lineHeight = 21.sp,
+        letterSpacing = 0.1.sp
     ),
     titleSmall = TextStyle(
         fontFamily = SongbookSansFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
         letterSpacing = 0.1.sp
     ),
 
@@ -118,21 +118,21 @@ val SongbookTypography = Typography(
     // 标签与元数据 (Label) - 杂志版号、年代、曲目数、胶囊标签
     labelLarge = TextStyle(
         fontFamily = SongbookSansFontFamily,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 13.sp,
         lineHeight = 18.sp,
         letterSpacing = 0.5.sp
     ),
     labelMedium = TextStyle(
         fontFamily = SongbookSansFontFamily,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Normal,
         fontSize = 11.sp,
         lineHeight = 16.sp,
-        letterSpacing = 1.0.sp
+        letterSpacing = 0.8.sp
     ),
     labelSmall = TextStyle(
         fontFamily = SongbookSansFontFamily,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Medium,
         fontSize = 10.sp,
         lineHeight = 14.sp,
         letterSpacing = 1.5.sp

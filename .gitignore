@@ -32,9 +32,13 @@ captures/
 *.zip
 *.py
 /test_thumb.png
+/*.png
+/*.txt
+app/release/
 cairn/
 .cairn/
 fc/
 nav3/
 nav3ui/
 temp_nav3/
+

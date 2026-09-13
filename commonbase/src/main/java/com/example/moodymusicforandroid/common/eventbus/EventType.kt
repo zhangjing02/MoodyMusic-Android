@@ -76,6 +76,7 @@ object EventType {
     const val PLAYER_BUFFERING_END = 9002    // 缓冲结束
     const val PLAYER_MODE_CHANGE = 9003      // 播放模式变化（循环/随机/单曲）
     const val PLAYER_PLAYLIST_CLEARED = 9004 // 播放列表清空
+    const val MUSIC_PLAY_STATE_CHANGED = 9005 // 播放状态变化（供 PlayerViewModel 监听）
 
     // ========== 通知事件 ==========
     const val NOTIFICATION_RECEIVED = 10001  // 收到通知

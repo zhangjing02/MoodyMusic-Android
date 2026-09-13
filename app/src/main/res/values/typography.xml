@@ -93,7 +93,7 @@
 
     <!-- Body Styles - 用于正文内容 -->
     <style name="TextAppearance.Moody.BodyLarge" parent="TextAppearance.MaterialComponents.Body1">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
+        <item name="android:fontFamily">@font/lxgw_wenkai_gb_regular</item>
         <item name="android:textSize">16sp</item>
         <item name="android:textColor">@color/on_surface</item>
         <item name="android:letterSpacing">0.05</item>
@@ -101,7 +101,7 @@
     </style>
 
     <style name="TextAppearance.Moody.BodyMedium" parent="TextAppearance.MaterialComponents.Body2">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
+        <item name="android:fontFamily">@font/lxgw_wenkai_gb_regular</item>
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/on_surface_variant</item>
         <item name="android:letterSpacing">0.025</item>
@@ -109,7 +109,7 @@
     </style>
 
     <style name="TextAppearance.Moody.BodySmall" parent="TextAppearance.MaterialComponents.Caption">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
+        <item name="android:fontFamily">@font/lxgw_wenkai_gb_regular</item>
         <item name="android:textSize">12sp</item>
         <item name="android:textColor">@color/on_surface_variant</item>
         <item name="android:letterSpacing">0.04</item>
@@ -160,7 +160,7 @@
 
     <!-- 副标题 -->
     <style name="TextAppearance.MoodySubtitle" parent="TextAppearance.MaterialComponents.Body1">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
+        <item name="android:fontFamily">@font/lxgw_wenkai_gb_regular</item>
         <item name="android:textSize">16sp</item>
         <item name="android:textColor">@color/on_surface_variant</item>
         <item name="android:textStyle">normal</item>
@@ -176,20 +176,5 @@
         <item name="android:letterSpacing">0.15</item>
         <item name="android:textAllCaps">false</item>
     </style>
-
-    <!--
-        自定义字体样式（如果字体文件存在）
-        当字体文件添加到 res/font/ 目录后，取消下面的注释
-    -->
-
-    <!-- 使用思源黑体 -->
-    <!-- <style name="TextAppearance.Moody.CustomFont" parent="TextAppearance.Moody.BodyLarge">
-        <item name="android:fontFamily">@font/source_han_sans_sc_regular</item>
-    </style> -->
-
-    <!-- 使用思源宋体 -->
-    <!-- <style name="TextAppearance.Moody.CustomSerif" parent="TextAppearance.Moody.HeadlineSmall">
-        <item name="android:fontFamily">@font/source_han_serif_sc_bold</item>
-    </style> -->
 
 </resources>

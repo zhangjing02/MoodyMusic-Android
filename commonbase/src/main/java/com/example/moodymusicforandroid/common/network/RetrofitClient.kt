@@ -41,18 +41,69 @@ object RetrofitClient {
 
         try {
             requestBuilder.header("X-Client-Type", "android")
-            requestBuilder.header("X-App-Version", PreferencesManager.getAppVersion())
-            requestBuilder.header("X-Device-Id", PreferencesManager.getDeviceId())
+            requestBuilder.header("X-App-Platform", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getPlatform())
+            requestBuilder.header("X-App-Version-Code", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getVersionCode().toString())
+            requestBuilder.header("X-App-Version-Name", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getVersionName())
+            requestBuilder.header("X-App-Package-Name", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getPackageName())
+            requestBuilder.header("X-App-Channel", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getChannel())
+            requestBuilder.header("X-Device-Brand", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getBrand())
+            requestBuilder.header("X-Device-Model", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getModel())
+            requestBuilder.header("X-Device-OS-Version", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getOsVersion())
+            requestBuilder.header("X-Device-SDK-Int", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getSdkInt().toString())
+            requestBuilder.header("X-Device-Arch", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getArch())
+            requestBuilder.header("X-Device-Id", PreferencesManager.getDeviceId() ?: "")
+            requestBuilder.header("X-JPush-Registration-Id", PreferencesManager.getJPushRegistrationId() ?: "")
+            requestBuilder.header("X-App-Locale", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getLocale())
+            requestBuilder.header("X-Network-Type", com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getNetworkType())
 
             val token = PreferencesManager.getUserToken()
             if (!token.isNullOrEmpty()) {
                 requestBuilder.header("Authorization", "Bearer $token")
             }
         } catch (_: Exception) {
-            // PreferencesManager may not be initialized yet.
+            // PreferencesManager or context may not be initialized yet.
         }
 
-        chain.proceed(requestBuilder.build())
+        val response = chain.proceed(requestBuilder.build())
+
+        if (response.code == 401) {
+            try {
+                val peek = response.peekBody(2048).string()
+                if (peek.contains("TOKEN_EXPIRED_OR_INVALID") ||
+                    peek.contains("SESSION_KICKED_OUT") ||
+                    peek.contains("在其他设备登录") ||
+                    peek.contains("已在其他设备")
+                ) {
+                    android.util.Log.e("RetrofitClient", "=== 401 KICK OUT DETECTED IN OKHTTP ===")
+                    PreferencesManager.clearUserInfo()
+                    try {
+                        com.example.moodymusicforandroid.data.manager.UserManager.onLogout()
+                    } catch (_: Exception) {}
+                    PreferencesManager.getContext()?.let { ctx ->
+                        com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(
+                            ctx,
+                            "您的账号已在其他设备登录，当前已退出登录"
+                        )
+                    }
+                    com.example.moodymusicforandroid.common.eventbus.EventBusManager.post(
+                        com.example.moodymusicforandroid.common.eventbus.EventType.AUTH_TOKEN_EXPIRED,
+                        "KICKED_OUT"
+                    )
+                }
+            } catch (_: Exception) {}
+        }
+
+        response
+    }
+
+    val defaultGson: Gson = Gson()
+
+    private val refreshHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+            .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+            .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+            .build()
     }
 
     private val tokenAuthenticator = Authenticator { _: Route?, response: Response ->
@@ -71,19 +122,18 @@ object RetrofitClient {
             }
 
             try {
-                val refreshClient = OkHttpClient.Builder().build()
-                val requestBody = Gson().toJson(RefreshTokenRequest(refreshToken))
+                val requestBody = defaultGson.toJson(RefreshTokenRequest(refreshToken))
                     .toRequestBody("application/json".toMediaTypeOrNull())
                 val refreshRequest = Request.Builder()
                     .url("${BASE_URL}api/user/refresh")
                     .post(requestBody)
                     .build()
 
-                val refreshResponse = refreshClient.newCall(refreshRequest).execute()
+                val refreshResponse = refreshHttpClient.newCall(refreshRequest).execute()
                 if (refreshResponse.isSuccessful) {
                     val bodyString = refreshResponse.body?.string()
                     val type = object : TypeToken<BaseResponse<User>>() {}.type
-                    val result: BaseResponse<User> = Gson().fromJson(bodyString, type)
+                    val result: BaseResponse<User> = defaultGson.fromJson(bodyString, type)
                     val userData = result.data
 
                     if (userData?.token != null) {
@@ -142,15 +192,22 @@ object RetrofitClient {
         .retryOnConnectionFailure(true)
         .build()
 
+    private val serviceCache = java.util.concurrent.ConcurrentHashMap<Class<*>, Any>()
+
     private val retrofitInstance: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(defaultGson))
             .build()
     }
 
-    fun <T> create(service: Class<T>): T = retrofitInstance.create(service)
+    @Suppress("UNCHECKED_CAST")
+    fun <T> create(service: Class<T>): T {
+        return serviceCache.getOrPut(service) {
+            retrofitInstance.create(service) as Any
+        } as T
+    }
 
     fun getBaseUrl(): String = BASE_URL
 }

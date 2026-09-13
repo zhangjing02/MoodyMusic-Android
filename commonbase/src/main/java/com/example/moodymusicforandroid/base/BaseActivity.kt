@@ -73,29 +73,6 @@ abstract class BaseActivity<VB : ViewDataBinding, VM : BaseViewModel> : AppCompa
 
     override fun onResume() {
         super.onResume()
-        checkKickOutDialog()
-    }
-
-    private fun checkKickOutDialog() {
-        if (AppFlags.showKickOutDialog) {
-            AppFlags.showKickOutDialog = false
-            showKickOutAlertDialog()
-        }
-    }
-
-    private fun showKickOutAlertDialog() {
-        android.app.AlertDialog.Builder(this)
-            .setTitle("下线通知")
-            .setMessage("您的账号已在其他设备登录。当前设备已下线，您可以继续使用无需登录的功能。")
-            .setPositiveButton("我知道了", null)
-            .setNegativeButton("重新登录") { _, _ ->
-                val intent = android.content.Intent().apply {
-                    setClassName(this@BaseActivity, "com.example.moodymusicforandroid.ui.auth.activity.LoginActivity")
-                }
-                startActivity(intent)
-            }
-            .setCancelable(false)
-            .show()
     }
 
     /**
@@ -115,21 +92,12 @@ abstract class BaseActivity<VB : ViewDataBinding, VM : BaseViewModel> : AppCompa
     open fun onEventReceived(event: BaseEvent) {
         if (event.eventType == EventType.AUTH_TOKEN_EXPIRED) {
             val isKickedOut = event.eventData == "KICKED_OUT"
-            if (isKickedOut) {
-                // 如果当前处于前台，则直接弹窗，否则交给 onResume 弹窗
-                if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
-                    checkKickOutDialog()
-                }
+            val message = if (isKickedOut) {
+                "您的账号已在其他设备登录，当前已退出登录"
             } else {
-                // 原有的 Token 过期跳转逻辑 (非互踢场景)
-                val intent = android.content.Intent().apply {
-                    setClassName(this@BaseActivity, "com.example.moodymusicforandroid.ui.auth.activity.LoginActivity")
-                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    putExtra("KICKED_OUT", false)
-                }
-                startActivity(intent)
-                finish()
+                "登录状态已失效，当前已转为未登录模式"
             }
+            com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(this, message)
         }
     }
 

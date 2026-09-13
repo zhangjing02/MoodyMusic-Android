@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -10,6 +11,8 @@ android {
     defaultConfig {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        consumerProguardFiles("consumer-rules.pro")
 
         val apiBaseUrl = (project.findProperty("MOODY_API_BASE_URL") as? String)
             ?: "https://m-api.changgepd.ccwu.cc/"
@@ -53,10 +56,12 @@ dependencies {
     // Room - 数据模型可能使用
     api(libs.room.runtime)
     api(libs.room.ktx)
+    ksp(libs.room.compiler)
 
     // 图片加载 - Glide & Coil
     api(libs.glide)
     api(libs.coil.compose)
+    api(libs.coil.gif)
 
     // EventBus - 事件总线
     api(libs.eventbus)

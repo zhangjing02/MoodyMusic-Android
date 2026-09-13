@@ -37,6 +37,16 @@ interface MoodyApiService {
     ): BaseResponse<List<Artist>>
 
     /**
+     * 获取艺人详情（含专辑+歌曲嵌套树）
+     * GET /api/songs?artistId=db_xxx
+     * 返回 List<ArtistWithAlbums>，通常只含一个元素（对应该艺人）
+     */
+    @GET("api/songs")
+    suspend fun getArtistDetail(
+        @Query("artistId") artistId: String
+    ): BaseResponse<List<ArtistWithAlbums>>
+
+    /**
      * 全局搜索
      * GET /api/search?q=周杰伦
      */
@@ -68,15 +78,115 @@ interface MoodyApiService {
 
     // ==================== 认证相关 ====================
 
+    // ==================== 邮箱 OTP 认证与音信资料 ====================
+
     /**
-     * 用户注册
+     * 发送邮箱验证码
+     * POST /api/auth/send-code
+     */
+    @POST("api/auth/send-code")
+    suspend fun sendVerificationCode(@Body request: SendCodeRequest): BaseResponse<SendCodeResponse>
+
+    /**
+     * 邮箱验证码登录 / 极速注册
+     * POST /api/auth/verify-code
+     */
+    @POST("api/auth/verify-code")
+    suspend fun loginWithCode(@Body request: VerifyCodeRequest): BaseResponse<LoginData>
+
+    /**
+     * 用户名查重
+     * GET /api/auth/check-username?username=xxx
+     */
+    @GET("api/auth/check-username")
+    suspend fun checkUsername(@Query("username") username: String): BaseResponse<CheckUsernameResponse>
+
+    /**
+     * 邮箱验证码注册并设置初始密码
+     * POST /api/auth/register-with-code
+     */
+    @POST("api/auth/register-with-code")
+    suspend fun registerWithCode(@Body request: RegisterWithCodeRequest): BaseResponse<LoginData>
+
+    /**
+     * 邮箱+密码登录
+     * POST /api/auth/login-with-password
+     */
+    @POST("api/auth/login-with-password")
+    suspend fun loginWithPassword(@Body request: PasswordLoginRequest): BaseResponse<LoginData>
+
+    /**
+     * 邮箱验证码重置密码
+     * POST /api/auth/reset-password
+     */
+    @POST("api/auth/reset-password")
+    suspend fun resetPassword(@Body request: ResetPasswordRequest): BaseResponse<Any>
+
+    /**
+     * 更新极光推送 RegistrationId（App 启动 / 极光重新注册后调用）
+     * POST /api/auth/update-jpush-id
+     */
+    @POST("api/auth/update-jpush-id")
+    suspend fun updateJPushRegistrationId(@Body request: Map<String, @JvmSuppressWildcards Any>): BaseResponse<Any>
+
+    /**
+     * 获取用户完整资料及统计
+     * GET /api/user/profile
+     */
+    @GET("api/user/profile")
+    suspend fun getUserProfile(): BaseResponse<User>
+
+    /**
+     * 更新用户资料
+     * PUT /api/user/profile
+     */
+    @PUT("api/user/profile")
+    suspend fun updateUserProfile(@Body request: UpdateProfileRequest): BaseResponse<User>
+
+    /**
+     * 获取音信页面音乐资产（收藏专辑与关注歌手）
+     * GET /api/user/library
+     */
+    @GET("api/user/library")
+    suspend fun getUserLibrary(): BaseResponse<UserLibraryResponse>
+
+    /**
+     * 收藏/取消收藏专辑
+     * POST /api/user/library/favorite-album
+     */
+    @POST("api/user/library/favorite-album")
+    suspend fun toggleFavoriteAlbum(@Body request: Map<String, String>): BaseResponse<Any>
+
+    /**
+     * 关注/取消关注歌手
+     * POST /api/user/library/follow-artist
+     */
+    @POST("api/user/library/follow-artist")
+    suspend fun toggleFollowArtist(@Body request: Map<String, String>): BaseResponse<Any>
+
+    /**
+     * 收藏/取消收藏歌曲
+     * POST /api/user/library/favorite-song
+     */
+    @POST("api/user/library/favorite-song")
+    suspend fun toggleFavoriteSong(@Body request: FavoriteSongToggleRequest): BaseResponse<FavoriteSongToggleResponse>
+
+    /**
+     * 批量移除资产（取消收藏歌曲/专辑/关注歌手）
+     * POST /api/user/library/batch-remove
+     */
+    @POST("api/user/library/batch-remove")
+    suspend fun batchRemoveLibraryItems(@Body request: BatchRemoveRequest): BaseResponse<Map<String, Any>>
+
+    /**
+     * 用户注册（兼容旧接口）
      * POST /api/auth/register
      */
     @POST("api/user/register")
     suspend fun register(@Body request: RegisterRequest): BaseResponse<User>
 
     /**
-     * 登录
+     * 登录（兼容旧接口）
      */
     @POST("api/user/login")
     suspend fun login(@Body request: LoginRequest): BaseResponse<LoginData>
@@ -231,12 +341,17 @@ interface MoodyApiService {
         @Path("postId") postId: String,
         @Body body: PostContentRequest
     ): BaseResponse<Any>
+
+    /**
+     * 检查 App 版本更新
+     * GET /api/app/version/check
+     */
+    @GET("api/app/version/check")
+    suspend fun checkAppVersion(): BaseResponse<AppVersionData>
 }
 
 
 /**
- * 艺人数据包装
+ * 艺人数据包装兼容别名
  */
-data class ArtistsData(
-    val artists: List<Artist>
-)
+typealias ArtistsData = com.example.moodymusicforandroid.data.model.ArtistsData

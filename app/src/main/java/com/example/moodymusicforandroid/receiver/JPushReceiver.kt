@@ -1,15 +1,24 @@
 package com.example.moodymusicforandroid.receiver
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import cn.jpush.android.api.CmdMessage
 import cn.jpush.android.api.CustomMessage
 import cn.jpush.android.api.JPushMessage
 import cn.jpush.android.api.NotificationMessage
 import cn.jpush.android.service.JPushMessageReceiver
-import com.google.gson.Gson
-import com.google.gson.JsonObject
+import com.example.moodymusicforandroid.common.eventbus.EventBusManager
+import com.example.moodymusicforandroid.common.eventbus.EventType
+import com.example.moodymusicforandroid.common.network.RetrofitClient
+import com.example.moodymusicforandroid.common.preferences.PreferencesManager
 import com.example.moodymusicforandroid.common.utils.AppFlags
+import com.example.moodymusicforandroid.data.api.MoodyApiProvider
+import com.example.moodymusicforandroid.data.manager.UserManager
+import com.google.gson.JsonObject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * JPush 消息接收器
@@ -77,40 +86,61 @@ class JPushReceiver : JPushMessageReceiver() {
     // ──────────────────────────────────────────
     override fun onMessage(context: Context?, customMessage: CustomMessage?) {
         super.onMessage(context, customMessage)
+        if (customMessage == null) return
 
-        val raw = customMessage?.message ?: return
-        Log.d(TAG, "[onMessage] 收到透传: $raw")
+        val msg = customMessage.message.orEmpty()
+        val extra = customMessage.extra.orEmpty()
+        Log.d(TAG, "[onMessage] 收到透传: msg=$msg, extra=$extra")
+
+        var action: String? = null
+        var albumId: String? = null
+        var classId: String? = null
 
         try {
-            val json = Gson().fromJson(raw, JsonObject::class.java)
-            val extras = json.getAsJsonObject("extras") ?: return
-            val action  = extras.get("action")?.asString   ?: return
-
-            if (action == ACTION_KICK_OUT) {
-                Log.d(TAG, "[onMessage] KICK_OUT signal received")
-                handleKickOut(context)
-                return
+            // 优先从 extra 解析 (极光透传的标准 extras 字段)
+            if (extra.isNotBlank()) {
+                val json = RetrofitClient.defaultGson.fromJson(extra, JsonObject::class.java)
+                action = json.get("action")?.asString
+                albumId = json.get("album_id")?.asString
+                classId = json.get("class_id")?.asString
             }
-
-            if (action == ACTION_ROSTER_UPDATE) {
-                val classId = extras.get("class_id")?.asString ?: ""
-                Log.d(TAG, "[onMessage] ROSTER_UPDATE signal for class: $classId")
-                handleRosterUpdate(context, classId)
-                return
+            // 兜底：尝试从 msg 解析 (若发送方整体将 JSON 放入 msg_content)
+            if (action == null && msg.isNotBlank() && msg.startsWith("{")) {
+                val json = RetrofitClient.defaultGson.fromJson(msg, JsonObject::class.java)
+                val extras = json.getAsJsonObject("extras")
+                if (extras != null) {
+                    action = extras.get("action")?.asString
+                    albumId = extras.get("album_id")?.asString
+                    classId = extras.get("class_id")?.asString
+                } else {
+                    action = json.get("action")?.asString
+                    albumId = json.get("album_id")?.asString
+                    classId = json.get("class_id")?.asString
+                }
             }
-
-            if (action != ACTION_FETCH_NEW) {
-                Log.d(TAG, "[onMessage] 未知 action: $action，忽略")
-                return
-            }
-
-            val albumId = extras.get("album_id")?.asString ?: return
-            Log.d(TAG, "[onMessage] FETCH_NEW signal for album: $albumId")
-            handleFetchNew(context, albumId)
-
         } catch (e: Exception) {
             Log.e(TAG, "[onMessage] 解析透传 JSON 失败: ${e.message}")
         }
+
+        if (action == ACTION_KICK_OUT) {
+            Log.d(TAG, "[onMessage] KICK_OUT signal received, triggering kickout")
+            handleKickOut(context)
+            return
+        }
+
+        if (action == ACTION_ROSTER_UPDATE) {
+            Log.d(TAG, "[onMessage] ROSTER_UPDATE signal for class: $classId")
+            handleRosterUpdate(context, classId.orEmpty())
+            return
+        }
+
+        if (action == ACTION_FETCH_NEW && !albumId.isNullOrEmpty()) {
+            Log.d(TAG, "[onMessage] FETCH_NEW signal for album: $albumId")
+            handleFetchNew(context, albumId)
+            return
+        }
+
+        Log.d(TAG, "[onMessage] 未匹配已知 action: $action，忽略")
     }
 
     /**
@@ -159,21 +189,42 @@ class JPushReceiver : JPushMessageReceiver() {
 
     /**
      * 处理 KICK_OUT 互踢信号
+     *
+     * 完整流程：
+     * 1. 清除 PreferencesManager 中的登录凭据（token / userId 等）
+     * 2. 通知 UserManager 清除 Room 数据库中的用户状态
+     * 3. 弹出轻量 Toast 提示当前设备已退出登录
+     * 4. 通过 EventBus 发送 AUTH_TOKEN_EXPIRED 事件，触发前台组件响应式更新
      */
     private fun handleKickOut(context: Context?) {
-        Log.d(TAG, "[handleKickOut] 用户被互踢，清除本地登录状态")
+        Log.d(TAG, "[handleKickOut] 用户被互踢，清除本地登录状态并轻提示")
+
+        // Step 1: 清除 SharedPreferences 中的登录凭据
         try {
-            com.example.moodymusicforandroid.common.preferences.PreferencesManager.clearUserInfo()
-        } catch (e: Exception) {}
+            PreferencesManager.clearUserInfo()
+        } catch (e: Exception) {
+            Log.e(TAG, "[handleKickOut] clearUserInfo 失败: ${e.message}")
+        }
 
-        // 设置标记，让前台 Activity 弹框提示
-        AppFlags.showKickOutDialog = true
+        // Step 2: 清除 UserManager / Room DB 中的用户状态（重置为未登录状态）
+        try {
+            UserManager.onLogout()
+        } catch (e: Exception) {
+            Log.e(TAG, "[handleKickOut] UserManager.onLogout 失败: ${e.message}")
+        }
 
-        // 发送事件，让基类 Activity 处理弹窗显示，不强制跳转
-        com.example.moodymusicforandroid.common.eventbus.EventBusManager.post(
-            com.example.moodymusicforandroid.common.eventbus.EventType.AUTH_TOKEN_EXPIRED,
-            "KICKED_OUT"
-        )
+        // Step 3: 弹出轻量 Toast 提示（无论在哪个页面）
+        try {
+            com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(
+                context,
+                "您的账号已在其他设备登录，当前已退出登录"
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "[handleKickOut] Toast 提示失败: ${e.message}")
+        }
+
+        // Step 4: 发送事件，通知前台组件（如音信页面、抽屉等）响应式更新 UI
+        EventBusManager.post(EventType.AUTH_TOKEN_EXPIRED, "KICKED_OUT")
     }
 
     // ──────────────────────────────────────────
@@ -194,9 +245,32 @@ class JPushReceiver : JPushMessageReceiver() {
         super.onNotifyMessageDismiss(context, message)
     }
 
+    /**
+     * 极光 SDK 完成注册后的回调。
+     *
+     * 触发时机：App 首次安装后 JPush 分配 RegistrationId，或重新注册后 ID 变更。
+     * 策略：如果当前用户已登录，立即将新的 RegistrationId 上报到服务器，
+     *       确保服务端的互踢推送目标始终是最新的设备。
+     */
     override fun onRegister(context: Context?, registrationId: String?) {
         Log.d(TAG, "[onRegister] Registration Id: $registrationId")
         super.onRegister(context, registrationId)
+
+        if (registrationId.isNullOrEmpty()) return
+        PreferencesManager.saveJPushRegistrationId(registrationId)
+        if (!PreferencesManager.isLoggedIn()) return
+
+        // 异步上报新 RegistrationId 到服务器
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                MoodyApiProvider.apiService.updateJPushRegistrationId(
+                    mapOf("jpush_registration_id" to registrationId)
+                )
+                Log.d(TAG, "[onRegister] RegistrationId 上报成功: $registrationId")
+            } catch (e: Exception) {
+                Log.e(TAG, "[onRegister] RegistrationId 上报失败: ${e.message}")
+            }
+        }
     }
 
     override fun onConnected(context: Context?, isConnected: Boolean) {

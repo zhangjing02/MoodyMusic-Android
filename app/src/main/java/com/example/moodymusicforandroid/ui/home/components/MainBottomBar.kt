@@ -13,14 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +40,7 @@ import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.ui.navigation.RouteDiscover
 import com.example.moodymusicforandroid.ui.navigation.RouteHome
 import com.example.moodymusicforandroid.ui.navigation.RouteLibrary
+import com.example.moodymusicforandroid.ui.components.SongbookBlurContainer
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -65,93 +59,71 @@ private val SpecularHighlight2 = Color.White.copy(alpha = 0.10f)
 private val BorderHighlight    = Color.White.copy(alpha = 0.85f)
 
 /**
- * 现代颂歌 Compose 官方推荐 Haze 实时高斯模糊毛玻璃胶囊底栏 (MainBottomBar)
+ * 现代颂歌 硬件级实时动态毛玻璃胶囊底栏 (MainBottomBar)
  */
 @Composable
 fun MainBottomBar(
     currentRoute: Any,
     onNavigate: (Any) -> Unit,
+    modifier: Modifier = Modifier,
     hazeState: HazeState? = null
 ) {
-    val shape = remember { RoundedCornerShape(32.dp) }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 48.dp, end = 48.dp, top = 24.dp, bottom = 12.dp)
-            .height(64.dp)
-            .shadow(
-                elevation = 14.dp,
-                shape = shape,
-                ambientColor = ShadowAmbientColor,
-                spotColor = ShadowSpotColor
-            )
-            .then(
-                if (hazeState != null) {
-                    Modifier.hazeEffect(
-                        state = hazeState,
-                        style = HazeMaterials.ultraThin()
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = if (hazeState != null) 0.18f else 0.70f))
-            .border(
-                1.dp,
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.75f),
-                        SongbookColors.GhostBorder.copy(alpha = 0.25f)
-                    )
-                ),
-                shape
-            )
+    SongbookBlurContainer(
+        modifier = modifier.fillMaxWidth(),
+        hazeState = hazeState,
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+        cornerRadius = 20.dp,
+        elevation = 12.dp,
+        overlayColor = Color(0x6EF8F9FA), // 苹果级液态磨砂玻璃：清透珠光淡灰，高通透度（约43%不透明度，能清晰透显底层图像轮廓与色彩）
+        borderColor = Color.Transparent,  // 彻底移除边缘杂线
+        borderWidth = 0.dp
     ) {
-        // 玻璃表面物理高光折射层 (Specular Highlight) - 更加清透通亮
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxSize()
-                .drawWithContent {
-                    drawContent()
-                    drawRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.22f),
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.05f)
-                            ),
-                            start = Offset(0f, 0f),
-                            end = Offset(size.width, size.height)
-                        )
-                    )
-                }
-        )
-
-        Row(
-            modifier = Modifier.matchParentSize(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
+                .navigationBarsPadding()
         ) {
-            HomeNavIcon(
-                isSelected = currentRoute is RouteHome,
-                onClick = { onNavigate(RouteHome) }
-            )
-            DiscoverNavIcon(
-                isSelected = currentRoute is RouteDiscover,
-                onClick = { onNavigate(RouteDiscover) }
-            )
-            LibraryNavIcon(
-                isSelected = currentRoute is RouteLibrary,
-                onClick = { onNavigate(RouteLibrary) }
+            MainBottomBarContent(
+                currentRoute = currentRoute,
+                onNavigate = onNavigate
             )
         }
     }
 }
 
+/**
+ * 导航栏纯内容布局（供独立显示或在一体化 Dock 容器中紧贴复用）
+ */
+@Composable
+fun MainBottomBarContent(
+    currentRoute: Any,
+    onNavigate: (Any) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        HomeNavIcon(
+            isSelected = currentRoute is RouteHome,
+            onClick = { onNavigate(RouteHome) }
+        )
+        DiscoverNavIcon(
+            isSelected = currentRoute is RouteDiscover,
+            onClick = { onNavigate(RouteDiscover) }
+        )
+        LibraryNavIcon(
+            isSelected = currentRoute is RouteLibrary,
+            onClick = { onNavigate(RouteLibrary) }
+        )
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// 首页：矢量信封 + 音符轻扬动效（音信启封，旋律跃出）
+// 首页：优雅三角大钢琴 + 音符轻扬动效（琴声流淌，旋律跃出）
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun HomeNavIcon(isSelected: Boolean, onClick: () -> Unit) {
@@ -171,7 +143,7 @@ private fun HomeNavIcon(isSelected: Boolean, onClick: () -> Unit) {
         label = "homeFloat"
     )
     
-    // 音信启封时跳跃出的微小音符粒子
+    // 钢琴弹奏时跳跃出的微小音符粒子
     val noteBurst = remember { Animatable(0f) }
     LaunchedEffect(isSelected) {
         if (isSelected) {
@@ -184,7 +156,7 @@ private fun HomeNavIcon(isSelected: Boolean, onClick: () -> Unit) {
 
     NavBox(onClick) {
         Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-            // 1. 真实矢量信封图标（100% 保真）
+            // 1. 优雅三角大钢琴矢量图标
             Icon(
                 painter = painterResource(R.drawable.ic_nav_home_vec),
                 contentDescription = "首页",
@@ -302,7 +274,7 @@ private fun DiscoverNavIcon(isSelected: Boolean, onClick: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 音乐库：真实大提琴曲别针 + 底部曲别针手拨动琴弦微振动反馈
+// 音信：极简经典曲别针 + 金属回弹微振动反馈
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun LibraryNavIcon(isSelected: Boolean, onClick: () -> Unit) {
@@ -336,7 +308,7 @@ private fun LibraryNavIcon(isSelected: Boolean, onClick: () -> Unit) {
         Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
             Icon(
                 painter = painterResource(R.drawable.ic_nav_library_vec),
-                contentDescription = "音乐库",
+                contentDescription = "音信",
                 modifier = Modifier
                     .size(34.dp)
                     .graphicsLayer {

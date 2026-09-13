@@ -70,9 +70,10 @@ fun SongbookImage(
         ImageRequest.Builder(context)
             .data(resolvedModel)
             .crossfade(false)
-            .allowHardware(true)
+            .allowHardware(false) // 禁用 Hardware Bitmap 以防在 BlurView / 模拟器软件绘制下闪退
             .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
             .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+            .placeholder(fallbackRes)
             .error(fallbackRes)
             .fallback(fallbackRes)
             .build()

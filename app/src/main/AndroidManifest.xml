@@ -6,6 +6,15 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- 前台 Service 权限（音乐播放）-->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Android 13+ 通知权限 (前台服务播放控制及通知栏展示) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 应用内安装 APK 权限 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:name=".MoodyMusicApplication"
         android:allowBackup="true"
@@ -36,6 +45,14 @@
             android:theme="@style/Theme.MoodyMusicForAndroid" />
 
         <activity
+            android:name=".ui.auth.activity.LoginActivity"
+            android:exported="true"
+            android:label="登录"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.MoodyMusicForAndroid"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.classroom.activity.ClassroomActivity"
             android:exported="true"
             android:label="教室"
@@ -62,6 +79,23 @@
                 <action android:name="cn.jiguang.user.service.action" />
             </intent-filter>
         </service>
+
+        <!-- 音乐播放前台 Service -->
+        <service
+            android:name=".ui.player.MusicPlayerService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- FileProvider 配置 (用于在线更新 APK 安装) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

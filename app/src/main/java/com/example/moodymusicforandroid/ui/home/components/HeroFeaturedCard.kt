@@ -50,17 +50,27 @@ fun HeroFeaturedCard(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .clickable { onReadArticleClick() }
         ) {
-            val colorFilter = remember {
-                val matrix = ColorMatrix().apply {
-                    setToSaturation(0.2f) // 经典黑白胶片感
+            val colorFilter = remember(imageUrl) {
+                if (imageUrl.contains("guitar")) {
+                    val matrix = ColorMatrix().apply {
+                        setToSaturation(0.2f) // 经典黑白胶片感
+                    }
+                    ColorFilter.colorMatrix(matrix)
+                } else {
+                    null
                 }
-                ColorFilter.colorMatrix(matrix)
+            }
+
+            val fallback = if (imageUrl.contains("butterfly")) {
+                R.drawable.hero_butterfly_lovers
+            } else {
+                R.drawable.hero_acoustic_guitar
             }
 
             SongbookImage(
                 model = imageUrl,
-                contentDescription = "回响：寻找消失的黑胶灵魂",
-                fallbackRes = R.drawable.hero_acoustic_guitar,
+                contentDescription = title,
+                fallbackRes = fallback,
                 colorFilter = colorFilter,
                 modifier = Modifier.fillMaxSize()
             )

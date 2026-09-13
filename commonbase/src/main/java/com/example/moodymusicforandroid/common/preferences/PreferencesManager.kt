@@ -25,6 +25,9 @@ object PreferencesManager {
 
     private const val PREFS_NAME = "moody_music_prefs"
     private lateinit var prefs: SharedPreferences
+    private var appContext: Context? = null
+
+    fun getContext(): Context? = appContext
 
     // 缓存相关的键名
     private const val KEY_CACHE_ARTISTS = "cache_artists"
@@ -40,23 +43,45 @@ object PreferencesManager {
     private const val KEY_CLASS_ID = "class_id"
     private const val KEY_IS_LOGGED_IN = "is_logged_in"
     private const val KEY_DEVICE_ID = "device_id"
+    private const val KEY_JPUSH_REG_ID = "jpush_registration_id"
     private const val KEY_APP_VERSION = "app_version"
+
+    fun saveJPushRegistrationId(regId: String) {
+        putString(KEY_JPUSH_REG_ID, regId)
+    }
+
+    fun getJPushRegistrationId(): String? {
+        return getString(KEY_JPUSH_REG_ID)
+    }
 
     // 设置相关的键名
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_LANGUAGE = "language"
     private const val KEY_FIRST_LAUNCH = "first_launch"
+    private const val KEY_FONT_SCALE = "font_scale"
+    private const val KEY_PLAY_MODE = "play_mode"
+    private const val KEY_CARD_CLICK_DIRECT_PLAY = "card_click_direct_play"
+
+    fun getFontScale(): Float = getFloat(KEY_FONT_SCALE, 1.0f)
+    fun saveFontScale(scale: Float) = putFloat(KEY_FONT_SCALE, scale)
+
+    fun getPlayMode(): String = getString(KEY_PLAY_MODE, "SEQUENTIAL") ?: "SEQUENTIAL"
+    fun savePlayMode(mode: String) = putString(KEY_PLAY_MODE, mode)
+
+    fun isCardClickDirectPlay(): Boolean = getBoolean(KEY_CARD_CLICK_DIRECT_PLAY, true)
+    fun saveCardClickDirectPlay(enabled: Boolean) = putBoolean(KEY_CARD_CLICK_DIRECT_PLAY, enabled)
+
 
     /**
      * 初始化，建议在 Application.onCreate() 中调用
      */
     fun init(context: Context) {
+        appContext = context.applicationContext
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         
         // 保存当前版本号
         try {
-            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            putString(KEY_APP_VERSION, packageInfo.versionName)
+            putString(KEY_APP_VERSION, com.example.moodymusicforandroid.common.utils.DeviceInfoUtils.getVersionName(context))
         } catch (e: Exception) {
             e.printStackTrace()
         }

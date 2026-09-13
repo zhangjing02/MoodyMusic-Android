@@ -238,7 +238,7 @@ object ImageLoader {
 
             // 应用变换
             if (isCircle) {
-                requestBuilder = requestBuilder.transform(GlideCircleTransform())
+                requestBuilder = requestBuilder.transform(GlideCircleTransform.INSTANCE)
             } else if (roundedCornerRadius != null) {
                 val radiusPx = (roundedCornerRadius!! * context.resources.displayMetrics.density).toInt()
                 requestBuilder = requestBuilder.transform(CenterCrop(), RoundedCorners(radiusPx))

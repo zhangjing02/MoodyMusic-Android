@@ -9,30 +9,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.moodymusicforandroid.R
+import com.example.moodymusicforandroid.data.model.LibraryAlbumItem
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
 /**
- * 现代颂歌 收藏专辑展示区域组件 (FavoriteAlbumsSection)
- * 采用不对称剪贴画风格 (Scrapbook Collage Style)
+ * 收藏专辑展示区域组件 (FavoriteAlbumsSection)
+ * 接收服务器返回的真实专辑列表；空状态显示推荐占位。
  */
 @Composable
 fun FavoriteAlbumsSection(
+    albums: List<LibraryAlbumItem>,
     modifier: Modifier = Modifier,
-    onAlbumClick: (String, String) -> Unit = { _, _ -> }
+    onAlbumClick: (String, String) -> Unit = { _, _ -> },
+    onViewAllClick: () -> Unit = {}
 ) {
-    val collectedAlbums = listOf(
-        CollectedAlbumItem("冀西南林家铺子", "万能青年旅店 • 2020", "/storage/covers/albums/album_hebei_kirin.jpg", R.drawable.album_hebei_kirin),
-        CollectedAlbumItem("时间的歌", "陈绮贞 • 2013", "/storage/covers/albums/album_time_song.jpg", R.drawable.album_time_song),
-        CollectedAlbumItem("Bossa Nova", "落日飞车 • 2011", "/storage/covers/albums/album_modern_jazz.jpg", R.drawable.album_modern_jazz),
-        CollectedAlbumItem("12", "坂本龍一 • 2023", "/storage/covers/albums/album_blue_monsoon.jpg", R.drawable.album_blue_monsoon)
-    )
-
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -48,36 +45,48 @@ fun FavoriteAlbumsSection(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "324 份收藏",
+                text = "全部",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.Outline
+                color = SongbookColors.BurntOrange,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { onViewAllClick() }
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
             )
         }
 
-        // 双列卡片网格
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            for (i in collectedAlbums.indices step 2) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    val left = collectedAlbums[i]
-                    val right = collectedAlbums.getOrNull(i + 1)
+        if (albums.isEmpty()) {
+            // 空状态：推荐引导卡片
+            EmptyAlbumsPlaceholder()
+        } else {
+            // 最多展示 3 张精选预览，保持页面精炼
+            val displayAlbums = albums.take(3)
+            // 双列卡片网格
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                for (i in displayAlbums.indices step 2) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        val left = displayAlbums[i]
+                        val right = displayAlbums.getOrNull(i + 1)
 
-                    CollectedAlbumCard(
-                        item = left,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onAlbumClick(left.title, left.title) }
-                    )
-
-                    if (right != null) {
-                        CollectedAlbumCard(
-                            item = right,
+                        RealAlbumCard(
+                            item = left,
                             modifier = Modifier.weight(1f),
-                            onClick = { onAlbumClick(right.title, right.title) }
+                            onClick = { onAlbumClick(left.albumId, left.title ?: left.albumId) }
                         )
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
+
+                        if (right != null) {
+                            RealAlbumCard(
+                                item = right,
+                                modifier = Modifier.weight(1f),
+                                onClick = { onAlbumClick(right.albumId, right.title ?: right.albumId) }
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -86,8 +95,8 @@ fun FavoriteAlbumsSection(
 }
 
 @Composable
-private fun CollectedAlbumCard(
-    item: CollectedAlbumItem,
+private fun RealAlbumCard(
+    item: LibraryAlbumItem,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -104,35 +113,60 @@ private fun CollectedAlbumCard(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
         ) {
             SongbookImage(
-                model = item.imageUrl,
+                model = item.cover,
                 contentDescription = item.title,
-                fallbackRes = item.fallbackRes,
                 modifier = Modifier.fillMaxSize()
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
+        val title = item.title
+        val displayTitle: String = when {
+            !title.isNullOrBlank() -> title
+            !item.albumId.startsWith("album_") && !item.albumId.startsWith("db_") && item.albumId.isNotBlank() -> item.albumId
+            else -> "精选专辑"
+        }
         Text(
-            text = item.title,
+            text = displayTitle,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = item.subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = SongbookColors.Outline,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 
-data class CollectedAlbumItem(
-    val title: String,
-    val subtitle: String,
-    val imageUrl: String,
-    val fallbackRes: Int
-)
+@Composable
+private fun EmptyAlbumsPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_library),
+                contentDescription = null,
+                tint = SongbookColors.Outline,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "还没有收藏的专辑",
+                style = MaterialTheme.typography.bodyMedium,
+                color = SongbookColors.Outline,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "去发现页面探索你喜爱的音乐吧",
+                style = MaterialTheme.typography.labelSmall,
+                color = SongbookColors.Outline.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}

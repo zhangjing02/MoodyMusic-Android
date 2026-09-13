@@ -13,32 +13,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.moodymusicforandroid.R
+import com.example.moodymusicforandroid.data.model.LibraryArtistItem
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
 /**
  * 关注艺人横向滚动展示组件 (FollowedArtistsSection)
- * 采用杂志圆形头像与细边框
+ * 接收服务器返回的真实歌手列表；空状态显示引导卡片。
  */
 @Composable
 fun FollowedArtistsSection(
+    artists: List<LibraryArtistItem>,
     modifier: Modifier = Modifier,
     onArtistClick: (String, String) -> Unit = { _, _ -> },
     onBrowseAllClick: () -> Unit = {}
 ) {
-    val artists = listOf(
-        FollowedArtistItem("李健", "/storage/artists/artist_1.jpg", R.drawable.hero_acoustic_guitar),
-        FollowedArtistItem("陈绮贞", "/storage/artists/artist_beatrice.jpg", R.drawable.artist_beatrice),
-        FollowedArtistItem("万能青年旅店", "/storage/artists/artist_charlie.jpg", R.drawable.artist_charlie),
-        FollowedArtistItem("坂本龍一", "/storage/artists/artist_5.jpg", R.drawable.album_classical_piano),
-        FollowedArtistItem("落日飞车", "/storage/covers/albums/album__3_6.jpg", R.drawable.album_modern_jazz)
-    )
-
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -54,63 +48,100 @@ fun FollowedArtistsSection(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "BROWSE ALL",
+                text = "全部",
                 style = MaterialTheme.typography.labelSmall,
                 color = SongbookColors.BurntOrange,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onBrowseAllClick() }
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { onBrowseAllClick() }
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
             )
         }
 
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp)
-        ) {
-            items(artists) { artist ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onArtistClick(artist.name, artist.name) }
-                ) {
-                    Box(
+        if (artists.isEmpty()) {
+            // 空状态引导
+            EmptyArtistsPlaceholder()
+        } else {
+            val displayArtists = artists.take(4)
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp)
+            ) {
+                items(displayArtists) { artist ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .size(72.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                            .border(1.5.dp, SongbookColors.MutedOlive.copy(alpha = 0.3f), CircleShape)
-                            .padding(3.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onArtistClick(artist.artistId, artist.name ?: artist.artistId) }
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .size(72.dp)
                                 .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                                .border(1.5.dp, SongbookColors.MutedOlive.copy(alpha = 0.3f), CircleShape)
+                                .padding(3.dp)
                         ) {
-                            SongbookImage(
-                                model = artist.imageUrl,
-                                contentDescription = artist.name,
-                                fallbackRes = artist.fallbackRes,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                            ) {
+                                SongbookImage(
+                                    model = artist.avatar,
+                                    contentDescription = artist.name,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = artist.name ?: "未知歌手",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = artist.name,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
                 }
             }
         }
     }
 }
 
-data class FollowedArtistItem(
-    val name: String,
-    val imageUrl: String,
-    val fallbackRes: Int
-)
+@Composable
+private fun EmptyArtistsPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_playlist),
+                contentDescription = null,
+                tint = SongbookColors.Outline,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "还没有关注的艺术家",
+                style = MaterialTheme.typography.bodyMedium,
+                color = SongbookColors.Outline,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "去歌手主页点击「关注」吧",
+                style = MaterialTheme.typography.labelSmall,
+                color = SongbookColors.Outline.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}

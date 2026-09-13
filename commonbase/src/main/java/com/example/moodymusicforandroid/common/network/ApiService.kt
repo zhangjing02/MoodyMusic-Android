@@ -15,7 +15,7 @@ interface ApiService {
      * 获取首页切片流数据 (SDUI)
      */
     @GET("api/home/feed")
-    suspend fun getHomeFeed(): Response<HomeFeedResponse>
+    suspend fun getHomeFeed(): Response<BaseResponse<HomeFeedResponse>>
 
     /**
      * 示例：根据心情获取音乐列表

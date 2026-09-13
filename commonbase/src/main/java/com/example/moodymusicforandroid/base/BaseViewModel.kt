@@ -188,10 +188,19 @@ abstract class BaseViewModel : ViewModel() {
                 }
                 _errorMessage.value = errorMsg
             }
-            // Retrofit HTTP寮傚父锛堥渶瑕佷粠 errorBody 瑙ｆ瀽鏈嶅姟绔秷鎭級
+            // Retrofit HTTP异常（从 errorBody 解析服务端消息，并对 401 互踢进行拦截）
             is RetrofitHttpException -> {
-                val errorMsg = parseRetrofitHttpError(throwable)
+                val (parsedMsg, rawBody) = parseRetrofitHttpErrorWithBody(throwable)
+                val errorMsg = parsedMsg
                     ?: HttpException(throwable.code(), throwable.message()).getErrorMessage()
+
+                if (throwable.code() == 401) {
+                    val isKickedOut = rawBody.contains("SESSION_KICKED_OUT") ||
+                        rawBody.contains("在其他设备登录") ||
+                        rawBody.contains("已在其他设备")
+                    handleUnauthorized(isKickedOut, errorMsg)
+                }
+
                 if (showErrorToast) {
                     _toastMessage.value = errorMsg
                 }
@@ -228,19 +237,18 @@ abstract class BaseViewModel : ViewModel() {
     }
 
     /**
-     * 处理特殊业务错误
-     * @param exception 业务异常
+     * 解析 Retrofit HTTP 错误信息与原始 Body（用于判断 401 互踢等具体业务 key）
      */
-    private fun parseRetrofitHttpError(throwable: RetrofitHttpException): String? {
+    private fun parseRetrofitHttpErrorWithBody(throwable: RetrofitHttpException): Pair<String?, String> {
         return try {
             val errorBody = throwable.response()?.errorBody()?.string()?.trim().orEmpty()
             if (errorBody.isBlank()) {
-                return null
+                return Pair(null, "")
             }
 
             val jsonElement = JsonParser.parseString(errorBody)
             if (!jsonElement.isJsonObject) {
-                return null
+                return Pair(null, errorBody)
             }
 
             val message = jsonElement.asJsonObject
@@ -249,9 +257,25 @@ abstract class BaseViewModel : ViewModel() {
                 ?.asString
                 ?.trim()
 
-            message?.takeIf { it.isNotEmpty() }
+            Pair(message?.takeIf { it.isNotEmpty() }, errorBody)
         } catch (_: Exception) {
-            null
+            Pair(null, "")
+        }
+    }
+
+    /**
+     * 处理 401 鉴权失效（互踢 / Token 过期）
+     */
+    protected open fun handleUnauthorized(isKickedOut: Boolean, message: String) {
+        try {
+            PreferencesManager.clearUserInfo()
+            com.example.moodymusicforandroid.data.manager.UserManager.onLogout()
+        } catch (_: Exception) {}
+
+        if (isKickedOut) {
+            EventBusManager.post(EventType.AUTH_TOKEN_EXPIRED, "KICKED_OUT")
+        } else {
+            EventBusManager.post(EventType.AUTH_TOKEN_EXPIRED, message)
         }
     }
     private fun handleSpecialBusinessError(exception: BusinessException) {

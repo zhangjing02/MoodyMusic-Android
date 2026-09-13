@@ -63,6 +63,9 @@ class NavigationState(
         } else {
             listOf(startRoute, topLevelRoute)
         }
+
+    val isTopLevel: Boolean
+        get() = (backStacks[topLevelRoute]?.size ?: 1) <= 1
 }
 
 /**

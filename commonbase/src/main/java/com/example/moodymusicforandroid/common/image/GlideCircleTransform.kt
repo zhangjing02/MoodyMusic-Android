@@ -52,6 +52,7 @@ class GlideCircleTransform : BitmapTransformation() {
     }
 
     companion object {
+        val INSTANCE = GlideCircleTransform()
         private const val ID = "com.example.moodymusicforandroid.common.image.GlideCircleTransform"
         private val CHARSET = Charsets.UTF_8
     }

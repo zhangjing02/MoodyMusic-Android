@@ -106,6 +106,7 @@ gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+coil-gif = { group = "io.coil-kt", name = "coil-gif", version.ref = "coil" }
 
 # RecyclerView - BaseRecyclerViewAdapterHelper
 base-adapter-helper = { group = "io.github.cymchad", name = "BaseRecyclerViewAdapterHelper4", version.ref = "baseRecyclerViewAdapterHelper" }
@@ -128,6 +129,9 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 
 # JPush
 jpush = { group = "cn.jiguang.sdk", name = "jpush", version.ref = "jpush" }
+
+# Media (for MediaStyle notification and MediaSessionCompat)
+androidx-media = { group = "androidx.media", name = "media", version = "1.7.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

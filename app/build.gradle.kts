@@ -14,7 +14,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -29,7 +29,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
-            isShrinkResources = true
+            isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -92,9 +92,13 @@ dependencies {
     implementation(libs.rwidget.helper)
     implementation(libs.haze)
     implementation(libs.haze.materials)
+    implementation("androidx.palette:palette-ktx:1.0.0")
 
     // JPush
     implementation(libs.jpush)
+
+    // Media (MediaStyle notification + MediaSessionCompat)
+    implementation(libs.androidx.media)
 
     // Testing
     testImplementation(libs.junit)

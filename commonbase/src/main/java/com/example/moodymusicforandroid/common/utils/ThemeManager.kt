@@ -19,22 +19,33 @@ object ThemeManager {
         DEFAULT(0),    // 默认绿色
         OCEAN(1),      // 海洋蓝
         SUNSET(2),     // 日落橙
-        NIGHT(3)       // 暗夜紫
+        NIGHT(3);      // 暗夜紫
+
+        companion object {
+            private val VALUES = values()
+            fun fromValue(value: Int): ThemeMode = VALUES.firstOrNull { it.value == value } ?: DEFAULT
+        }
     }
+
+    private var cachedThemeMode: ThemeMode? = null
 
     /**
      * 获取当前主题
      */
     fun getTheme(context: Context): ThemeMode {
+        cachedThemeMode?.let { return it }
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val themeValue = prefs.getInt(KEY_THEME, ThemeMode.DEFAULT.value)
-        return ThemeMode.values().firstOrNull { it.value == themeValue } ?: ThemeMode.DEFAULT
+        val mode = ThemeMode.fromValue(themeValue)
+        cachedThemeMode = mode
+        return mode
     }
 
     /**
      * 设置主题
      */
     fun setTheme(context: Context, themeMode: ThemeMode) {
+        cachedThemeMode = themeMode
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putInt(KEY_THEME, themeMode.value).apply()
 
@@ -79,10 +90,7 @@ object ThemeManager {
      * @deprecated 使用 initTheme() 代替
      */
     fun applyTheme(activity: Activity) {
-        val prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val themeValue = prefs.getInt(KEY_THEME, ThemeMode.DEFAULT.value)
-        val themeMode = ThemeMode.values().firstOrNull { it.value == themeValue } ?: ThemeMode.DEFAULT
-
+        val themeMode = getTheme(activity)
         if (themeMode == ThemeMode.NIGHT) {
             activity.setTheme(androidx.appcompat.R.style.Theme_AppCompat_DayNight)
         }

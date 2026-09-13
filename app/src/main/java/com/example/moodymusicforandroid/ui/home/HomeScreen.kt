@@ -2,20 +2,30 @@ package com.example.moodymusicforandroid.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,11 +36,12 @@ import com.example.moodymusicforandroid.data.model.*
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.home.components.*
 import com.example.moodymusicforandroid.ui.home.viewmodel.HomeViewModel
+import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import com.example.moodymusicforandroid.ui.components.SongbookPullToRefreshLayout
+
 
 /**
  * 现代颂歌 (The Modern Songbook) 首页
@@ -52,36 +63,40 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
+    playerViewModel: PlayerViewModel = viewModel(),
     onMenuClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAlbumClick: (String, String) -> Unit = { _, _ -> },
     onArtistClick: (String, String) -> Unit = { _, _ -> },
-    onArticleClick: (String) -> Unit = {}
+    onArticleClick: (String) -> Unit = {},
+    onThemeClick: (themeId: String, title: String, audioUrl: String, coverUrl: String, artistName: String) -> Unit = { _, _, _, _, _ -> }
 ) {
     val feedItems by viewModel.homeFeedItems.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val pullToRefreshState = rememberPullToRefreshState()
     val listState = rememberLazyListState()
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val playState by playerViewModel.playState.collectAsState()
 
-    PullToRefreshBox(
+    // 首页暖渐变背景：从顶部暖砂米黄到下方纸白，彻底告别纯白
+    val warmGradient = remember {
+        Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.0f to Color(0xFFF5E8D8), // 顶部暖砂色（米黄+陶土调）
+                0.25f to Color(0xFFFAF3EA), // 过渡温暖米白
+                1.0f to Color(0xFFFBF9F5)  // 底部回归纸白背景色
+            )
+        )
+    }
+
+    SongbookPullToRefreshLayout(
         isRefreshing = isRefreshing,
         onRefresh = { viewModel.fetchHomeFeed() },
         state = pullToRefreshState,
+        headerTopPadding = statusBarTop,
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        indicator = {
-            Indicator(
-                state = pullToRefreshState,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = statusBarTop + 6.dp),
-                isRefreshing = isRefreshing,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                color = SongbookColors.BurntOrange
-            )
-        }
+            .background(warmGradient)
     ) {
         LazyColumn(
             state = listState,
@@ -99,15 +114,107 @@ fun HomeScreen(
                 onMenuClick = onMenuClick,
                 onAvatarClick = onAvatarClick
             )
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // 2. 动态切片流 (Block-Based SDUI Items) - 细粒度分帧解构
+        // 2. 动态切片流 (Block-Based SDUI Items) - 由服务端接口返回的 type 驱动四大核心布局
         feedItems.forEach { block ->
             when (block.type) {
+                HomeBlockType.TOP_RECOMMEND_BANNER -> {
+                    item(key = block.id, contentType = block.type) {
+                        val banner = block.parsedData as? TopRecommendBannerData ?: block.toTopRecommendBanner()
+                        TopRecommendBannerBlock(
+                            data = banner,
+                            onClick = { item ->
+                                if (item.actionType == "theme" || item.actionTarget.contains("theme")) {
+                                    val fullTitle = if (item.subtitle.isNullOrBlank()) item.title else "${item.title} — ${item.subtitle}"
+                                    onThemeClick(
+                                        item.id.ifBlank { item.actionTarget },
+                                        fullTitle,
+                                        item.audioUrl ?: "",
+                                        item.coverUrl,
+                                        item.artistName ?: ""
+                                    )
+                                } else {
+                                    onAlbumClick(item.actionTarget, item.title)
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(28.dp))
+                    }
+                }
+
+                HomeBlockType.TODAY_RECOMMEND_SCROLL -> {
+                    item(key = block.id, contentType = block.type) {
+                        val scrollData = block.parsedData as? TodayRecommendScrollData ?: block.toTodayRecommendScroll()
+                        TodayRecommendScrollBlock(
+                            data = scrollData,
+                            onItemClick = { item ->
+                                if (item.isTheme) {
+                                    val themeId = item.themeId ?: item.id
+                                    val fullTitle = if (item.subtitle.isNullOrBlank()) "《${item.title}》" else "《${item.title}》— ${item.subtitle}"
+                                    onThemeClick(
+                                        themeId,
+                                        fullTitle,
+                                        item.audioUrl ?: "",
+                                        item.coverUrl,
+                                        item.artist
+                                    )
+                                } else {
+                                    onAlbumClick(item.id, item.title)
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(28.dp))
+                    }
+                }
+
+                HomeBlockType.DEEP_DIVE_FEATURE -> {
+                    item(key = block.id, contentType = block.type) {
+                        val deepDive = block.parsedData as? DeepDiveFeatureData ?: block.toDeepDiveFeature()
+                        val audioUrl = if (!deepDive.audioUrl.isNullOrBlank()) {
+                            deepDive.audioUrl
+                        } else {
+                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/butterfly_lovers_concerto.mp3"
+                        }
+                        DeepDiveFeatureBlock(
+                            data = deepDive,
+                            onReadArticleClick = { onArticleClick(deepDive.articleId ?: deepDive.id) },
+                            onPlayAlbumClick = {
+                                if (playState.audioUrl == audioUrl) {
+                                    playerViewModel.togglePlayPause()
+                                } else {
+                                    playerViewModel.playSingleUrl(
+                                        audioUrl = audioUrl,
+                                        songTitle = deepDive.albumTitle ?: "《梁祝》小提琴协奏曲",
+                                        artistName = "何占豪 & 陈钢 (宋知垣 小提琴独奏)",
+                                        albumTitle = "深度名作解析 · 东方交响",
+                                        coverUrl = deepDive.coverUrl
+                                    )
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(28.dp))
+                    }
+                }
+
+                HomeBlockType.VARIETY_SHOW_GRID -> {
+                    item(key = block.id, contentType = block.type) {
+                        val varietyData = block.parsedData as? VarietyShowGridData ?: block.toVarietyShowGrid()
+                        VarietyShowGridBlock(
+                            data = varietyData,
+                            onItemClick = { item ->
+                                onAlbumClick(item.actionTarget, item.title)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(28.dp))
+                    }
+                }
+
                 HomeBlockType.HERO_BANNER -> {
                     item(key = block.id, contentType = block.type) {
                         val hero = block.parsedData as? HeroBannerData ?: block.toHeroBanner()
+                        val audioUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/butterfly_lovers_concerto.mp3"
                         HeroFeaturedCard(
                             title = hero.title,
                             tag = hero.tag,
@@ -116,7 +223,19 @@ fun HomeScreen(
                             primaryActionText = hero.primaryActionText,
                             secondaryActionText = hero.secondaryActionText,
                             onReadArticleClick = { onArticleClick(hero.articleId) },
-                            onPlayAlbumClick = { onAlbumClick(hero.albumId, hero.albumTitle) }
+                            onPlayAlbumClick = {
+                                if (playState.audioUrl == audioUrl) {
+                                    playerViewModel.togglePlayPause()
+                                } else {
+                                    playerViewModel.playSingleUrl(
+                                        audioUrl = audioUrl,
+                                        songTitle = hero.albumTitle ?: "《梁祝》小提琴协奏曲",
+                                        artistName = "何占豪 & 陈钢 (宋知垣 小提琴独奏)",
+                                        albumTitle = "深度名作解析 · 东方交响",
+                                        coverUrl = hero.imageUrl
+                                    )
+                                }
+                            }
                         )
                         Spacer(modifier = Modifier.height(28.dp))
                     }
@@ -317,19 +436,24 @@ private fun SocietyWeeklyTopBar(
         )
 
         // 右侧头像
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .clickable { onAvatarClick() }
+        IconButton(
+            onClick = onAvatarClick,
+            modifier = Modifier.size(40.dp)
         ) {
-            SongbookImage(
-                model = "/storage/avatars/user_avatar_default.jpg",
-                contentDescription = "User Avatar",
-                fallbackRes = R.drawable.user_avatar_default,
-                modifier = Modifier.fillMaxSize()
-            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            ) {
+                SongbookImage(
+                    model = "/storage/avatars/user_avatar_default.jpg",
+                    contentDescription = "User Avatar",
+                    fallbackRes = R.drawable.user_avatar_default,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     }
 }
+
