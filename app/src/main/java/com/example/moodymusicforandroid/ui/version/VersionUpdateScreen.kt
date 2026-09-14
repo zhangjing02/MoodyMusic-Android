@@ -5,9 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -15,9 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,9 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import com.example.moodymusicforandroid.common.update.PgyerUpdateManager
 import com.example.moodymusicforandroid.common.utils.DeviceInfoUtils
-import com.example.moodymusicforandroid.data.api.MoodyApiProvider
-import com.example.moodymusicforandroid.data.api.MoodyApiService
 import com.example.moodymusicforandroid.data.model.AppVersionData
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import kotlinx.coroutines.Dispatchers
@@ -45,13 +41,8 @@ import java.io.FileOutputStream
 import java.io.InputStream
 
 /**
- * 版本展示与在线更新页面 (The Modern Songbook 现代颂歌风格)
- *
- * 功能点：
- * 1. 完整展示当前本地安装版本、设备硬件指纹、瘦身优化包体积
- * 2. 自动/手动连线服务端检查最新版本信息（支持强制更新与非强制更新策略）
- * 3. 实时显示包体积大小、更新日志、Hash校验
- * 4. 内置断点式流下载引擎，实时更新下载进度，完成自动调用 FileProvider 唤起 APK 覆盖安装
+ * 简约版 · 版本与在线更新页面 (The Modern Songbook 现代颂歌风格)
+ * 剔除冗余硬件/开发指纹，呈现极简、纯粹、优雅的版本状态与更新交互。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,54 +51,38 @@ fun VersionUpdateScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-
-    // 客户端本地环境信息
     val currentVersionName = remember { DeviceInfoUtils.getVersionName(context) }
-    val currentVersionCode = remember { DeviceInfoUtils.getVersionCode(context) }
-    val deviceBrand = remember { DeviceInfoUtils.getBrand() }
-    val deviceModel = remember { DeviceInfoUtils.getModel() }
-    val deviceArch = remember { DeviceInfoUtils.getArch() }
-    val osVersion = remember { DeviceInfoUtils.getOsVersion() }
 
-    // 检查状态与服务器数据
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var versionData by remember { mutableStateOf<AppVersionData?>(null) }
 
-    // 下载状态：idle, downloading, completed, failed
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadedMbStr by remember { mutableStateOf("0.0 MB") }
     var downloadedApkFile by remember { mutableStateOf<File?>(null) }
 
-    // 检查版本更新方法
     fun checkVersion() {
         coroutineScope.launch {
             isLoading = true
             errorMessage = null
             try {
-                val response = withContext(Dispatchers.IO) {
-                    MoodyApiProvider.apiService.checkAppVersion()
+                val data = withContext(Dispatchers.IO) {
+                    PgyerUpdateManager.checkUpdate(context)
                 }
-                if ((response.code == 200 || response.code == 0) && response.data != null) {
-                    versionData = response.data
-                } else {
-                    errorMessage = response.message ?: "获取版本信息失败"
-                }
+                versionData = data
             } catch (e: Exception) {
-                errorMessage = "网络请求失败：${e.localizedMessage ?: "无法连接到服务器"}"
+                errorMessage = e.localizedMessage ?: "检查更新失败，请稍后重试"
             } finally {
                 isLoading = false
             }
         }
     }
 
-    // 进入页面时自动检查一次
     LaunchedEffect(Unit) {
         checkVersion()
     }
 
-    // 执行 APK 文件下载并触发安装
     fun startDownloadAndInstall(targetUrl: String, apkFileName: String) {
         if (isDownloading) return
         isDownloading = true
@@ -121,12 +96,15 @@ fun VersionUpdateScreen(
                     val file = File(downloadDir, apkFileName)
                     if (file.exists()) file.delete()
 
-                    val client = OkHttpClient.Builder().build()
+                    val client = OkHttpClient.Builder()
+                        .followRedirects(true)
+                        .followSslRedirects(true)
+                        .build()
                     val request = Request.Builder().url(targetUrl).build()
                     val response = client.newCall(request).execute()
 
                     if (!response.isSuccessful) {
-                        throw IllegalStateException("下载失败 HTTP ${response.code}")
+                        throw IllegalStateException("下载失败 HTTP " + response.code)
                     }
 
                     val body = response.body ?: throw IllegalStateException("空响应体")
@@ -158,8 +136,6 @@ fun VersionUpdateScreen(
                 downloadedApkFile = destFile
                 isDownloading = false
                 Toast.makeText(context, "下载完成，正在调起安装器...", Toast.LENGTH_SHORT).show()
-
-                // 调用系统安装器
                 installApk(context, destFile)
             } catch (e: Exception) {
                 isDownloading = false
@@ -173,7 +149,7 @@ fun VersionUpdateScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "版本展示与在线更新",
+                        text = "版本与更新",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = SongbookColors.SoftCharcoal
@@ -200,12 +176,53 @@ fun VersionUpdateScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── 1. App 头部品牌与本地版本卡片 ──────────────────────────
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 1. App 极简品牌标识
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(SongbookColors.BurntOrange.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "♪",
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SongbookColors.BurntOrange,
+                    fontFamily = FontFamily.Serif
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "音信 · TunePost",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = SongbookColors.SoftCharcoal,
+                fontFamily = FontFamily.Serif
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Version $currentVersionName",
+                style = MaterialTheme.typography.bodySmall,
+                color = SongbookColors.SoftCharcoal.copy(alpha = 0.5f),
+                letterSpacing = 0.5.sp
+            )
+
+            Spacer(modifier = Modifier.height(36.dp))
+
+            // 2. 状态与更新卡片
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
                 border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
             ) {
@@ -215,280 +232,84 @@ fun VersionUpdateScreen(
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(68.dp)
-                            .clip(CircleShape)
-                            .background(SongbookColors.BurntOrange.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "♪",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SongbookColors.BurntOrange,
-                            fontFamily = FontFamily.Serif
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "音信 · TunePost",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = SongbookColors.SoftCharcoal,
-                        fontFamily = FontFamily.Serif
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // 本地安装版本 Tag
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = SongbookColors.GhostBorderActive
-                    ) {
-                        Text(
-                            text = "本地当前版本：v$currentVersionName (构建号 $currentVersionCode)",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = SongbookColors.SoftCharcoal,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // 硬件与瘦身指标
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "运行环境",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SongbookColors.SoftCharcoal.copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Android $osVersion · $deviceArch",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = SongbookColors.SoftCharcoal
-                            )
-                        }
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "包体积状态",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SongbookColors.SoftCharcoal.copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "已精简至 21.4 MB",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = SongbookColors.BurntOrange
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // ── 2. 服务端版本与在线检测卡片 ────────────────────────────
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-                border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "服务器版本与更新",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = SongbookColors.SoftCharcoal
-                        )
-
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = SongbookColors.BurntOrange
-                            )
-                        } else {
-                            IconButton(
-                                onClick = { checkVersion() },
-                                modifier = Modifier.size(32.dp)
+                    when {
+                        isLoading -> {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(vertical = 12.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "重新检查",
-                                    tint = SongbookColors.BurntOrange,
-                                    modifier = Modifier.size(20.dp)
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = SongbookColors.BurntOrange
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "正在检查更新...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SongbookColors.SoftCharcoal.copy(alpha = 0.7f)
                                 )
                             }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (errorMessage != null) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                .padding(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                        errorMessage != null -> {
                             Text(
-                                text = errorMessage ?: "",
-                                color = MaterialTheme.colorScheme.error,
-                                fontSize = 13.sp,
-                                modifier = Modifier.weight(1f)
+                                text = errorMessage ?: "网络连接异常",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
                             )
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = { checkVersion() },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
-                        ) {
-                            Text("重新尝试连线")
-                        }
-                    } else if (versionData != null) {
-                        val data = versionData!!
-                        if (!data.hasUpdate) {
-                            // ── 已是最新版本 ──
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFF2E7D32).copy(alpha = 0.1f), RoundedCornerShape(10.dp))
-                                    .padding(14.dp)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = { checkVersion() },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(36.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF2E7D32)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = "您已在使用最新版本",
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF2E7D32),
-                                        fontSize = 14.sp
-                                    )
-                                    Text(
-                                        text = "服务器最新版本：v${data.versionName}",
-                                        fontSize = 12.sp,
-                                        color = SongbookColors.SoftCharcoal.copy(alpha = 0.6f)
-                                    )
-                                }
+                                Text("重新检查", fontSize = 13.sp)
                             }
-                        } else {
-                            // ── 发现新版本 ──
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
+                        }
+                        versionData?.hasUpdate == true -> {
+                            val data = versionData!!
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
-                                        text = data.title.ifBlank { "发现新版本 v${data.versionName}" },
+                                        text = "发现新版本 v${data.versionName}",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = SongbookColors.SoftCharcoal
                                     )
-                                    Spacer(modifier = Modifier.height(2.dp))
+                                    if (data.packageSizeStr.isNotBlank()) {
+                                        Text(
+                                            text = data.packageSizeStr,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = SongbookColors.SoftCharcoal.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
+
+                                if (data.releaseNotes.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     Text(
-                                        text = "安装包体积：${data.packageSizeStr}",
+                                        text = data.releaseNotes,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = SongbookColors.SoftCharcoal.copy(alpha = 0.6f)
+                                        color = SongbookColors.SoftCharcoal.copy(alpha = 0.75f),
+                                        lineHeight = 19.sp
                                     )
                                 }
 
-                                // 强制更新 vs 推荐更新标签
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = if (data.isForceUpdate) MaterialTheme.colorScheme.error else SongbookColors.BurntOrange
-                                ) {
-                                    Text(
-                                        text = if (data.isForceUpdate) "强制更新" else "推荐更新",
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
+                                Spacer(modifier = Modifier.height(18.dp))
 
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // 更新日志
-                            Text(
-                                text = "更新内容：",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = SongbookColors.BurntOrange
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = SongbookColors.PaperBackground,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = data.releaseNotes,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SongbookColors.SoftCharcoal,
-                                    fontSize = 12.5.sp,
-                                    lineHeight = 18.sp,
-                                    modifier = Modifier.padding(12.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // 下载进度展示
-                            AnimatedVisibility(visible = isDownloading) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
+                                // 下载进度
+                                if (isDownloading) {
                                     LinearProgressIndicator(
                                         progress = { downloadProgress },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(8.dp)
-                                            .clip(RoundedCornerShape(4.dp)),
+                                            .height(5.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
                                         color = SongbookColors.BurntOrange,
                                         trackColor = SongbookColors.GhostBorder
                                     )
@@ -498,82 +319,113 @@ fun VersionUpdateScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "下载进度：${(downloadProgress * 100).toInt()}%",
+                                            text = "下载中 ${(downloadProgress * 100).toInt()}%",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = SongbookColors.SoftCharcoal.copy(alpha = 0.7f)
+                                            color = SongbookColors.SoftCharcoal.copy(alpha = 0.6f)
                                         )
                                         Text(
-                                            text = "$downloadedMbStr / ${data.packageSizeStr}",
+                                            text = downloadedMbStr,
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = SongbookColors.SoftCharcoal.copy(alpha = 0.7f)
+                                            color = SongbookColors.SoftCharcoal.copy(alpha = 0.6f)
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(12.dp))
                                 }
-                            }
 
-                            // 操作按键
-                            if (downloadedApkFile != null && downloadedApkFile!!.exists()) {
-                                Button(
-                                    onClick = { installApk(context, downloadedApkFile!!) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
-                                ) {
-                                    Text("下载完成，立即安装", fontWeight = FontWeight.Bold)
-                                }
-                            } else {
-                                Button(
-                                    onClick = {
-                                        val url = data.downloadUrl.ifBlank { data.downloadUrlMirror ?: "" }
-                                        if (url.isNotBlank()) {
-                                            startDownloadAndInstall(url, "MoodyMusic-v${data.versionName}.apk")
-                                        } else {
-                                            Toast.makeText(context, "下载地址不可用", Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    enabled = !isDownloading,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
-                                ) {
-                                    Text(
-                                        text = if (isDownloading) "正在下载更新包..." else "立即在线更新 (${data.packageSizeStr})",
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                if (downloadedApkFile != null && downloadedApkFile!!.exists()) {
+                                    Button(
+                                        onClick = { installApk(context, downloadedApkFile!!) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(40.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                                    ) {
+                                        Text("下载完成，立即安装", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            val url = data.downloadUrl.ifBlank { data.downloadUrlMirror ?: "" }
+                                            if (url.isNotBlank()) {
+                                                startDownloadAndInstall(url, "MoodyMusic-v${data.versionName}.apk")
+                                            } else {
+                                                Toast.makeText(context, "下载地址不可用", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        enabled = !isDownloading,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(40.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                                    ) {
+                                        Text(
+                                            text = if (isDownloading) "正在下载更新包..." else "立即更新",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                    }
                                 }
                             }
-
-                            if (data.isIgnoredAllowed && !data.isForceUpdate && !isDownloading) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                TextButton(
-                                    onClick = onBackClick,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "稍后提醒我",
-                                        color = SongbookColors.SoftCharcoal.copy(alpha = 0.6f),
-                                        fontSize = 13.sp
-                                    )
-                                }
+                        }
+                        else -> {
+                            // 已是最新版本
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "当前已是最新版本",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = SongbookColors.SoftCharcoal
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            OutlinedButton(
+                                onClick = { checkVersion() },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = SongbookColors.SoftCharcoal.copy(alpha = 0.7f)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "检查新版本",
+                                    fontSize = 12.5.sp,
+                                    color = SongbookColors.SoftCharcoal.copy(alpha = 0.7f)
+                                )
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.weight(1f, fill = false))
+            Spacer(modifier = Modifier.height(40.dp))
+
+            Text(
+                text = "The Modern Songbook © 2026",
+                style = MaterialTheme.typography.labelSmall,
+                color = SongbookColors.SoftCharcoal.copy(alpha = 0.35f),
+                fontSize = 11.sp
+            )
         }
     }
 }
 
-/**
- * 调起系统安装器安装 APK
- */
 private fun installApk(context: Context, apkFile: File) {
     try {
         val authority = "${context.packageName}.fileprovider"

@@ -238,7 +238,7 @@ fun SettingsScreen(
                                 color = SongbookColors.SoftCharcoal
                             )
                             Text(
-                                text = if (!cardClickDirectPlay) "当前：点击卡片进入图文详情，不直接播放" else "当前：点击卡片即刻开播音乐并进入详情",
+                                text = if (!cardClickDirectPlay) "当前：点击卡片进入图文详情，不直接播放" else "当前：点击卡片即播（若播放器有音频则保持连贯）",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (cardClickDirectPlay) SongbookColors.BurntOrange else SongbookColors.SoftCharcoal.copy(alpha = 0.6f),
                                 fontSize = 12.sp
@@ -337,7 +337,7 @@ fun SettingsScreen(
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "轻触卡片即刻开播",
+                                    text = "空闲时点击即播，有播放不打断",
                                     fontSize = 11.sp,
                                     color = SongbookColors.SoftCharcoal.copy(alpha = 0.55f),
                                     maxLines = 1

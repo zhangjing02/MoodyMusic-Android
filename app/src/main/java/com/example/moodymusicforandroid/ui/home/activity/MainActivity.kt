@@ -65,6 +65,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import com.example.moodymusicforandroid.ui.navigation.*
 import com.example.moodymusicforandroid.ui.player.MusicPlayerService
 import com.example.moodymusicforandroid.ui.settings.SettingsScreen
+import com.example.moodymusicforandroid.common.utils.DeviceInfoUtils
+import com.example.moodymusicforandroid.common.update.PgyerUpdateManager
+import com.example.moodymusicforandroid.data.model.AppVersionData
+import com.example.moodymusicforandroid.ui.version.AppUpdateDialog
 import com.example.moodymusicforandroid.ui.version.VersionUpdateScreen
 import com.example.moodymusicforandroid.ui.player.NowPlayingScreen
 import com.example.moodymusicforandroid.ui.player.PlayQueueItem
@@ -72,7 +76,9 @@ import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 
@@ -215,6 +221,24 @@ fun MainScreen(
     )
     val navigator = remember { Navigator(navigationState) }
 
+    val currentVersionName = remember { DeviceInfoUtils.getVersionName(context) }
+    var updateVersionData by remember { mutableStateOf<AppVersionData?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+
+    // 启动时异步静默检测蒲公英是否有更新版本（基于纯版本名称比对）
+    LaunchedEffect(Unit) {
+        try {
+            val vData = PgyerUpdateManager.checkUpdate(context)
+            updateVersionData = vData
+            // 仅当属于强制更新时才弹窗！非强制更新绝不弹窗，只在左侧抽屉展示小红点
+            if (vData.hasUpdate && vData.isForceUpdate) {
+                showUpdateDialog = true
+            }
+        } catch (_: Exception) {
+            // 静默处理，网络或接口故障不打扰用户正常体验
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -225,7 +249,8 @@ fun MainScreen(
                 AppDrawerContent(
                     isLoggedIn = isLoggedIn,
                     userName = userName,
-                    currentVersionName = "1.0",
+                    currentVersionName = currentVersionName,
+                    hasUpdate = updateVersionData?.hasUpdate == true,
                     onCloseClick = { coroutineScope.launch { drawerState.close() } },
                     onAuthClick = {
                         coroutineScope.launch { drawerState.close() }
@@ -253,7 +278,7 @@ fun MainScreen(
                     },
                     onAboutClick = {
                         coroutineScope.launch { drawerState.close() }
-                        android.widget.Toast.makeText(context, "音信 · TunePost v1.0\nThe Modern Songbook © 2026", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, "音信 · TunePost v$currentVersionName\nThe Modern Songbook © 2026", android.widget.Toast.LENGTH_LONG).show()
                     }
                 )
             }
@@ -264,7 +289,7 @@ fun MainScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            val entryProvider = remember(playState) {
+            val entryProvider = remember(playState, updateVersionData) {
                 entryProvider {
                     entry<RouteHome> {
                         HomeScreen(
@@ -273,12 +298,24 @@ fun MainScreen(
                             onAvatarClick = onAuthClick,
                             onAlbumClick = { id, title ->
                                 if (id == "butterfly_lovers_album") {
-                                    playerViewModel.playSingleUrl(
-                                        audioUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/butterfly_lovers_concerto.mp3",
-                                        songTitle = "《梁祝》小提琴协奏曲",
-                                        artistName = "何占豪 & 陈钢 (宋知垣 小提琴独奏)",
-                                         albumTitle = "深度名作解析 · 东方交响",
-                                        coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/butterfly_lovers_cover_clean.jpg"
+                                    val isBottomPlayerVisible = playState.songTitle.isNotBlank()
+                                    if (!isBottomPlayerVisible && UserManager.isCardClickDirectPlay()) {
+                                        playerViewModel.playSingleUrl(
+                                            audioUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/butterfly_lovers_concerto.mp3",
+                                            songTitle = "梁祝小提琴协奏曲",
+                                            artistName = "何占豪 & 陈钢 (宋知垣 小提琴独奏)",
+                                            albumTitle = "深度名作解析 · 东方交响",
+                                            coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/butterfly_lovers_cover_clean.jpg"
+                                        )
+                                    }
+                                    navigator.navigate(
+                                        RouteThemeDetail(
+                                            themeId = "butterfly_lovers_deep_dive",
+                                            title = "《梁祝》小提琴协奏曲",
+                                            audioUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/butterfly_lovers_concerto.mp3",
+                                            coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/butterfly_lovers_cover_clean.jpg",
+                                            artistName = "何占豪 & 陈钢 (宋知垣 小提琴独奏)"
+                                        )
                                     )
                                 } else {
                                     navigator.navigate(RouteAlbumDetail(id, title))
@@ -303,7 +340,9 @@ fun MainScreen(
                                 }
                             },
                             onThemeClick = { themeId, title, audioUrl, coverUrl, artistName ->
-                                if (UserManager.isCardClickDirectPlay() && audioUrl.isNotBlank()) {
+                                // 当下面播放器显示时（无论是正在播放，还是暂停播放），进入卡片详情都不自动播放，把选择权交给用户，尽量不要打断用户的播放流畅性
+                                val isBottomPlayerVisible = playState.songTitle.isNotBlank()
+                                if (!isBottomPlayerVisible && UserManager.isCardClickDirectPlay() && audioUrl.isNotBlank()) {
                                     playerViewModel.playSingleUrl(
                                         audioUrl = audioUrl,
                                         songTitle = title.substringBefore("—").replace("《", "").replace("》", "").trim(),
@@ -489,7 +528,7 @@ fun MainScreen(
                                 } else {
                                     playerViewModel.playSingleUrl(
                                         audioUrl = key.audioUrl,
-                                        songTitle = key.title.substringBefore("—").trim(),
+                                        songTitle = key.title.substringBefore("—").replace("《", "").replace("》", "").trim(),
                                         artistName = key.artistName,
                                         albumTitle = when (key.themeId) {
                                             "butterfly_lovers_deep_dive" -> "深度名作解析 · 东方交响"
@@ -673,6 +712,17 @@ fun MainScreen(
                     )
                 }
             }
+        }
+
+        // 蒲公英新版本强制升级提醒小弹窗 (仅在属于强制更新时才弹出紧凑小矩形)
+        if (showUpdateDialog && updateVersionData != null && updateVersionData!!.isForceUpdate) {
+            AppUpdateDialog(
+                versionData = updateVersionData!!,
+                onConfirmUpdate = {
+                    showUpdateDialog = false
+                    navigator.navigate(RouteVersion)
+                }
+            )
         }
     }
 }

@@ -292,7 +292,7 @@ fun AppDrawerContent(
                 DrawerMenuItem(
                     title = "版本更新",
                     trailingText = "v$currentVersionName",
-                    badge = if (hasUpdate) "NEW" else null,
+                    showRedDot = hasUpdate,
                     onClick = onVersionClick
                 )
 
@@ -340,6 +340,7 @@ fun AppDrawerContent(
 private fun DrawerMenuItem(
     title: String,
     badge: String? = null,
+    showRedDot: Boolean = false,
     trailingText: String? = null,
     onClick: () -> Unit
 ) {
@@ -350,15 +351,28 @@ private fun DrawerMenuItem(
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = SongbookColors.SoftCharcoal,
-            fontSize = 14.5.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
-        )
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = SongbookColors.SoftCharcoal,
+                fontSize = 14.5.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
+            )
+            if (showRedDot) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE53935))
+                )
+            }
+        }
 
         if (trailingText != null) {
             Text(

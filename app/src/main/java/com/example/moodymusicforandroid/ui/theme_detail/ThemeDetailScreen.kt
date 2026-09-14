@@ -613,8 +613,9 @@ fun ThemeDetailScreen(
 
             // 2. 刊头标题与元信息
             item(key = "theme_header_text") {
-                // 仅当底部播放器尚未加载此曲时显示播放按钮，一旦加载（哪怕暂停）亦不显示
-                val showPlayButton = !isThisThemeActive && audioUrl.isNotBlank()
+                // 只要当前此曲未处于播放状态，就显示上方的播放按钮，把选择权交给用户，避免打断当前播放流畅性；
+                // 仅当此曲正在播放中时（封面右下角已有动效 EQ 柱），才隐藏此按钮
+                val showPlayButton = !isPlaying && audioUrl.isNotBlank()
 
                 // 封面图下面紧跟着的第一行文本，右侧与封面对齐并微内缩的小巧播放按钮
                 Row(
