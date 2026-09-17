@@ -11,13 +11,14 @@ import androidx.room.RoomDatabase
  * 数据库文件名 moody_room.db（与旧版 moody_user.db 区分，避免迁移冲突）
  */
 @Database(
-    entities = [UserProfileEntity::class],
-    version = 2,
+    entities = [UserProfileEntity::class, PlaylistEntity::class, PlaylistSongEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class MoodyDatabase : RoomDatabase() {
 
     abstract fun userProfileDao(): UserProfileDao
+    abstract fun playlistDao(): PlaylistDao
 
     companion object {
         @Volatile

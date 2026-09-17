@@ -43,6 +43,7 @@ fun AppDrawerContent(
     onCloseClick: () -> Unit,
     onAuthClick: () -> Unit,
     onLogoutClick: () -> Unit,
+    onNoticeBoardClick: () -> Unit = {},
     onMessageBoardClick: () -> Unit = {},
     onStylePreferenceClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
@@ -192,13 +193,13 @@ fun AppDrawerContent(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // ── 3. 手札互动 Section ─────────────────────────────────────
+        // ── 3. 读者回响 Section ─────────────────────────────────────
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 22.dp, top = 14.dp, bottom = 8.dp)
         ) {
             Text(
-                text = "手札互动",
+                text = "读者回响",
                 style = MaterialTheme.typography.labelSmall,
                 color = SongbookColors.BurntOrange,
                 fontWeight = FontWeight.Bold,
@@ -207,7 +208,7 @@ fun AppDrawerContent(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "· INTERACTION",
+                text = "· ECHO & VOICES",
                 style = MaterialTheme.typography.labelSmall,
                 color = SongbookColors.BurntOrange.copy(alpha = 0.45f),
                 fontWeight = FontWeight.Normal,
@@ -226,8 +227,20 @@ fun AppDrawerContent(
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 DrawerMenuItem(
+                    title = "公告栏",
+                    badge = "公告",
+                    onClick = onNoticeBoardClick
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = 0.5.dp,
+                    color = SongbookColors.GhostBorder.copy(alpha = 0.6f)
+                )
+
+                DrawerMenuItem(
                     title = "留言板",
-                    badge = "待开放",
+                    badge = null,
                     onClick = onMessageBoardClick
                 )
 

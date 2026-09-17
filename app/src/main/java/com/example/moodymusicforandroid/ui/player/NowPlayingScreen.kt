@@ -47,6 +47,7 @@ import coil.request.SuccessResult
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.common.config.AppConfig
 import com.example.moodymusicforandroid.data.manager.UserManager
+import com.example.moodymusicforandroid.ui.playlist.AddToPlaylistSheet
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -90,9 +91,12 @@ fun NowPlayingScreen(
     modifier: Modifier = Modifier
 ) {
     var showQueueSheet by remember { mutableStateOf(false) }
+    var showAddToPlaylistSheet by remember { mutableStateOf(false) }
 
     BackHandler {
-        if (showQueueSheet) {
+        if (showAddToPlaylistSheet) {
+            showAddToPlaylistSheet = false
+        } else if (showQueueSheet) {
             showQueueSheet = false
         } else {
             onCollapse()
@@ -326,6 +330,9 @@ fun NowPlayingScreen(
                             )
                         }
                     },
+                    onAddToPlaylist = {
+                        showAddToPlaylistSheet = true
+                    },
                     onTapeClick = onPlayPauseToggle,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -477,11 +484,24 @@ fun NowPlayingScreen(
                 showQueueSheet = false
             }
         )
+
+        // ── 7. 听歌归档抽屉 (AddToPlaylistSheet) ──
+        AddToPlaylistSheet(
+            visible = showAddToPlaylistSheet,
+            songId = currentSongId,
+            songTitle = playState.songTitle,
+            artistName = playState.artistName,
+            albumTitle = playState.albumTitle,
+            coverUrl = playState.coverUrl,
+            filePath = playState.audioUrl,
+            duration = (playState.duration / 1000).toInt(),
+            onDismiss = { showAddToPlaylistSheet = false }
+        )
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 正向复古磁带组件 (带磁带贴纸内置歌名/歌手 + 右上角收藏红心徽章)
+// 正向复古磁带组件 (带磁带贴纸内置歌名/歌手 + 右上角收藏红心与收录磁带徽章)
 // ─────────────────────────────────────────────────────────────────
 
 @Composable
@@ -494,6 +514,7 @@ private fun CassetteTapeIntegratedView(
     artistName: String,
     isFavorite: Boolean,
     onFavoriteToggle: () -> Unit,
+    onAddToPlaylist: () -> Unit = {},
     onTapeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -515,11 +536,32 @@ private fun CassetteTapeIntegratedView(
             )
         }
 
-        // 2. 右上角「收藏红心」（无背景纯净图标，精确对齐顶部打孔水平中线）
+        // 2. 左上角「收录到私藏磁带」图标（书签＋，与右侧红心对称）
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 1.dp, start = 12.dp)
+                .size(36.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onAddToPlaylist
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_bookmark_add),
+                contentDescription = "收录到音乐手札",
+                tint = Color(0xFF7A6A56),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // 3. 右上角「收藏红心」操作区
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 1.dp, end = 16.dp)
+                .padding(top = 1.dp, end = 12.dp)
                 .size(36.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

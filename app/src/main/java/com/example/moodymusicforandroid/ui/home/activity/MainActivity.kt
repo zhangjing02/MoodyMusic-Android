@@ -40,6 +40,7 @@ import com.example.moodymusicforandroid.common.eventbus.EventBusManager
 import com.example.moodymusicforandroid.common.eventbus.EventType
 import com.example.moodymusicforandroid.common.preferences.PreferencesManager
 import com.example.moodymusicforandroid.data.manager.UserManager
+import com.example.moodymusicforandroid.common.utils.ActivityTransitionUtils
 import com.example.moodymusicforandroid.common.utils.AppFlags
 import com.example.moodymusicforandroid.common.utils.FontManager
 import com.example.moodymusicforandroid.common.utils.ThemeManager
@@ -74,6 +75,10 @@ import com.example.moodymusicforandroid.ui.player.NowPlayingScreen
 import com.example.moodymusicforandroid.ui.player.PlayQueueItem
 import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookTheme
+import com.example.moodymusicforandroid.ui.community.CommunityViewModel
+import com.example.moodymusicforandroid.ui.community.MessageBoardScreen
+import com.example.moodymusicforandroid.ui.community.PostDetailScreen
+import com.example.moodymusicforandroid.ui.notice.NoticeBoardScreen
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
@@ -124,6 +129,7 @@ class MainActivity : AppCompatActivity() {
                     MainScreen(
                         onAuthClick = {
                             startActivity(Intent(this, LoginActivity::class.java))
+                            ActivityTransitionUtils.overrideOpenTransition(this)
                         },
                         onThemeClick = { mode ->
                             UserManager.updateThemeMode(mode.value, this)
@@ -138,8 +144,7 @@ class MainActivity : AppCompatActivity() {
                         },
                         onLogoutClick = {
                             UserManager.onLogout()
-                            Toast.makeText(this, "已退出当前认证", Toast.LENGTH_SHORT).show()
-                            startActivity(Intent(this, LoginActivity::class.java))
+                            Toast.makeText(this, "已退出登录", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -214,6 +219,7 @@ fun MainScreen(
     // 全局 PlayerViewModel
     val playerViewModel: PlayerViewModel = viewModel()
     val playState by playerViewModel.playState.collectAsState()
+    val communityViewModel: CommunityViewModel = viewModel()
 
     val navigationState = rememberNavigationState(
         startRoute = RouteHome,
@@ -222,20 +228,26 @@ fun MainScreen(
     val navigator = remember { Navigator(navigationState) }
 
     val currentVersionName = remember { DeviceInfoUtils.getVersionName(context) }
-    var updateVersionData by remember { mutableStateOf<AppVersionData?>(null) }
+    val updateVersionData by PgyerUpdateManager.versionState.collectAsState()
     var showUpdateDialog by remember { mutableStateOf(false) }
 
-    // 启动时异步静默检测蒲公英是否有更新版本（基于纯版本名称比对）
+    // 监听全局版本数据变化，仅当强制更新时才弹窗
+    LaunchedEffect(updateVersionData) {
+        val vData = updateVersionData
+        if (vData != null && vData.hasUpdate && vData.isForceUpdate) {
+            showUpdateDialog = true
+        }
+    }
+
+    // 1. App 启动时异步静默检测蒲公英是否有更新版本
     LaunchedEffect(Unit) {
-        try {
-            val vData = PgyerUpdateManager.checkUpdate(context)
-            updateVersionData = vData
-            // 仅当属于强制更新时才弹窗！非强制更新绝不弹窗，只在左侧抽屉展示小红点
-            if (vData.hasUpdate && vData.isForceUpdate) {
-                showUpdateDialog = true
-            }
-        } catch (_: Exception) {
-            // 静默处理，网络或接口故障不打扰用户正常体验
+        PgyerUpdateManager.triggerSilentCheck(context)
+    }
+
+    // 2. 双保险：用户每次滑开或点击展开左侧抽屉时，自动触发一次静默检测，确保红点 100% 实时
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) {
+            PgyerUpdateManager.triggerSilentCheck(context)
         }
     }
 
@@ -260,9 +272,18 @@ fun MainScreen(
                         coroutineScope.launch { drawerState.close() }
                         onLogoutClick()
                     },
+                    onNoticeBoardClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        navigator.navigate(RouteNoticeBoard)
+                    },
                     onMessageBoardClick = {
                         coroutineScope.launch { drawerState.close() }
-                        android.widget.Toast.makeText(context, "留言板手札即将开放，静候慢调笔谈", android.widget.Toast.LENGTH_SHORT).show()
+                        if (!isLoggedIn) {
+                            android.widget.Toast.makeText(context, "留言板需登录后方可进入", android.widget.Toast.LENGTH_SHORT).show()
+                            onAuthClick()
+                        } else {
+                            navigator.navigate(RouteMessageBoard)
+                        }
                     },
                     onStylePreferenceClick = {
                         coroutineScope.launch { drawerState.close() }
@@ -407,10 +428,38 @@ fun MainScreen(
                             onArtistClick = { id, name ->
                                 navigator.navigate(RouteArtistDetail(id, name))
                             },
+                            onPlaylistClick = { playlistId, name ->
+                                navigator.navigate(RoutePlaylistDetail(playlistId = playlistId, playlistName = name))
+                            },
+                            onPlayPlaylistClick = { playlist ->
+                                coroutineScope.launch {
+                                    val songs = com.example.moodymusicforandroid.data.manager.PlaylistManager.getSongs(playlist.id)
+                                    if (songs.isNotEmpty()) {
+                                        playerViewModel.playPlaylistSongs(songs, 0, playlist.name)
+                                    }
+                                }
+                            },
                             onOpenCollectionManager = { initialTab ->
                                 navigator.navigate(RouteCollectionManager(initialTab = initialTab))
                             },
                             onAuthClick = onAuthClick
+                        )
+                    }
+
+                    entry<RoutePlaylistDetail> { key ->
+                        com.example.moodymusicforandroid.ui.playlist.PlaylistDetailScreen(
+                            playlistId = key.playlistId,
+                            initialPlaylistName = key.playlistName,
+                            playerViewModel = playerViewModel,
+                            onBackClick = { navigator.goBack() },
+                            onPlayAll = { songs, startIndex, isShuffle ->
+                                if (songs.isNotEmpty()) {
+                                    playerViewModel.playPlaylistSongs(songs, startIndex, key.playlistName)
+                                    if (isShuffle && playerViewModel.playState.value.playMode != com.example.moodymusicforandroid.ui.player.PlayMode.SHUFFLE) {
+                                        playerViewModel.togglePlayMode()
+                                    }
+                                }
+                            }
                         )
                     }
 
@@ -560,6 +609,33 @@ fun MainScreen(
                     entry<RouteSettings> {
                         SettingsScreen(
                             onBackClick = { navigator.goBack() }
+                        )
+                    }
+
+                    entry<RouteNoticeBoard> {
+                        NoticeBoardScreen(
+                            viewModel = communityViewModel,
+                            onBackClick = { navigator.goBack() }
+                        )
+                    }
+
+                    entry<RouteMessageBoard> {
+                        MessageBoardScreen(
+                            viewModel = communityViewModel,
+                            onBackClick = { navigator.goBack() },
+                            onPostClick = { postId ->
+                                navigator.navigate(RoutePostDetail(postId))
+                            },
+                            onNavigateToAuth = onAuthClick
+                        )
+                    }
+
+                    entry<RoutePostDetail> { key ->
+                        PostDetailScreen(
+                            postId = key.postId,
+                            viewModel = communityViewModel,
+                            onBackClick = { navigator.goBack() },
+                            onNavigateToAuth = onAuthClick
                         )
                     }
                 }

@@ -53,6 +53,9 @@ class MoodyMusicApplication : Application(), ImageLoaderFactory {
         // 初始化 UserManager (本地 SQLite 数据库与用户状态中枢)
         UserManager.init(this)
 
+        // 初始化 PlaylistManager (自定义播放列表管理中枢)
+        com.example.moodymusicforandroid.data.manager.PlaylistManager.init(this)
+
         // 初始化主题
         ThemeManager.initTheme(this)
 

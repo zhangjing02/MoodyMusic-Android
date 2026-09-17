@@ -25,7 +25,7 @@ fun User.toEntity(
     cardClickDirectPlay = this.cardClickDirectPlay,
     fontScale = this.fontScale,
     themeMode = this.themeMode,
-    cassetteStyle = this.cassetteStyle,
+    cassetteStyle = this.getEffectiveCassetteStyle(),
     reservedStyle1 = this.reservedStyle1,
     reservedStyle2 = this.reservedStyle2,
     reservedPrefInt = this.reservedPrefInt,

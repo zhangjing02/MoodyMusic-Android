@@ -348,6 +348,131 @@ interface MoodyApiService {
      */
     @GET("api/app/version/check")
     suspend fun checkAppVersion(): BaseResponse<AppVersionData>
+
+    // ══════════════════════════════════════════
+    // 系统公告与多板块留言互动接口
+    // ══════════════════════════════════════════
+
+    /**
+     * 获取系统公告列表
+     * GET /api/notices
+     */
+    @GET("api/notices")
+    suspend fun getNotices(): BaseResponse<List<SystemNotice>>
+
+    /**
+     * 发布系统公告 (管理员/Master)
+     * POST /api/notices
+     */
+    @POST("api/notices")
+    suspend fun createNotice(@Body request: CreateNoticeRequest): BaseResponse<SystemNotice>
+
+    /**
+     * 删除系统公告 (管理员/Master)
+     * DELETE /api/notices/{id}
+     */
+    @DELETE("api/notices/{id}")
+    suspend fun deleteNotice(@Path("id") id: Long): BaseResponse<Any>
+
+    /**
+     * 获取社区留言与待办列表
+     * GET /api/community/posts?category=xxx&status=xxx
+     */
+    @GET("api/community/posts")
+    suspend fun getCommunityPosts(
+        @Query("category") category: String? = null,
+        @Query("status") status: String? = null
+    ): BaseResponse<List<CommunityPost>>
+
+    /**
+     * 发布留言 / 反馈 / 待办任务
+     * POST /api/community/posts
+     */
+    @POST("api/community/posts")
+    suspend fun createCommunityPost(@Body request: CreatePostRequest): BaseResponse<CommunityPost>
+
+    /**
+     * 获取帖子详情
+     * GET /api/community/posts/{id}
+     */
+    @GET("api/community/posts/{id}")
+    suspend fun getCommunityPostDetail(@Path("id") id: Long): BaseResponse<CommunityPost>
+
+    /**
+     * 更新待办任务状态 (打钩标记完成/待处理，管理员/Master)
+     * PATCH /api/community/posts/{id}/status
+     */
+    @PATCH("api/community/posts/{id}/status")
+    suspend fun updateCommunityPostStatus(
+        @Path("id") id: Long,
+        @Body request: UpdatePostStatusRequest
+    ): BaseResponse<CommunityPost>
+
+    /**
+     * 删除帖子 (管理员/Master可删任意，作者可删自己)
+     * DELETE /api/community/posts/{id}
+     */
+    @DELETE("api/community/posts/{id}")
+    suspend fun deleteCommunityPost(@Path("id") id: Long): BaseResponse<Any>
+
+    /**
+     * 获取帖子下的评论列表
+     * GET /api/community/posts/{id}/comments
+     */
+    @GET("api/community/posts/{id}/comments")
+    suspend fun getCommunityComments(@Path("id") postId: Long): BaseResponse<List<CommunityComment>>
+
+    /**
+     * 发表跟帖评论
+     * POST /api/community/posts/{id}/comments
+     */
+    @POST("api/community/posts/{id}/comments")
+    suspend fun createCommunityComment(
+        @Path("id") postId: Long,
+        @Body request: CreateCommunityCommentRequest
+    ): BaseResponse<CommunityComment>
+
+    /**
+     * 删除评论 (管理员/Master可删任意，作者可删自己)
+     * DELETE /api/community/comments/{id}
+     */
+    @DELETE("api/community/comments/{id}")
+    suspend fun deleteCommunityComment(@Path("id") commentId: Long): BaseResponse<Any>
+
+    // ==================== 自定义播放列表 (Playlists) ====================
+
+    @GET("api/user/playlists")
+    suspend fun getUserPlaylists(): BaseResponse<List<com.example.moodymusicforandroid.data.model.Playlist>>
+
+    @POST("api/user/playlists")
+    suspend fun createPlaylist(@Body request: com.example.moodymusicforandroid.data.model.CreatePlaylistRequest): BaseResponse<com.example.moodymusicforandroid.data.model.Playlist>
+
+    @PUT("api/user/playlists/{id}")
+    suspend fun updatePlaylist(
+        @Path("id") id: Long,
+        @Body request: com.example.moodymusicforandroid.data.model.UpdatePlaylistRequest
+    ): BaseResponse<com.example.moodymusicforandroid.data.model.Playlist>
+
+    @DELETE("api/user/playlists/{id}")
+    suspend fun deletePlaylist(@Path("id") id: Long): BaseResponse<Any>
+
+    @GET("api/user/playlists/{id}/songs")
+    suspend fun getPlaylistSongs(@Path("id") id: Long): BaseResponse<com.example.moodymusicforandroid.data.model.PlaylistDetailData>
+
+    @POST("api/user/playlists/{id}/songs")
+    suspend fun addSongToPlaylist(
+        @Path("id") id: Long,
+        @Body request: com.example.moodymusicforandroid.data.model.AddSongToPlaylistRequest
+    ): BaseResponse<Any>
+
+    @DELETE("api/user/playlists/{id}/songs/{songId}")
+    suspend fun removeSongFromPlaylist(
+        @Path("id") id: Long,
+        @Path("songId") songId: Long
+    ): BaseResponse<Any>
+
+    @GET("api/user/playlists/memberships/{songId}")
+    suspend fun getSongPlaylistMemberships(@Path("songId") songId: Long): BaseResponse<com.example.moodymusicforandroid.data.model.SongMembershipsData>
 }
 
 

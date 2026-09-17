@@ -53,6 +53,7 @@ import com.example.moodymusicforandroid.base.LoadingState
 import com.example.moodymusicforandroid.common.eventbus.BaseEvent
 import com.example.moodymusicforandroid.common.eventbus.EventBusManager
 import com.example.moodymusicforandroid.common.eventbus.EventType
+import com.example.moodymusicforandroid.common.utils.ActivityTransitionUtils
 import com.example.moodymusicforandroid.common.utils.ThemeManager
 import com.example.moodymusicforandroid.ui.auth.viewmodel.AuthViewModel
 import com.example.moodymusicforandroid.ui.home.activity.MainActivity
@@ -105,12 +106,28 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    private var isNavigating = false
+
     private fun navigateToMain() {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        if (isNavigating || isFinishing || isDestroyed) return
+        isNavigating = true
+
+        if (!isTaskRoot) {
+            // MainActivity 已经在下层，直接平滑退出当前登录页，即时呈现主页（0毫秒白屏）
+            finish()
+        } else {
+            // 独立启动场景兜底：以单例模式拉起 MainActivity，平滑过渡
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            finish()
         }
-        startActivity(intent)
-        finish()
+    }
+
+    override fun finish() {
+        super.finish()
+        ActivityTransitionUtils.overrideCloseTransition(this)
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

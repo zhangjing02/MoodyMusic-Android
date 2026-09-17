@@ -51,5 +51,19 @@ data class RouteCollectionManager(
     val initialTab: Int = 0 // 0: 歌曲, 1: 专辑, 2: 歌手
 ) : NavKey
 
+@Serializable
+data object RouteNoticeBoard : NavKey
 
+@Serializable
+data object RouteMessageBoard : NavKey
 
+@Serializable
+data class RoutePostDetail(
+    val postId: Long
+) : NavKey
+
+@Serializable
+data class RoutePlaylistDetail(
+    val playlistId: Long,
+    val playlistName: String
+) : NavKey

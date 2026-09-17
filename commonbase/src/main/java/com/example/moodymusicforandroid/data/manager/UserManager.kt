@@ -121,7 +121,7 @@ object UserManager {
                     _cardClickDirectPlay.value = cachedUser.cardClickDirectPlay
                     _fontScale.value = cachedUser.fontScale
                     _themeMode.value = cachedUser.themeMode
-                    _cassetteStyle.value = cachedUser.cassetteStyle
+                    _cassetteStyle.value = cachedUser.getEffectiveCassetteStyle()
                 }
                 // 静默从服务器拉取最新数据覆盖
                 syncFromServer()
@@ -136,7 +136,7 @@ object UserManager {
                     _cardClickDirectPlay.value = guestUser.cardClickDirectPlay
                     _fontScale.value = guestUser.fontScale
                     _themeMode.value = guestUser.themeMode
-                    _cassetteStyle.value = guestUser.cassetteStyle
+                    _cassetteStyle.value = guestUser.getEffectiveCassetteStyle()
                 } else {
                     // 若无游客记录，生成默认游客 Profile 写入 Room
                     val defaultGuest = createDefaultGuestUser(
@@ -430,7 +430,7 @@ object UserManager {
                         cardClickDirectPlay = remoteUser.cardClickDirectPlay,
                         fontScale = if (remoteUser.fontScale > 0f) remoteUser.fontScale else _fontScale.value,
                         themeMode = remoteUser.themeMode,
-                        cassetteStyle = if (remoteUser.cassetteStyle.isNotBlank()) remoteUser.cassetteStyle else _cassetteStyle.value,
+                        cassetteStyle = remoteUser.getEffectiveCassetteStyle(),
                         reservedStyle1 = remoteUser.reservedStyle1 ?: _userProfile.value?.reservedStyle1,
                         reservedStyle2 = remoteUser.reservedStyle2 ?: _userProfile.value?.reservedStyle2,
                         reservedPrefInt = remoteUser.reservedPrefInt,
@@ -446,12 +446,12 @@ object UserManager {
                     _cardClickDirectPlay.value = mergedUser.cardClickDirectPlay
                     _fontScale.value = mergedUser.fontScale
                     _themeMode.value = mergedUser.themeMode
-                    _cassetteStyle.value = mergedUser.cassetteStyle
+                    _cassetteStyle.value = mergedUser.getEffectiveCassetteStyle()
 
                     PreferencesManager.savePlayMode(safeMode)
                     PreferencesManager.saveCardClickDirectPlay(mergedUser.cardClickDirectPlay)
                     PreferencesManager.saveFontScale(mergedUser.fontScale)
-                    PreferencesManager.putString("cassette_style", mergedUser.cassetteStyle)
+                    PreferencesManager.putString("cassette_style", mergedUser.getEffectiveCassetteStyle())
 
                     Log.d(TAG, "Profile synced: ${mergedUser.username}, songs=${mergedUser.favoriteSongsCount}")
                 }
@@ -726,7 +726,7 @@ object UserManager {
      */
     fun onLoginSuccess(user: User, token: String, refreshToken: String) {
         PreferencesManager.saveUserToken(token)
-        val displayName = user.nickname?.takeIf { it.isNotBlank() } ?: user.username
+        val displayName = user.getDisplayName().ifBlank { user.username }
         PreferencesManager.saveUserInfo(user.userId.toString(), displayName)
 
         val effectivePlayMode = user.getEffectivePlayMode()
@@ -737,7 +737,7 @@ object UserManager {
             cardClickDirectPlay = user.cardClickDirectPlay,
             fontScale = if (user.fontScale > 0f) user.fontScale else _fontScale.value,
             themeMode = user.themeMode,
-            cassetteStyle = if (user.cassetteStyle.isNotBlank()) user.cassetteStyle else _cassetteStyle.value
+            cassetteStyle = user.getEffectiveCassetteStyle()
         )
 
         _userProfile.value = fullUser
@@ -746,12 +746,12 @@ object UserManager {
         _cardClickDirectPlay.value = fullUser.cardClickDirectPlay
         _fontScale.value = fullUser.fontScale
         _themeMode.value = fullUser.themeMode
-        _cassetteStyle.value = fullUser.cassetteStyle
+        _cassetteStyle.value = fullUser.getEffectiveCassetteStyle()
 
         PreferencesManager.savePlayMode(effectivePlayMode)
         PreferencesManager.saveCardClickDirectPlay(fullUser.cardClickDirectPlay)
         PreferencesManager.saveFontScale(fullUser.fontScale)
-        PreferencesManager.putString("cassette_style", fullUser.cassetteStyle)
+        PreferencesManager.putString("cassette_style", fullUser.getEffectiveCassetteStyle())
 
         // 异步写入 Room（先删除游客记录，保存真实用户资料）
         scope.launch {

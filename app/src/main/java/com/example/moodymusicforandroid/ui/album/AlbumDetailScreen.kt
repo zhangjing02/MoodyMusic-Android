@@ -42,6 +42,7 @@ import com.example.moodymusicforandroid.data.model.SongItem
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.player.MusicPlayState
 import com.example.moodymusicforandroid.ui.player.PlayerViewModel
+import com.example.moodymusicforandroid.ui.playlist.AddToPlaylistSheet
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
 /**
@@ -95,6 +96,7 @@ fun AlbumDetailScreen(
     }
 
     val context = LocalContext.current
+    var songToAddToPlaylist by remember { mutableStateOf<SongItem?>(null) }
 
     Scaffold(
         topBar = {
@@ -331,6 +333,9 @@ fun AlbumDetailScreen(
                         } else {
                             onTrackClick(uiState.songs, index, uiState.coverUrl)
                         }
+                    },
+                    onMoreClick = {
+                        songToAddToPlaylist = song
                     }
                 )
             }
@@ -357,6 +362,25 @@ fun AlbumDetailScreen(
             }
         }
     }
+
+    // 点击曲目三点弹出的收录到手札抽屉 (AddToPlaylistSheet)
+    if (songToAddToPlaylist != null) {
+        val targetSong = songToAddToPlaylist!!
+        val songId = remember(targetSong.title, artistName) {
+            val key = "${targetSong.title.trim()}_${artistName.trim()}"
+            key.hashCode().toLong() and 0x7FFFFFFF
+        }
+        AddToPlaylistSheet(
+            visible = true,
+            songId = songId,
+            songTitle = targetSong.title,
+            artistName = artistName,
+            albumTitle = albumTitle,
+            coverUrl = uiState.coverUrl,
+            filePath = targetSong.path ?: "",
+            onDismiss = { songToAddToPlaylist = null }
+        )
+    }
 }
 
 @Composable
@@ -366,7 +390,8 @@ private fun TrackRowItem(
     isPlaying: Boolean,
     isAudioPlaying: Boolean = false,
     hasAudio: Boolean = true,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onMoreClick: () -> Unit = {}
 ) {
     val activeColor = SongbookColors.BurntOrange
     val inactiveColor = MaterialTheme.colorScheme.onSurface
@@ -423,7 +448,7 @@ private fun TrackRowItem(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // 右侧状态与操作
+        // 右侧状态与操作（点击三点唤起收录到手札）
         if (!hasAudio) {
             Text(
                 text = "未收录",
@@ -433,12 +458,17 @@ private fun TrackRowItem(
                 fontWeight = FontWeight.Normal
             )
         } else {
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "More",
-                tint = if (isPlaying) activeColor.copy(alpha = 0.6f) else SongbookColors.Outline.copy(alpha = 0.3f),
-                modifier = Modifier.size(18.dp)
-            )
+            IconButton(
+                onClick = onMoreClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "加入手札",
+                    tint = if (isPlaying) activeColor.copy(alpha = 0.8f) else SongbookColors.Outline.copy(alpha = 0.45f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

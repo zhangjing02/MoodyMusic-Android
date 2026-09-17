@@ -61,7 +61,7 @@ data class User(
     val themeMode: Int = 0,
 
     @SerializedName("cassette_style")
-    val cassetteStyle: String = "DEFAULT",
+    val cassetteStyle: String? = "DEFAULT",
 
     @SerializedName("reserved_style_1")
     val reservedStyle1: String? = null,
@@ -73,8 +73,14 @@ data class User(
     val reservedPrefInt: Int = 0,
 
     @SerializedName("reserved_pref_str")
-    val reservedPrefStr: String? = null
+    val reservedPrefStr: String? = null,
+
+    @SerializedName("role")
+    val role: String? = "user"
 ) {
     fun getEffectivePlayMode(): String = if (playMode.isNullOrBlank()) "SEQUENTIAL" else playMode
-    fun getDisplayName(): String = nickname?.takeIf { it.isNotBlank() } ?: username
+    fun getEffectiveCassetteStyle(): String = if (cassetteStyle.isNullOrBlank()) "DEFAULT" else cassetteStyle!!
+    fun getDisplayName(): String = nickname?.takeIf { !it.isNullOrBlank() } ?: (username ?: "")
+    fun isMaster(): Boolean = role == "develop_master"
+    fun isAdmin(): Boolean = role == "admin" || isMaster()
 }

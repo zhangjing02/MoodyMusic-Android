@@ -130,6 +130,60 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
+     * 播放手札/自建歌单（支持每首曲目拥有独立的歌手名、专辑名与封面）
+     */
+    fun playPlaylistSongs(songs: List<com.example.moodymusicforandroid.data.local.db.PlaylistSongEntity>, index: Int, playlistName: String) {
+        if (songs.isEmpty()) return
+        val ctx = getApplication<Application>()
+        val playlist = ArrayList(songs.map { song ->
+            PlayQueueItem(
+                songTitle = song.title,
+                artistName = song.artistName?.takeIf { it.isNotBlank() } ?: "未知歌手",
+                albumTitle = song.albumTitle?.takeIf { it.isNotBlank() } ?: playlistName,
+                coverUrl = song.coverUrl ?: "",
+                audioUrl = buildAudioUrl(song.filePath),
+                lrcPath = null
+            )
+        })
+
+        var targetIndex = index.coerceIn(0, playlist.size - 1)
+        if (targetIndex in playlist.indices && playlist[targetIndex].audioUrl.isBlank()) {
+            val firstPlayable = playlist.indexOfFirst { it.audioUrl.isNotBlank() }
+            if (firstPlayable != -1) {
+                targetIndex = firstPlayable
+            } else {
+                Toast.makeText(ctx, "《${playlist[index].songTitle}》暂无可用音频文件", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
+        if (targetIndex in playlist.indices) {
+            val current = playlist[targetIndex]
+            _playState.value = MusicPlayState(
+                songTitle = current.songTitle,
+                artistName = current.artistName,
+                albumTitle = current.albumTitle,
+                coverUrl = current.coverUrl,
+                audioUrl = current.audioUrl,
+                lrcPath = current.lrcPath,
+                isPlaying = true,
+                duration = 0,
+                position = 0,
+                playlistIndex = targetIndex,
+                playMode = _playState.value.playMode,
+                queue = playlist
+            )
+        }
+
+        val intent = Intent(ctx, MusicPlayerService::class.java).apply {
+            action = MusicPlayerService.ACTION_PLAY
+            putExtra(MusicPlayerService.EXTRA_PLAYLIST, playlist)
+            putExtra(MusicPlayerService.EXTRA_INDEX, targetIndex)
+        }
+        ctx.startForegroundService(intent)
+    }
+
+    /**
      * 直接播放一个指定 URL 的单曲（首页主题曲、特色单曲等场景）
      */
     fun playSingleUrl(

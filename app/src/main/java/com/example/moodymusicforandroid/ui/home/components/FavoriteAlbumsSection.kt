@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.data.model.LibraryAlbumItem
+import com.example.moodymusicforandroid.data.model.getDisplayTitle
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
@@ -119,12 +120,7 @@ private fun RealAlbumCard(
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
-        val title = item.title
-        val displayTitle: String = when {
-            !title.isNullOrBlank() -> title
-            !item.albumId.startsWith("album_") && !item.albumId.startsWith("db_") && item.albumId.isNotBlank() -> item.albumId
-            else -> "精选专辑"
-        }
+        val displayTitle = item.getDisplayTitle()
         Text(
             text = displayTitle,
             style = MaterialTheme.typography.titleMedium,

@@ -9,6 +9,8 @@ import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.data.model.FavoriteSong
 import com.example.moodymusicforandroid.data.model.User
 import com.example.moodymusicforandroid.data.model.UserLibraryResponse
+import com.example.moodymusicforandroid.data.model.isInvalidName
+import com.example.moodymusicforandroid.data.model.enrichedWith
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
@@ -42,6 +44,8 @@ class LibraryViewModel : BaseViewModel() {
                     _userProfile.postValue(null)
                     _userLibrary.postValue(null)
                     _favoriteSongs.postValue(emptyList())
+                } else {
+                    loadData()
                 }
             }
         }
@@ -99,24 +103,15 @@ class LibraryViewModel : BaseViewModel() {
                 val rawLibData = libRes?.data
                 if (libRes?.isSuccess() == true && rawLibData != null) {
                     var finalLibData = rawLibData
-                    // 容错：如果歌手名或头像为空（后端 JOIN 异常），从已缓存/全量歌手列表中补全
-                    val hasMissingArtistInfo = finalLibData.followedArtists.any { it.name.isNullOrBlank() || it.avatar.isNullOrBlank() }
+                    // 容错：如果歌手名无效（后端 JOIN 异常导致返回 db_xx / 占位 ID）或头像为空，从全量歌手列表/本地缓存中补全
+                    val hasMissingArtistInfo = finalLibData.followedArtists.any { it.isInvalidName() || it.avatar.isNullOrBlank() }
                     if (hasMissingArtistInfo) {
                         try {
                             val skeleton = MoodyApiProvider.apiService.getArtists()
-                            val skeletonData = skeleton.data
-                            if (skeleton.isSuccess() && skeletonData != null) {
-                                val map = skeletonData.artists.associateBy { it.id }
+                            val artistsList = skeleton.data?.artists ?: emptyList()
+                            if (artistsList.isNotEmpty()) {
                                 val enrichedArtists = finalLibData.followedArtists.map { item ->
-                                    val match = map[item.artistId]
-                                    if (match != null) {
-                                        item.copy(
-                                            name = item.name?.takeIf { it.isNotBlank() } ?: match.name,
-                                            avatar = item.avatar?.takeIf { it.isNotBlank() } ?: match.avatar
-                                        )
-                                    } else {
-                                        item
-                                    }
+                                    item.enrichedWith(artistsList)
                                 }
                                 finalLibData = finalLibData.copy(followedArtists = enrichedArtists)
                             }

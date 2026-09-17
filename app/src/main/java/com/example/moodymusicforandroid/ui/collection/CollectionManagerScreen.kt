@@ -26,6 +26,10 @@ import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.data.model.FavoriteSong
 import com.example.moodymusicforandroid.data.model.LibraryAlbumItem
 import com.example.moodymusicforandroid.data.model.LibraryArtistItem
+import com.example.moodymusicforandroid.data.model.enrichedWith
+import com.example.moodymusicforandroid.data.model.getDisplayName
+import com.example.moodymusicforandroid.data.model.getDisplayTitle
+import com.example.moodymusicforandroid.data.model.isInvalidName
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
@@ -76,21 +80,14 @@ fun CollectionManagerScreen(
             val rawData = libRes.data
             if (libRes.isSuccess() && rawData != null) {
                 var data: com.example.moodymusicforandroid.data.model.UserLibraryResponse = rawData
-                // 容错补全歌手名与头像
-                val hasMissing = data.followedArtists.any { it.name.isNullOrBlank() || it.avatar.isNullOrBlank() }
+                // 容错补全歌手名与头像（包括后端 JOIN 失败导致 name = "db_74" 等占位 ID 的情况）
+                val hasMissing = data.followedArtists.any { it.isInvalidName() || it.avatar.isNullOrBlank() }
                 if (hasMissing) {
                     val skeleton = com.example.moodymusicforandroid.data.api.MoodyApiProvider.apiService.getArtists()
-                    val skeletonData = skeleton.data
-                    if (skeleton.isSuccess() && skeletonData != null) {
-                        val map = skeletonData.artists.associateBy { it.id }
+                    val artistsList = skeleton.data?.artists ?: emptyList()
+                    if (artistsList.isNotEmpty()) {
                         val enriched = data.followedArtists.map { item ->
-                            val match = map[item.artistId]
-                            if (match != null) {
-                                item.copy(
-                                    name = item.name?.takeIf { it.isNotBlank() } ?: match.name,
-                                    avatar = item.avatar?.takeIf { it.isNotBlank() } ?: match.avatar
-                                )
-                            } else item
+                            item.enrichedWith(artistsList)
                         }
                         data = data.copy(followedArtists = enriched)
                     }
@@ -330,9 +327,7 @@ fun CollectionManagerScreen(
                         ) {
                             items(albumsList, key = { it.albumId }) { album ->
                                 val isSelected = album.albumId in selectedAlbumIds
-                                val albumTitle = album.title?.takeIf { it.isNotBlank() }
-                                    ?: album.albumId.takeIf { !it.startsWith("album_") && !it.startsWith("db_") }
-                                    ?: "精选专辑"
+                                val albumTitle = album.getDisplayTitle()
                                 AlbumCollectionItemRow(
                                     album = album,
                                     title = albumTitle,
@@ -366,7 +361,7 @@ fun CollectionManagerScreen(
                         ) {
                             items(artistsList, key = { it.artistId }) { artist ->
                                 val isSelected = artist.artistId in selectedArtistIds
-                                val artistName = artist.name?.takeIf { it.isNotBlank() } ?: "未知歌手"
+                                val artistName = artist.getDisplayName()
                                 ArtistCollectionItemRow(
                                     artist = artist,
                                     name = artistName,

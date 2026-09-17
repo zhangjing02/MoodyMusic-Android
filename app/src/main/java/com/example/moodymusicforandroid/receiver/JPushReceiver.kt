@@ -12,6 +12,7 @@ import com.example.moodymusicforandroid.common.eventbus.EventBusManager
 import com.example.moodymusicforandroid.common.eventbus.EventType
 import com.example.moodymusicforandroid.common.network.RetrofitClient
 import com.example.moodymusicforandroid.common.preferences.PreferencesManager
+import com.example.moodymusicforandroid.common.update.PgyerUpdateManager
 import com.example.moodymusicforandroid.common.utils.AppFlags
 import com.example.moodymusicforandroid.data.api.MoodyApiProvider
 import com.example.moodymusicforandroid.data.manager.UserManager
@@ -60,6 +61,7 @@ class JPushReceiver : JPushMessageReceiver() {
         const val ACTION_FETCH_NEW = "FETCH_NEW"
         const val ACTION_KICK_OUT = "KICK_OUT"
         const val ACTION_ROSTER_UPDATE = "ROSTER_UPDATE"
+        const val ACTION_APP_VERSION_UPDATE = "APP_VERSION_UPDATE"
 
         /**
          * LocalBroadcast Action — 通知前台 UI 刷新评论
@@ -134,6 +136,12 @@ class JPushReceiver : JPushMessageReceiver() {
             return
         }
 
+        if (action == ACTION_APP_VERSION_UPDATE) {
+            Log.d(TAG, "[onMessage] APP_VERSION_UPDATE signal received, triggering silent version check")
+            handleVersionUpdateCheck(context)
+            return
+        }
+
         if (action == ACTION_FETCH_NEW && !albumId.isNullOrEmpty()) {
             Log.d(TAG, "[onMessage] FETCH_NEW signal for album: $albumId")
             handleFetchNew(context, albumId)
@@ -185,6 +193,16 @@ class JPushReceiver : JPushMessageReceiver() {
         androidx.localbroadcastmanager.content.LocalBroadcastManager
             .getInstance(context)
             .sendBroadcast(intent)
+    }
+
+    /**
+     * 处理 APP_VERSION_UPDATE 信号
+     * 收到云端新版本发布推送，立即在后台异步静默请求蒲公英检测更新，更新全局 StateFlow
+     */
+    private fun handleVersionUpdateCheck(context: Context?) {
+        if (context == null) return
+        Log.d(TAG, "[handleVersionUpdateCheck] 触发后台静默检测蒲公英新版本")
+        PgyerUpdateManager.triggerSilentCheck(context)
     }
 
     /**

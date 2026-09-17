@@ -263,3 +263,67 @@ data class BatchRemoveRequest(
     @SerializedName("ids")
     val ids: List<Any>
 )
+
+/**
+ * 校验当前歌手名是否为无效的占位ID（例如 "db_74", "artist_12", "74" 或与 ID 相同）
+ */
+fun LibraryArtistItem.isInvalidName(): Boolean {
+    if (name.isNullOrBlank()) return true
+    val trimmed = name.trim()
+    if (trimmed.startsWith("db_", ignoreCase = true) || trimmed.startsWith("artist_", ignoreCase = true)) return true
+    val cleanId = artistId.trim().removePrefix("db_").removePrefix("artist_")
+    val cleanName = trimmed.removePrefix("db_").removePrefix("artist_")
+    if (cleanName.equals(cleanId, ignoreCase = true) || trimmed.equals(artistId.trim(), ignoreCase = true)) return true
+    if (trimmed.all { it.isDigit() }) return true
+    return false
+}
+
+/**
+ * 获取可供展示的歌手名，如果是占位ID则返回 fallback (默认 "未知歌手")
+ */
+fun LibraryArtistItem.getDisplayName(fallback: String = "未知歌手"): String {
+    return if (!isInvalidName()) name!!.trim() else fallback
+}
+
+/**
+ * 使用全量歌手列表对当前歌手信息进行容错补全
+ */
+fun LibraryArtistItem.enrichedWith(artists: List<Artist>): LibraryArtistItem {
+    val cleanId = artistId.trim().removePrefix("db_").removePrefix("artist_")
+    val match = artists.find { it.id == artistId }
+        ?: artists.find { it.id.trim().removePrefix("db_").removePrefix("artist_") == cleanId }
+        ?: artists.find { it.name.trim() == cleanId }
+
+    val realName = if (isInvalidName()) {
+        match?.name?.takeIf { it.isNotBlank() } ?: name
+    } else {
+        name
+    }
+
+    val realAvatar = if (avatar.isNullOrBlank()) {
+        match?.avatar?.takeIf { it.isNotBlank() } ?: avatar
+    } else {
+        avatar
+    }
+
+    return copy(name = realName, avatar = realAvatar)
+}
+
+/**
+ * 校验专辑名称是否为无效占位ID（例如 "db_1808", "album_1808" 等）
+ */
+fun LibraryAlbumItem.isInvalidTitle(): Boolean {
+    if (title.isNullOrBlank()) return true
+    val trimmed = title.trim()
+    if (trimmed.startsWith("db_", ignoreCase = true) || trimmed.startsWith("album_", ignoreCase = true)) return true
+    val cleanId = albumId.trim().removePrefix("db_").removePrefix("album_")
+    val cleanTitle = trimmed.removePrefix("db_").removePrefix("album_")
+    if (cleanTitle.equals(cleanId, ignoreCase = true) || trimmed.equals(albumId.trim(), ignoreCase = true)) return true
+    if (trimmed.all { it.isDigit() }) return true
+    return false
+}
+
+fun LibraryAlbumItem.getDisplayTitle(fallback: String = "精选专辑"): String {
+    return if (!isInvalidTitle()) title!!.trim() else fallback
+}
+

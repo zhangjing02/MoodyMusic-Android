@@ -1,9 +1,14 @@
-﻿package com.example.moodymusicforandroid.common.update
+package com.example.moodymusicforandroid.common.update
 
 import android.content.Context
 import com.example.moodymusicforandroid.common.utils.DeviceInfoUtils
 import com.example.moodymusicforandroid.data.model.AppVersionData
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -18,6 +23,9 @@ object PgyerUpdateManager {
     private const val PGYER_API_KEY = "48ceaf75791c09d36fdb364b8f1fd314"
     private const val PGYER_APP_KEY = "e127ba6898e9d160519e7fb0b0dc3bde"
     private const val PGYER_CHECK_URL = "https://www.pgyer.com/apiv2/app/check"
+
+    private val _versionState = MutableStateFlow<AppVersionData?>(null)
+    val versionState: StateFlow<AppVersionData?> = _versionState.asStateFlow()
 
     private val client by lazy {
         OkHttpClient.Builder()
@@ -125,7 +133,7 @@ object PgyerUpdateManager {
             // 核心比对：只有当蒲公英上的版本名称严格大于当前本地版本名称时，才判定为有新版本
             val hasUpdate = compareVersionNames(pgyerVersion, currentVersionName) > 0
 
-            AppVersionData(
+            val result = AppVersionData(
                 hasUpdate = hasUpdate,
                 isForceUpdate = hasUpdate && isForce,
                 isIgnoredAllowed = !isForce,
@@ -139,9 +147,24 @@ object PgyerUpdateManager {
                 releaseNotes = updateNotes,
                 title = if (hasUpdate) "发现新版本 v" + pgyerVersion else "当前已是最新版本"
             )
+            _versionState.value = result
+            result
         } else {
             val msg = json.optString("message", "获取版本信息失败")
             throw IllegalStateException(msg)
+        }
+    }
+
+    /**
+     * 异步静默触发版本检测（供极光推送透传接收器、抽屉展开事件等在后台直接触发）
+     */
+    fun triggerSilentCheck(context: Context) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                checkUpdate(context.applicationContext)
+            } catch (_: Exception) {
+                // 静默处理，网络或接口故障不打扰用户正常体验
+            }
         }
     }
 }

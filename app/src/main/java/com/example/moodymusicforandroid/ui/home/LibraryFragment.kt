@@ -3,6 +3,8 @@ package com.example.moodymusicforandroid.ui.home
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.moodymusicforandroid.data.local.db.PlaylistEntity
+import com.example.moodymusicforandroid.data.manager.PlaylistManager
 import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.data.model.FavoriteSong
 import com.example.moodymusicforandroid.data.model.User
@@ -31,6 +35,7 @@ import com.example.moodymusicforandroid.ui.home.components.CommunitySocialSectio
 import com.example.moodymusicforandroid.ui.home.components.FavoriteAlbumsSection
 import com.example.moodymusicforandroid.ui.home.components.FavoriteSongsSection
 import com.example.moodymusicforandroid.ui.home.components.FollowedArtistsSection
+import com.example.moodymusicforandroid.ui.home.components.PlaylistsSection
 import com.example.moodymusicforandroid.ui.home.viewmodel.LibraryViewModel
 import com.example.moodymusicforandroid.ui.music.viewmodel.AlbumSocialViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
@@ -47,6 +52,8 @@ fun LibraryScreen(
     onSongClick: (FavoriteSong) -> Unit = {},
     onAlbumClick: (String, String) -> Unit = { _, _ -> },
     onArtistClick: (String, String) -> Unit = { _, _ -> },
+    onPlaylistClick: (Long, String) -> Unit = { _, _ -> },
+    onPlayPlaylistClick: (PlaylistEntity) -> Unit = {},
     onOpenCollectionManager: (initialTab: Int) -> Unit = {},
     onAuthClick: () -> Unit = {}
 ) {
@@ -54,6 +61,7 @@ fun LibraryScreen(
     val userProfile by viewModel.userProfile.observeAsState()
     val userLibrary by viewModel.userLibrary.observeAsState()
     val favoriteSongs by viewModel.favoriteSongs.observeAsState(emptyList())
+    val playlists by PlaylistManager.playlists.collectAsState()
     val socialContent by socialViewModel.socialContent.observeAsState()
     val errorMessage by socialViewModel.errorMessage.observeAsState()
     val isRefreshingSocial by socialViewModel.isRefreshing.collectAsState()
@@ -61,11 +69,13 @@ fun LibraryScreen(
     val isRefreshing = isRefreshingSocial || isRefreshingLib
     val pullToRefreshState = rememberPullToRefreshState()
     var commentText by remember { mutableStateOf("") }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
 
     // 进入页面时加载数据
     LaunchedEffect(Unit) {
         socialViewModel.fetchSocialContent("night_peace")
         viewModel.loadData()
+        PlaylistManager.refreshPlaylists()
     }
 
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -75,6 +85,7 @@ fun LibraryScreen(
         onRefresh = {
             socialViewModel.fetchSocialContent("night_peace")
             viewModel.loadData()
+            PlaylistManager.refreshPlaylists()
         },
         state = pullToRefreshState,
         headerTopPadding = statusBarTop,
@@ -103,6 +114,16 @@ fun LibraryScreen(
                 } else {
                     GuestProfileHeaderCard(onAuthClick = onAuthClick)
                 }
+            }
+
+            // 我的私藏磁带区 (自建播放列表)
+            item {
+                PlaylistsSection(
+                    playlists = playlists,
+                    onPlaylistClick = onPlaylistClick,
+                    onPlayPlaylistClick = onPlayPlaylistClick,
+                    onCreateNewClick = { showCreatePlaylistDialog = true }
+                )
             }
 
             // 收藏歌曲区
@@ -164,6 +185,16 @@ fun LibraryScreen(
                     }
                 )
             }
+        }
+
+        if (showCreatePlaylistDialog) {
+            CreatePlaylistQuickDialog(
+                onDismiss = { showCreatePlaylistDialog = false },
+                onConfirm = { name, color ->
+                    PlaylistManager.createPlaylist(name = name, themeColor = color)
+                    showCreatePlaylistDialog = false
+                }
+            )
         }
     }
 }
@@ -232,7 +263,7 @@ private fun UserProfileHeaderCard(
             HorizontalDivider(color = SongbookColors.GhostBorder, thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 统计数据（实时从服务器拉取的数字）
+            // 统计数据（恢复3个统计项）
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround,
@@ -348,7 +379,7 @@ private fun GuestProfileHeaderCard(
             HorizontalDivider(color = SongbookColors.GhostBorder, thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 统计数据（访客状态展示为 0）
+            // 统计数据（访客状态展示3项）
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround,
@@ -372,5 +403,96 @@ private fun GuestProfileHeaderCard(
             }
         }
     }
+}
+
+/**
+ * 快速创建磁带弹窗
+ */
+@Composable
+private fun CreatePlaylistQuickDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, color: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var selectedColor by remember { mutableStateOf("DEFAULT") }
+
+    val colors = listOf(
+        "DEFAULT" to androidx.compose.ui.graphics.Color(0xFF8D6E63),
+        "SUNSET_ORANGE" to androidx.compose.ui.graphics.Color(0xFFE65100),
+        "FOREST_GREEN" to androidx.compose.ui.graphics.Color(0xFF2E7D32),
+        "MIDNIGHT_BLUE" to androidx.compose.ui.graphics.Color(0xFF1565C0),
+        "DEEP_DARK" to androidx.compose.ui.graphics.Color(0xFF212121),
+        "CHERRY_VINTAGE" to androidx.compose.ui.graphics.Color(0xFFAD1457)
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "新建手札",
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    placeholder = { Text("例如：交响乐、民谣、说唱...", fontSize = 13.sp, color = SongbookColors.Outline) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Text(
+                    text = "手札主题色",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SongbookColors.Outline
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    colors.forEach { (code, col) ->
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(col)
+                                .border(
+                                    width = if (selectedColor == code) 2.5.dp else 1.dp,
+                                    color = if (selectedColor == code) SongbookColors.BurntOrange else androidx.compose.ui.graphics.Color.Transparent,
+                                    shape = CircleShape
+                                )
+                                .clickable { selectedColor = code }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onConfirm(name.trim(), selectedColor)
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+            ) {
+                Text("完成", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+        containerColor = SongbookColors.SurfaceLow,
+        shape = RoundedCornerShape(18.dp)
+    )
 }
 

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.data.model.LibraryArtistItem
+import com.example.moodymusicforandroid.data.model.getDisplayName
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
@@ -73,7 +74,7 @@ fun FollowedArtistsSection(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { onArtistClick(artist.artistId, artist.name ?: artist.artistId) }
+                            .clickable { onArtistClick(artist.artistId, artist.getDisplayName()) }
                     ) {
                         Box(
                             modifier = Modifier
@@ -90,7 +91,7 @@ fun FollowedArtistsSection(
                             ) {
                                 SongbookImage(
                                     model = artist.avatar,
-                                    contentDescription = artist.name,
+                                    contentDescription = artist.getDisplayName(),
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -99,7 +100,7 @@ fun FollowedArtistsSection(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = artist.name ?: "未知歌手",
+                            text = artist.getDisplayName(),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Medium
