@@ -3,21 +3,5 @@
     <string name="app_name">音信</string>
     <string name="app_name_en">TunePost</string>
     <string name="unknown_album">Unknown Album</string>
-    <string name="classroom_auth">教室认证</string>
-    <string name="seat_claim">认领座位</string>
-    <string name="welcome_to_classroom">欢迎回到教室</string>
     <string name="btn_back">返回</string>
-    <string name="blackboard_status_prefix">今天应到</string>
-    <string name="person_unit">人</string>
-    <string name="action_start_class">开始上课</string>
-    <string name="hint_classroom_id">请输入教室 ID</string>
-    <string name="hint_course_name">请输入课程名称</string>
-    <string name="classroom_header_default">— 高三 二班  •  2024届 —</string>
-    <string name="blackboard_title_main">同学录  •  青春到此一游</string>
-    <string name="blackboard_hint_claim">点击你的姓名认领座位</string>
-    <string name="platform_label">讲台</string>
-    <string name="platform_teacher_hint">✦ 班主任</string>
-    <string name="status_unclaimed">待认领</string>
-    <string name="label_claimed">已认领</string>
-    <string name="label_total">总人数</string>
 </resources>

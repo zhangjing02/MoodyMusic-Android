@@ -41,3 +41,15 @@ data class TimelineSectionDto(
     @SerializedName("technique") val technique: String = "",
     @SerializedName("performerNote") val performerNote: String = ""
 )
+
+val ThemeStoryDto.safeBodyParagraphs: List<String>
+    get() = bodyParagraphs ?: emptyList()
+
+val ThemeStoryDto.safeScenarios: List<String>
+    get() = scenarios ?: emptyList()
+
+val ThemeStoryDto.safeBenefits: List<String>
+    get() = benefits ?: emptyList()
+
+val ThemeStoryDto.safeTimelineSections: List<TimelineSectionDto>
+    get() = timelineSections ?: emptyList()

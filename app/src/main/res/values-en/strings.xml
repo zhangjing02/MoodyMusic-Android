@@ -2,21 +2,5 @@
 <resources>
     <string name="app_name">TunePost</string>
     <string name="unknown_album">Unknown Album</string>
-    <string name="classroom_auth">Classroom Auth</string>
-    <string name="seat_claim">Claim Seat</string>
-    <string name="welcome_to_classroom">Welcome back to classroom</string>
     <string name="btn_back">Back</string>
-    <string name="blackboard_status_prefix">Expected Today: </string>
-    <string name="person_unit"> students</string>
-    <string name="action_start_class">Start Class</string>
-    <string name="hint_classroom_id">Enter Classroom ID</string>
-    <string name="hint_course_name">Enter Course Name</string>
-    <string name="classroom_header_default">— Class 2, Grade 12 • Class of 2024 —</string>
-    <string name="blackboard_title_main">Class Yearbook • Youth Was Here</string>
-    <string name="blackboard_hint_claim">Click your name to claim a seat</string>
-    <string name="platform_label">Podium</string>
-    <string name="platform_teacher_hint">✦ Homeroom Teacher</string>
-    <string name="status_unclaimed">Unclaimed</string>
-    <string name="label_claimed">Claimed</string>
-    <string name="label_total">Total</string>
 </resources>

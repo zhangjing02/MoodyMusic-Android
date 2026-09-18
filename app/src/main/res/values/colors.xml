@@ -61,27 +61,6 @@
     <!-- Frosted glass overlay -->
     <color name="frosted_glass_background">#CCF8FAF8</color>
 
-    <!-- Classroom Theme (V15 Ultra Realistic) -->
-    <color name="classroom_bg_dark">#0d2218</color>
-    <color name="classroom_chalkboard_main">#1a3d2e</color>
-    <color name="classroom_chalkboard_edge">#122a1f</color>
-    <color name="classroom_wood_bright">#dfb67c</color>
-    <color name="classroom_wood_medium">#b88a4d</color>
-    <color name="classroom_wood_dark">#8c6239</color>
-    <color name="classroom_wood_shadow">#4d3319</color>
-    <color name="classroom_floor_vintage">#f0e6d2</color>
-    <color name="classroom_status_pill">#142d20</color>
-    <color name="classroom_chalk_white">#e8f5e9</color>
-    <color name="classroom_gold_label">#f1c40f</color>
-    <color name="classroom_desk">#8D6E63</color>
-    <color name="classroom_desk_claimed">#4E342E</color>
-    <color name="classroom_desk_shadow">#5D4037</color>
-    <color name="classroom_metal_leg">#95a5a6</color>
-    <color name="classroom_metal_leg_shadow">#7f8c8d</color>
-    <color name="classroom_metal_leg_subtle">#1AFFFFFF</color>
-    <color name="classroom_status_unclaimed">#B38E63</color>
-    <color name="classroom_status_claimed_offline">#4EA96A</color>
-    <color name="classroom_status_claimed_online">#5F7F92</color>
     <!-- Ocean Theme Palette -->
     <color name="ocean_primary">#0077be</color>
     <color name="ocean_on_primary">#ffffff</color>

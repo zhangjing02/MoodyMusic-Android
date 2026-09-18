@@ -60,7 +60,6 @@ class JPushReceiver : JPushMessageReceiver() {
         /** 透传消息 action 值 */
         const val ACTION_FETCH_NEW = "FETCH_NEW"
         const val ACTION_KICK_OUT = "KICK_OUT"
-        const val ACTION_ROSTER_UPDATE = "ROSTER_UPDATE"
         const val ACTION_APP_VERSION_UPDATE = "APP_VERSION_UPDATE"
 
         /**
@@ -69,12 +68,6 @@ class JPushReceiver : JPushMessageReceiver() {
          */
         const val BROADCAST_ACTION_REFRESH_COMMENTS =
             "com.example.moodymusicforandroid.ACTION_REFRESH_COMMENTS"
-
-        /**
-         * LocalBroadcast Action — 通知前台 UI 刷新座位表
-         */
-        const val BROADCAST_ACTION_REFRESH_ROSTER =
-            "com.example.moodymusicforandroid.ACTION_REFRESH_ROSTER"
 
         /** Intent extra key：对应专辑 ID */
         const val EXTRA_ALBUM_ID = "album_id"
@@ -130,12 +123,6 @@ class JPushReceiver : JPushMessageReceiver() {
             return
         }
 
-        if (action == ACTION_ROSTER_UPDATE) {
-            Log.d(TAG, "[onMessage] ROSTER_UPDATE signal for class: $classId")
-            handleRosterUpdate(context, classId.orEmpty())
-            return
-        }
-
         if (action == ACTION_APP_VERSION_UPDATE) {
             Log.d(TAG, "[onMessage] APP_VERSION_UPDATE signal received, triggering silent version check")
             handleVersionUpdateCheck(context)
@@ -178,22 +165,7 @@ class JPushReceiver : JPushMessageReceiver() {
         }
     }
 
-    /**
-     * 处理 ROSTER_UPDATE 信号
-     */
-    private fun handleRosterUpdate(context: Context?, classId: String) {
-        if (context == null) return
 
-        // 无论应用在后台还是前台，都可以尝试发送广播
-        // ClassroomActivity 会在可见时监听此广播
-        Log.d(TAG, "[handleRosterUpdate] 发送刷新广播")
-        val intent = android.content.Intent(BROADCAST_ACTION_REFRESH_ROSTER).apply {
-            putExtra(EXTRA_CLASS_ID, classId)
-        }
-        androidx.localbroadcastmanager.content.LocalBroadcastManager
-            .getInstance(context)
-            .sendBroadcast(intent)
-    }
 
     /**
      * 处理 APP_VERSION_UPDATE 信号

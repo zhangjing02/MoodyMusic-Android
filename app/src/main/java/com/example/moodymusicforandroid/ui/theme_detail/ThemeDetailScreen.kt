@@ -29,6 +29,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.data.model.ThemeStoryDto
+import com.example.moodymusicforandroid.data.model.safeBodyParagraphs
+import com.example.moodymusicforandroid.data.model.safeTimelineSections
+import com.example.moodymusicforandroid.data.model.safeScenarios
+import com.example.moodymusicforandroid.data.model.safeBenefits
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
@@ -295,7 +299,7 @@ private fun ThemeDetailContent(
             Column(
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                story.bodyParagraphs.forEachIndexed { idx, p ->
+                story.safeBodyParagraphs.forEachIndexed { idx, p ->
                     Text(
                         text = p,
                         style = MaterialTheme.typography.bodyLarge,
@@ -344,7 +348,7 @@ private fun ThemeDetailContent(
                 }
 
                 // 4. 乐章全景时序解析 (剧情 · 情绪 · 演奏技巧剖析)
-                if (story.timelineSections.isNotEmpty()) {
+                if (story.safeTimelineSections.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     val timelineTitle = story.timelineTitle.ifBlank { "🎼 乐章时序全景图解 · 剧情 / 情绪 / 演奏技巧剖析" }
                     Text(
@@ -354,7 +358,7 @@ private fun ThemeDetailContent(
                         color = SongbookColors.BurntOrange
                     )
 
-                    story.timelineSections.forEachIndexed { idx, section ->
+                    story.safeTimelineSections.forEachIndexed { idx, section ->
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f),
                             shape = RoundedCornerShape(12.dp),
@@ -494,7 +498,7 @@ private fun ThemeDetailContent(
                 }
 
                 // 适用场景
-                if (story.scenarios.isNotEmpty()) {
+                if (story.safeScenarios.isNotEmpty()) {
                     Text(
                         text = story.scenariosTitle.ifBlank { "🎧 适用场景" },
                         style = MaterialTheme.typography.titleMedium,
@@ -511,7 +515,7 @@ private fun ThemeDetailContent(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            story.scenarios.forEach { s ->
+                            story.safeScenarios.forEach { s ->
                                 Text(
                                     text = s,
                                     style = MaterialTheme.typography.bodyMedium,
@@ -523,7 +527,7 @@ private fun ThemeDetailContent(
                 }
 
                 // 好处 / 专题亮点
-                if (story.benefits.isNotEmpty()) {
+                if (story.safeBenefits.isNotEmpty()) {
                     Text(
                         text = story.benefitsTitle.ifBlank { "✨ 专题亮点" },
                         style = MaterialTheme.typography.titleMedium,
@@ -540,7 +544,7 @@ private fun ThemeDetailContent(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            story.benefits.forEach { b ->
+                            story.safeBenefits.forEach { b ->
                                 Text(
                                     text = b,
                                     style = MaterialTheme.typography.bodyMedium,

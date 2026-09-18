@@ -379,7 +379,6 @@ fun HomeScreen(
                             data = actionsData,
                             onActionClick = { action ->
                                 when (action.id) {
-                                    "classroom" -> onAlbumClick("classroom", "音乐教室")
                                     "vinyl_radio" -> onAlbumClick("vinyl_radio", "黑胶电台")
                                     "daily_radar" -> onAlbumClick("daily_radar", "每日随心听")
                                     "new_charts" -> onAlbumClick("new_charts", "新碟排行榜")

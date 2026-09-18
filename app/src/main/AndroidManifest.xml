@@ -52,12 +52,7 @@
             android:theme="@style/Theme.MoodyMusicForAndroid"
             android:windowSoftInputMode="adjustResize" />
 
-        <activity
-            android:name=".ui.classroom.activity.ClassroomActivity"
-            android:exported="true"
-            android:label="教室"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.MoodyMusicForAndroid" />
+
 
         <!-- 极光推送 Receiver -->
         <receiver

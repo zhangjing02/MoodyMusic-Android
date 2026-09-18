@@ -294,67 +294,6 @@ interface MoodyApiService {
     @DELETE("api/comments/{id}")
     suspend fun deleteComment(@Path("id") commentId: Long): BaseResponse<Any>
 
-    // ==================== 教室座位表相关 ====================
-    
-    /**
-     * 获取座位表
-     * GET /api/roster
-     */
-    @GET("api/roster")
-    suspend fun getRoster(): RosterResponse
-
-    /**
-     * 验证认领答案 (第二步)
-     */
-    @POST("api/user/claim/verify")
-    suspend fun verifyClaim(@Body request: VerifyClaimRequest): VerifyClaimResponse
-
-    /**
-     * 完成认领 (第三步) - 不带邮箱
-     */
-    @POST("api/user/claim/finalize")
-    suspend fun finalizeClaim(@Body request: FinalizeClaimRequest): FinalizeClaimResponse
-
-    /**
-     * 完成认领 (第三步) - 带邮箱
-     */
-    @POST("api/user/claim/finalize")
-    suspend fun finalizeClaimWithEmail(@Body request: FinalizeClaimWithEmailRequest): FinalizeClaimResponse
-
-    // ══════════════════════════════════════════
-    // 专辑社交功能
-    // 所有接口均需要 Authorization: Bearer {token}
-    // ══════════════════════════════════════════
-
-    /**
-     * 获取专辑社交内容（主贴 + 全部回复）
-     * GET /api/albums/{albumId}/social_content
-     */
-    @GET("api/albums/{albumId}/social_content")
-    suspend fun getAlbumSocialContent(
-        @Path("albumId") albumId: String
-    ): BaseResponse<AlbumSocialContent>
-
-    /**
-     * 在专辑下发主贴（每班级唯一）
-     * POST /api/albums/{albumId}/posts
-     */
-    @POST("api/albums/{albumId}/posts")
-    suspend fun postAlbumPost(
-        @Path("albumId") albumId: String,
-        @Body body: PostContentRequest
-    ): BaseResponse<Any>
-
-    /**
-     * 在主贴下发评论
-     * POST /api/albums/posts/{postId}/comments
-     */
-    @POST("api/albums/posts/{postId}/comments")
-    suspend fun postAlbumComment(
-        @Path("postId") postId: String,
-        @Body body: PostContentRequest
-    ): BaseResponse<Any>
-
     /**
      * 检查 App 版本更新
      * GET /api/app/version/check

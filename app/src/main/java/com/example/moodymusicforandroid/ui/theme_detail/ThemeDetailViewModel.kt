@@ -36,14 +36,17 @@ class ThemeDetailViewModel : BaseViewModel() {
                     MoodyApiProvider.apiService.getThemeStoryById(themeId)
                 }
                 _uiState.value = ThemeDetailUiState.Success(story)
-            } catch (e: Exception) {
-                try {
-                    // 若特定 themeId 偶发网络异常，优雅回退到云端内置默认雪天咖啡馆
-                    val fallback = MoodyApiProvider.apiService.getThemeStoryById("snow_cafe_theme")
-                    _uiState.value = ThemeDetailUiState.Success(fallback)
-                } catch (fallbackEx: Exception) {
-                    _uiState.value = ThemeDetailUiState.Error(e.message ?: "加载专栏内容失败")
+            } catch (e: Throwable) {
+                val userFriendlyMessage = when (e) {
+                    is java.net.UnknownHostException, is java.net.SocketTimeoutException -> "网络连接异常，请检查网络后重试"
+                    is retrofit2.HttpException -> when (e.code()) {
+                        404 -> "该专栏深度导赏正在编排中，敬请期待"
+                        500, 502, 503 -> "专栏服务暂时不可用，请稍后重试"
+                        else -> "获取专栏内容失败 (${e.code()})"
+                    }
+                    else -> e.message?.takeIf { it.isNotBlank() } ?: "加载专栏内容失败，请稍后重试"
                 }
+                _uiState.value = ThemeDetailUiState.Error(userFriendlyMessage)
             }
         }
     }

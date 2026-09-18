@@ -31,13 +31,11 @@ import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.data.model.FavoriteSong
 import com.example.moodymusicforandroid.data.model.User
 import com.example.moodymusicforandroid.ui.components.SongbookImage
-import com.example.moodymusicforandroid.ui.home.components.CommunitySocialSection
 import com.example.moodymusicforandroid.ui.home.components.FavoriteAlbumsSection
 import com.example.moodymusicforandroid.ui.home.components.FavoriteSongsSection
 import com.example.moodymusicforandroid.ui.home.components.FollowedArtistsSection
 import com.example.moodymusicforandroid.ui.home.components.PlaylistsSection
 import com.example.moodymusicforandroid.ui.home.viewmodel.LibraryViewModel
-import com.example.moodymusicforandroid.ui.music.viewmodel.AlbumSocialViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
 /**
@@ -48,7 +46,6 @@ import com.example.moodymusicforandroid.ui.theme.SongbookColors
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel = viewModel(),
-    socialViewModel: AlbumSocialViewModel = viewModel(viewModelStoreOwner = LocalContext.current as ComponentActivity),
     onSongClick: (FavoriteSong) -> Unit = {},
     onAlbumClick: (String, String) -> Unit = { _, _ -> },
     onArtistClick: (String, String) -> Unit = { _, _ -> },
@@ -62,18 +59,12 @@ fun LibraryScreen(
     val userLibrary by viewModel.userLibrary.observeAsState()
     val favoriteSongs by viewModel.favoriteSongs.observeAsState(emptyList())
     val playlists by PlaylistManager.playlists.collectAsState()
-    val socialContent by socialViewModel.socialContent.observeAsState()
-    val errorMessage by socialViewModel.errorMessage.observeAsState()
-    val isRefreshingSocial by socialViewModel.isRefreshing.collectAsState()
-    val isRefreshingLib by viewModel.isRefreshing.observeAsState(false)
-    val isRefreshing = isRefreshingSocial || isRefreshingLib
+    val isRefreshing by viewModel.isRefreshing.observeAsState(false)
     val pullToRefreshState = rememberPullToRefreshState()
-    var commentText by remember { mutableStateOf("") }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
 
     // 进入页面时加载数据
     LaunchedEffect(Unit) {
-        socialViewModel.fetchSocialContent("night_peace")
         viewModel.loadData()
         PlaylistManager.refreshPlaylists()
     }
@@ -83,7 +74,6 @@ fun LibraryScreen(
     SongbookPullToRefreshLayout(
         isRefreshing = isRefreshing,
         onRefresh = {
-            socialViewModel.fetchSocialContent("night_peace")
             viewModel.loadData()
             PlaylistManager.refreshPlaylists()
         },
@@ -163,26 +153,6 @@ fun LibraryScreen(
                     artists = effectiveArtists,
                     onArtistClick = onArtistClick,
                     onBrowseAllClick = { onOpenCollectionManager(2) }
-                )
-            }
-
-            // 社区动态
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                CommunitySocialSection(
-                    content = socialContent,
-                    errorMessage = errorMessage?.toString(),
-                    commentText = commentText,
-                    onCommentTextChange = { commentText = it },
-                    onRetryClick = { socialViewModel.fetchSocialContent("night_peace") },
-                    onSendClick = {
-                        if (commentText.isNotBlank()) {
-                            socialContent?.id?.let {
-                                socialViewModel.postReply(it, "night_peace", commentText)
-                            }
-                            commentText = ""
-                        }
-                    }
                 )
             }
         }
