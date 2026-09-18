@@ -47,6 +47,7 @@ import coil.request.SuccessResult
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.common.config.AppConfig
 import com.example.moodymusicforandroid.data.manager.UserManager
+import com.example.moodymusicforandroid.ui.components.SwipeToRevealDelete
 import com.example.moodymusicforandroid.ui.playlist.AddToPlaylistSheet
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import kotlinx.coroutines.Dispatchers
@@ -1435,9 +1436,10 @@ private fun PlayQueueBottomSheet(
                             .fillMaxWidth()
                             .weight(1f)
                     ) {
-                        itemsIndexed(queue) { index, item ->
+                        itemsIndexed(queue, key = { _, item -> item.queueId }) { index, item ->
                             val isCurrent = index == currentIndex
                             PlayQueueRowItem(
+                                modifier = Modifier.animateItem(),
                                 item = item,
                                 isCurrent = isCurrent,
                                 isPlaying = isPlaying,
@@ -1482,36 +1484,39 @@ private fun PlayQueueRowItem(
     isCurrent: Boolean,
     isPlaying: Boolean,
     onClick: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val titleColor = if (isCurrent) SongbookColors.BurntOrangeLight else Color.White.copy(alpha = 0.88f)
-    val artistColor = if (isCurrent) SongbookColors.BurntOrangeLight.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.45f)
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically
+    SwipeToRevealDelete(
+        onDelete = onRemove,
+        modifier = modifier,
+        deleteLabel = "移除",
+        deleteColor = Color(0xFFFF3B30),
+        contentBackgroundColor = Color(0xFF19171C)
     ) {
-        // 当前播放指示器（音波或占位）
-        if (isCurrent) {
-            PlayingEqualizerBars(
-                isPlaying = isPlaying,
-                modifier = Modifier
-                    .size(16.dp)
-                    .padding(end = 2.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        } else {
-            Spacer(modifier = Modifier.width(4.dp))
-        }
-
-        // 歌名与歌手
         Row(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 20.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // 当前播放指示器（音波或占位）
+            if (isCurrent) {
+                PlayingEqualizerBars(
+                    isPlaying = isPlaying,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .padding(end = 2.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            } else {
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+
+            // 歌名
             Text(
                 text = item.songTitle,
                 color = titleColor,
@@ -1519,28 +1524,7 @@ private fun PlayQueueRowItem(
                 fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            Text(
-                text = " - ${item.artistName}",
-                color = artistColor,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 6.dp)
-            )
-        }
-
-        // 移除该单曲按钮
-        IconButton(
-            onClick = onRemove,
-            modifier = Modifier.size(32.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_close),
-                contentDescription = "移除",
-                tint = Color.White.copy(alpha = 0.35f),
-                modifier = Modifier.size(12.dp)
+                modifier = Modifier.weight(1f)
             )
         }
     }

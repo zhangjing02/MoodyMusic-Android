@@ -360,29 +360,17 @@ fun MainScreen(
                                     navigator.navigate(RouteAlbumDetail("vinyl_soul", "回响：寻找消失的黑胶灵魂"))
                                 }
                             },
-                            onThemeClick = { themeId, title, audioUrl, coverUrl, artistName ->
+                            onThemeClick = { themeId, title, audioUrl, coverUrl, artistName, storyUrl ->
                                 // 当下面播放器显示时（无论是正在播放，还是暂停播放），进入卡片详情都不自动播放，把选择权交给用户，尽量不要打断用户的播放流畅性
                                 val isBottomPlayerVisible = playState.songTitle.isNotBlank()
                                 if (!isBottomPlayerVisible && UserManager.isCardClickDirectPlay() && audioUrl.isNotBlank()) {
+                                    val cleanAlbumTitle = if (title.contains("—")) title.substringAfter("—").trim() else "今日胶片精选 · 慢调专栏"
                                     playerViewModel.playSingleUrl(
                                         audioUrl = audioUrl,
                                         songTitle = title.substringBefore("—").replace("《", "").replace("》", "").trim(),
                                         artistName = artistName,
-                                        albumTitle = when (themeId) {
-                                            "butterfly_lovers_deep_dive" -> "深度名作解析 · 东方交响"
-                                            "bach_cello_theme" -> "今日胶片精选 · 古典大提琴"
-                                            "pop_piano_theme" -> "今日胶片精选 · 流行钢琴"
-                                            "jonathan_lee_theme" -> "今日胶片精选 · 华语大师"
-                                            "lofi_chill_theme" -> "今日胶片精选 · 治愈旋律"
-                                            else -> "慢调阅读 · 深度专栏"
-                                        },
-                                        coverUrl = if (themeId == "butterfly_lovers_deep_dive") {
-                                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/butterfly_lovers_cover_clean.jpg"
-                                        } else if (themeId == "bach_cello_theme") {
-                                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/bach_cello_cover.jpg"
-                                        } else {
-                                            coverUrl
-                                        }
+                                        albumTitle = cleanAlbumTitle,
+                                        coverUrl = coverUrl
                                     )
                                 }
                                 navigator.navigate(
@@ -391,7 +379,8 @@ fun MainScreen(
                                         title = title,
                                         audioUrl = audioUrl,
                                         coverUrl = coverUrl,
-                                        artistName = artistName
+                                        artistName = artistName,
+                                        storyUrl = storyUrl
                                     )
                                 )
                             }
@@ -565,6 +554,7 @@ fun MainScreen(
                             audioUrl = key.audioUrl,
                             coverUrl = key.coverUrl,
                             artistName = key.artistName,
+                            storyUrl = key.storyUrl,
                             isPlaying = isThisThemePlaying,
                             isThisThemeActive = isThisThemeActive,
                             isMiniPlayerVisible = isMiniPlayerVisible,
@@ -575,25 +565,13 @@ fun MainScreen(
                                 } else if (isThisThemeActive) {
                                     playerViewModel.togglePlayPause()
                                 } else {
+                                    val cleanAlbumTitle = if (key.title.contains("—")) key.title.substringAfter("—").trim() else "今日胶片精选 · 慢调专栏"
                                     playerViewModel.playSingleUrl(
                                         audioUrl = key.audioUrl,
                                         songTitle = key.title.substringBefore("—").replace("《", "").replace("》", "").trim(),
                                         artistName = key.artistName,
-                                        albumTitle = when (key.themeId) {
-                                            "butterfly_lovers_deep_dive" -> "深度名作解析 · 东方交响"
-                                            "bach_cello_theme" -> "今日胶片精选 · 古典大提琴"
-                                            "pop_piano_theme" -> "今日胶片精选 · 流行钢琴"
-                                            "jonathan_lee_theme" -> "今日胶片精选 · 华语大师"
-                                            "lofi_chill_theme" -> "今日胶片精选 · 治愈旋律"
-                                            else -> "慢调阅读 · 深度专栏"
-                                        },
-                                        coverUrl = if (key.themeId == "butterfly_lovers_deep_dive") {
-                                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/butterfly_lovers_cover_clean.jpg"
-                                        } else if (key.themeId == "bach_cello_theme") {
-                                            "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/albums/bach_cello_cover.jpg"
-                                        } else {
-                                            key.coverUrl
-                                        }
+                                        albumTitle = cleanAlbumTitle,
+                                        coverUrl = key.coverUrl
                                     )
                                 }
                             }

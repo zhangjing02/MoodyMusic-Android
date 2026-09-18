@@ -37,7 +37,8 @@ data class RouteThemeDetail(
     val title: String = "雪天咖啡館的閱讀鋼琴",
     val audioUrl: String = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/snow_cafe_piano.mp3",
     val coverUrl: String = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/home/snow_cafe_static.jpg",
-    val artistName: String = "放鬆鋼琴 · 慢時光"
+    val artistName: String = "放鬆鋼琴 · 慢時光",
+    val storyUrl: String? = null
 ) : NavKey
 
 @Serializable

@@ -69,7 +69,7 @@ fun HomeScreen(
     onAlbumClick: (String, String) -> Unit = { _, _ -> },
     onArtistClick: (String, String) -> Unit = { _, _ -> },
     onArticleClick: (String) -> Unit = {},
-    onThemeClick: (themeId: String, title: String, audioUrl: String, coverUrl: String, artistName: String) -> Unit = { _, _, _, _, _ -> }
+    onThemeClick: (themeId: String, title: String, audioUrl: String, coverUrl: String, artistName: String, storyUrl: String?) -> Unit = { _, _, _, _, _, _ -> }
 ) {
     val feedItems by viewModel.homeFeedItems.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -133,7 +133,8 @@ fun HomeScreen(
                                         fullTitle,
                                         item.audioUrl ?: "",
                                         item.coverUrl,
-                                        item.artistName ?: ""
+                                        item.artistName ?: "",
+                                        item.storyUrl
                                     )
                                 } else {
                                     onAlbumClick(item.actionTarget, item.title)
@@ -158,7 +159,8 @@ fun HomeScreen(
                                         fullTitle,
                                         item.audioUrl ?: "",
                                         item.coverUrl,
-                                        item.artist
+                                        item.artist,
+                                        item.storyUrl
                                     )
                                 } else {
                                     onAlbumClick(item.id, item.title)

@@ -1,6 +1,7 @@
 package com.example.moodymusicforandroid.ui.album
 
 import android.widget.Toast
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -9,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -98,45 +100,94 @@ fun AlbumDetailScreen(
     val context = LocalContext.current
     var songToAddToPlaylist by remember { mutableStateOf<SongItem?>(null) }
 
+    val listState = rememberLazyListState()
+    val isStickyTitleVisible by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 1 ||
+                (listState.firstVisibleItemIndex == 1 && listState.firstVisibleItemScrollOffset > 80)
+        }
+    }
+
+    val iconTintColor by animateColorAsState(
+        targetValue = if (isStickyTitleVisible) SongbookColors.BurntOrange else Color.White,
+        animationSpec = tween(durationMillis = 200),
+        label = "AlbumIconTintColor"
+    )
+
     Scaffold(
         topBar = {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.55f),
-                                Color.Transparent
+                    .then(
+                        if (isStickyTitleVisible) {
+                            Modifier.background(MaterialTheme.colorScheme.background)
+                        } else {
+                            Modifier.background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.55f),
+                                        Color.Transparent
+                                    )
+                                )
                             )
-                        )
+                        }
                     )
                     .statusBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.size(40.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = iconTintColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    AnimatedContent(
+                        targetState = isStickyTitleVisible,
+                        transitionSpec = {
+                            if (targetState) {
+                                (slideInVertically { height -> height / 2 } + fadeIn())
+                                    .togetherWith(slideOutVertically { height -> -height / 2 } + fadeOut())
+                            } else {
+                                (slideInVertically { height -> -height / 2 } + fadeIn())
+                                    .togetherWith(slideOutVertically { height -> height / 2 } + fadeOut())
+                            }
+                        },
+                        label = "AlbumTopBarTitle",
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) { isSticky ->
+                        Text(
+                            text = if (isSticky) albumTitle else "专辑",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (isSticky) SongbookColors.BurntOrange else Color.White,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                if (isStickyTitleVisible) {
+                    HorizontalDivider(
+                        color = SongbookColors.OutlineVariant.copy(alpha = 0.2f),
+                        modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "专辑",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium
-                )
             }
         }
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),

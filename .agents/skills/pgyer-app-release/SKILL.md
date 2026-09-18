@@ -26,10 +26,15 @@ description: >-
 
 ### 步骤 1：修改 Gradle 版本配置
 定位文件：`app/build.gradle.kts`
-- `versionName = "<新版本号>"`（如 `"1.0.2"`）
+- `versionName = "<新版本号>"`（如 `"1.0.3"`）
 - `versionCode` 递增（在当前数值基础上 +1）
 
-### 步骤 2：编译签名正式包 (Release APK)
+### 步骤 2：智能生成版本更新说明（必选内容）
+- 自动分析 Git 工作区与近期提交变动（`git diff`、`git log`），总结本次发版的核心改动与体验升级，提炼为简短精炼的更新说明（Release Notes）。
+- 若用户主动提供了更新文案，优先采纳并融合。
+- 最终生成的更新文案必须注入到步骤 4 上传脚本中，作为 `buildUpdateDescription` 返回给客户端「版本与更新」接口展示。
+
+### 步骤 3：编译签名正式包 (Release APK)
 在当前项目根目录下执行编译命令：
 ```powershell
 ./gradlew :app:assembleRelease
@@ -37,14 +42,14 @@ description: >-
 - **产物目标**：`app/build/outputs/apk/release/app-release.apk`
 - 确保构建退出码为 `0`，并核验生成文件大小（通常约 20~22 MB 左右）。
 
-### 步骤 3：调用脚本直传蒲公英并联动极光静默推送
+### 步骤 4：调用脚本直传蒲公英并联动极光静默推送
 在当前项目根目录下运行 Node.js 发布脚本：
 ```powershell
 node scripts/upload_pgyer.mjs "app/build/outputs/apk/release/app-release.apk" "更新说明文案"
 ```
 *注：脚本位于 [scripts/upload_pgyer.mjs](scripts/upload_pgyer.mjs)，上传成功后会自动调用极光 OpenAPI 向所有在线 App 发送静默更新透传指令（`APP_VERSION_UPDATE`），驱动客户端后台刷新版本状态流，拉开抽屉即显小红点。*
 
-### 步骤 4：反馈发布结果与交付物
+### 步骤 5：反馈发布结果与交付物
 向用户展示标准发布卡片：
 - **版本名称**：如 `v1.0.2`
 - **构建编号**：如 `Build 4 (versionCode 3)`

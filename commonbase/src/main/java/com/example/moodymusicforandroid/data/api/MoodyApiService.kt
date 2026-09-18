@@ -17,6 +17,19 @@ interface MoodyApiService {
     suspend fun getHomeFeed(): BaseResponse<HomeFeedResponse>
 
     /**
+     * 获取专栏故事详情 (通过完整 URL，如 R2 静态直链)
+     */
+    @GET
+    suspend fun getThemeStoryByUrl(@Url url: String): ThemeStoryDto
+
+    /**
+     * 获取专栏故事详情 (通过 themeId 请求 R2 静态直链)
+     * GET storage/themes/{themeId}.json
+     */
+    @GET("storage/themes/{themeId}.json")
+    suspend fun getThemeStoryById(@Path("themeId") themeId: String): ThemeStoryDto
+
+    /**
      * 获取艺人列表（骨架数据）
      * GET /api/skeleton?group=A
      */

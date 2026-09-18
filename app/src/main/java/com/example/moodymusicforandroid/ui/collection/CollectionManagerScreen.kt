@@ -31,6 +31,7 @@ import com.example.moodymusicforandroid.data.model.getDisplayName
 import com.example.moodymusicforandroid.data.model.getDisplayTitle
 import com.example.moodymusicforandroid.data.model.isInvalidName
 import com.example.moodymusicforandroid.ui.components.SongbookImage
+import com.example.moodymusicforandroid.ui.components.SwipeToRevealDelete
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
 /**
@@ -442,6 +443,7 @@ fun CollectionManagerScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SongCollectionItemRow(
     song: FavoriteSong,
@@ -450,24 +452,15 @@ private fun SongCollectionItemRow(
     onItemClick: () -> Unit,
     onSingleDelete: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onItemClick() }
-    ) {
+    @Composable
+    fun RowContent(showCheckbox: Boolean) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isEditMode) {
+            if (showCheckbox) {
                 Checkbox(
                     checked = isSelected,
                     onCheckedChange = { onItemClick() },
@@ -478,7 +471,6 @@ private fun SongCollectionItemRow(
                     modifier = Modifier.padding(end = 8.dp)
                 )
             }
-
             SongbookImage(
                 model = song.coverUrl,
                 contentDescription = song.title,
@@ -486,9 +478,7 @@ private fun SongCollectionItemRow(
                     .size(48.dp)
                     .clip(RoundedCornerShape(6.dp))
             )
-
             Spacer(modifier = Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = song.title,
@@ -509,21 +499,39 @@ private fun SongCollectionItemRow(
                     )
                 }
             }
+        }
+    }
 
-            if (!isEditMode) {
-                IconButton(onClick = onSingleDelete) {
-                    Icon(
-                        imageVector = Icons.Filled.Favorite,
-                        contentDescription = "取消收藏",
-                        tint = SongbookColors.BurntOrange,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+    if (isEditMode) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(
+                1.dp,
+                if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
+        ) { RowContent(showCheckbox = true) }
+    } else {
+        SwipeToRevealDelete(
+            onDelete = onSingleDelete,
+            deleteLabel = "取消收藏",
+            deleteColor = Color(0xFFFF3B30),
+            revealWidth = 84.dp,
+            shape = RoundedCornerShape(8.dp),
+            contentBackgroundColor = MaterialTheme.colorScheme.surface
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, SongbookColors.GhostBorder.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
+            ) { RowContent(showCheckbox = false) }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AlbumCollectionItemRow(
     album: LibraryAlbumItem,
@@ -533,17 +541,8 @@ private fun AlbumCollectionItemRow(
     onItemClick: () -> Unit,
     onSingleDelete: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onItemClick() }
-    ) {
+    @Composable
+    fun RowContent() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -561,7 +560,6 @@ private fun AlbumCollectionItemRow(
                     modifier = Modifier.padding(end = 8.dp)
                 )
             }
-
             SongbookImage(
                 model = album.cover,
                 contentDescription = title,
@@ -569,9 +567,7 @@ private fun AlbumCollectionItemRow(
                     .size(54.dp)
                     .clip(RoundedCornerShape(6.dp))
             )
-
             Spacer(modifier = Modifier.width(14.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
@@ -587,25 +583,39 @@ private fun AlbumCollectionItemRow(
                     color = SongbookColors.Outline
                 )
             }
+        }
+    }
 
-            if (!isEditMode) {
-                OutlinedButton(
-                    onClick = onSingleDelete,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, SongbookColors.BurntOrange),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "已收藏",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.BurntOrange
-                    )
-                }
-            }
+    if (isEditMode) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(
+                1.dp,
+                if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
+        ) { RowContent() }
+    } else {
+        SwipeToRevealDelete(
+            onDelete = onSingleDelete,
+            deleteLabel = "取消收藏",
+            deleteColor = Color(0xFFFF3B30),
+            revealWidth = 84.dp,
+            shape = RoundedCornerShape(8.dp),
+            contentBackgroundColor = MaterialTheme.colorScheme.surface
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, SongbookColors.GhostBorder.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
+            ) { RowContent() }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ArtistCollectionItemRow(
     artist: LibraryArtistItem,
@@ -615,17 +625,8 @@ private fun ArtistCollectionItemRow(
     onItemClick: () -> Unit,
     onSingleUnfollow: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onItemClick() }
-    ) {
+    @Composable
+    fun RowContent() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -643,7 +644,6 @@ private fun ArtistCollectionItemRow(
                     modifier = Modifier.padding(end = 8.dp)
                 )
             }
-
             SongbookImage(
                 model = artist.avatar,
                 contentDescription = name,
@@ -651,9 +651,7 @@ private fun ArtistCollectionItemRow(
                     .size(50.dp)
                     .clip(CircleShape)
             )
-
             Spacer(modifier = Modifier.width(14.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = name,
@@ -669,24 +667,38 @@ private fun ArtistCollectionItemRow(
                     color = SongbookColors.Outline
                 )
             }
+        }
+    }
 
-            if (!isEditMode) {
-                OutlinedButton(
-                    onClick = onSingleUnfollow,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, SongbookColors.BurntOrange),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "已关注",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.BurntOrange
-                    )
-                }
-            }
+    if (isEditMode) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(
+                1.dp,
+                if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
+        ) { RowContent() }
+    } else {
+        SwipeToRevealDelete(
+            onDelete = onSingleUnfollow,
+            deleteLabel = "取消关注",
+            deleteColor = Color(0xFFFF3B30),
+            revealWidth = 84.dp,
+            shape = RoundedCornerShape(8.dp),
+            contentBackgroundColor = MaterialTheme.colorScheme.surface
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, SongbookColors.GhostBorder.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
+            ) { RowContent() }
         }
     }
 }
+
 
 @Composable
 private fun EmptyCollectionPlaceholder(text: String) {

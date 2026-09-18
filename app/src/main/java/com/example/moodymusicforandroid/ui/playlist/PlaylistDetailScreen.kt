@@ -35,6 +35,7 @@ import com.example.moodymusicforandroid.data.local.db.PlaylistSongEntity
 import com.example.moodymusicforandroid.data.manager.PlaylistManager
 import com.example.moodymusicforandroid.data.model.SongItem
 import com.example.moodymusicforandroid.ui.album.AnimatedEqualizer
+import com.example.moodymusicforandroid.ui.components.SwipeToRevealDelete
 import com.example.moodymusicforandroid.ui.player.MusicPlayState
 import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
@@ -303,6 +304,7 @@ fun PlaylistDetailScreen(
                     val isCurrentSong = (index == activeTrackIndex)
                     val hasAudio = !song.filePath.isNullOrBlank()
                     PlaylistTrackRowItem(
+                        modifier = Modifier.animateItem(),
                         song = song,
                         index = index,
                         isPlaying = isCurrentSong,
@@ -376,7 +378,7 @@ fun PlaylistDetailScreen(
 }
 
 /**
- * 仿歌手专辑曲目列表的优雅单行组件
+ * 仿歌手专辑曲目列表的优雅单行组件（支持左滑手势删除与丝滑补位动效）
  */
 @Composable
 private fun PlaylistTrackRowItem(
@@ -386,88 +388,83 @@ private fun PlaylistTrackRowItem(
     isAudioPlaying: Boolean = false,
     hasAudio: Boolean = true,
     onClick: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val activeColor = SongbookColors.BurntOrange
     val inactiveColor = MaterialTheme.colorScheme.onSurface
+    val rowBgColor = if (isPlaying) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.background
 
-    Row(
-        modifier = Modifier
+    SwipeToRevealDelete(
+        onDelete = onRemove,
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isPlaying) activeColor.copy(alpha = 0.12f)
-                else Color.Transparent
-            )
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 14.dp, vertical = 2.dp),
+        revealWidth = 76.dp,
+        deleteLabel = "移除",
+        deleteColor = Color(0xFFFF3B30),
+        shape = RoundedCornerShape(8.dp),
+        contentBackgroundColor = rowBgColor
     ) {
-        // 曲目序号（轻字重，播放时显示高亮琥珀色）
-        Text(
-            text = String.format("%02d", index + 1),
-            style = MaterialTheme.typography.bodyMedium,
-            color = when {
-                isPlaying -> activeColor
-                !hasAudio -> SongbookColors.Outline.copy(alpha = 0.35f)
-                else -> SongbookColors.Outline.copy(alpha = 0.65f)
-            },
-            fontWeight = if (isPlaying) FontWeight.Medium else FontWeight.Normal,
-            modifier = Modifier.width(32.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 曲目序号（轻字重，播放时显示高亮琥珀色）
+            Text(
+                text = String.format("%02d", index + 1),
+                style = MaterialTheme.typography.bodyMedium,
+                color = when {
+                    isPlaying -> activeColor
+                    !hasAudio -> SongbookColors.Outline.copy(alpha = 0.35f)
+                    else -> SongbookColors.Outline.copy(alpha = 0.65f)
+                },
+                fontWeight = if (isPlaying) FontWeight.Medium else FontWeight.Normal,
+                modifier = Modifier.width(32.dp)
+            )
 
-        // 歌曲标题与歌手（轻字重，播放时高亮）
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = when {
-                        isPlaying -> activeColor
-                        !hasAudio -> inactiveColor.copy(alpha = 0.38f)
-                        else -> inactiveColor
-                    },
-                    fontWeight = if (isPlaying) FontWeight.Medium else FontWeight.Normal,
-                    fontSize = 15.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            // 歌曲标题与歌手（轻字重，播放时高亮）
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = when {
+                            isPlaying -> activeColor
+                            !hasAudio -> inactiveColor.copy(alpha = 0.38f)
+                            else -> inactiveColor
+                        },
+                        fontWeight = if (isPlaying) FontWeight.Medium else FontWeight.Normal,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                // 动态均衡器跳动动画图标（紧跟标题）
-                if (isPlaying) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    AnimatedEqualizer(
-                        tint = activeColor,
-                        isAnimating = isAudioPlaying
+                    // 动态均衡器跳动动画图标（紧跟标题）
+                    if (isPlaying) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        AnimatedEqualizer(
+                            tint = activeColor,
+                            isAnimating = isAudioPlaying
+                        )
+                    }
+                }
+
+                if (!song.artistName.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = song.artistName!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isPlaying) activeColor.copy(alpha = 0.8f) else SongbookColors.Outline,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-
-            if (!song.artistName.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = song.artistName!!,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (isPlaying) activeColor.copy(alpha = 0.8f) else SongbookColors.Outline,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-
-        // 右侧操作按钮：从手札移除
-        IconButton(
-            onClick = onRemove,
-            modifier = Modifier.size(32.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "移出手札",
-                tint = if (isPlaying) activeColor.copy(alpha = 0.6f) else SongbookColors.Outline.copy(alpha = 0.35f),
-                modifier = Modifier.size(17.dp)
-            )
         }
     }
 }

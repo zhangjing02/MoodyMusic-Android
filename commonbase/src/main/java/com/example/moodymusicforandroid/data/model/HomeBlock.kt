@@ -58,7 +58,8 @@ data class TopRecommendBannerData(
     @SerializedName("audioUrl") val audioUrl: String = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/snow_cafe_piano.mp3",
     @SerializedName("artistName") val artistName: String = "放鬆鋼琴 · 慢時光",
     @SerializedName("actionType") val actionType: String = "theme",
-    @SerializedName("actionTarget") val actionTarget: String = "snow_cafe_theme"
+    @SerializedName("actionTarget") val actionTarget: String = "snow_cafe_theme",
+    @SerializedName("storyUrl") val storyUrl: String? = null
 )
 
 /**
@@ -79,7 +80,8 @@ data class TodayRecommendItem(
     @SerializedName("coverUrl") val coverUrl: String,
     @SerializedName("audioUrl") val audioUrl: String? = null,
     @SerializedName("isTheme") val isTheme: Boolean = false,
-    @SerializedName("themeId") val themeId: String? = null
+    @SerializedName("themeId") val themeId: String? = null,
+    @SerializedName("storyUrl") val storyUrl: String? = null
 )
 
 /**
@@ -96,7 +98,8 @@ data class DeepDiveFeatureData(
     @SerializedName("albumId") val albumId: String = "butterfly_lovers_album",
     @SerializedName("albumTitle") val albumTitle: String = "《梁祝》小提琴协奏曲",
     @SerializedName("primaryActionText") val primaryActionText: String = "阅读深度专题",
-    @SerializedName("secondaryActionText") val secondaryActionText: String = "聆听全曲"
+    @SerializedName("secondaryActionText") val secondaryActionText: String = "聆听全曲",
+    @SerializedName("storyUrl") val storyUrl: String? = null
 )
 
 /**

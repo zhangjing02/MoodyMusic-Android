@@ -1,9 +1,11 @@
 package com.example.moodymusicforandroid.ui.artist
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -57,34 +59,69 @@ fun ArtistDetailScreen(
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("按时间排序", "按热度排序", "录音室专辑")
 
+    val listState = rememberLazyListState()
+    val displayName = uiState.artistName.ifBlank { artistName }
+    val isStickyTitleVisible by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 1 ||
+                (listState.firstVisibleItemIndex == 1 && listState.firstVisibleItemScrollOffset > 30)
+        }
+    }
+
     Scaffold(
         topBar = {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = SongbookColors.BurntOrange
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = SongbookColors.BurntOrange
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    AnimatedContent(
+                        targetState = isStickyTitleVisible,
+                        transitionSpec = {
+                            if (targetState) {
+                                (slideInVertically { height -> height / 2 } + fadeIn())
+                                    .togetherWith(slideOutVertically { height -> -height / 2 } + fadeOut())
+                            } else {
+                                (slideInVertically { height -> -height / 2 } + fadeIn())
+                                    .togetherWith(slideOutVertically { height -> height / 2 } + fadeOut())
+                            }
+                        },
+                        label = "ArtistTopBarTitle",
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) { isSticky ->
+                        Text(
+                            text = if (isSticky) displayName else "艺术家",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = SongbookColors.BurntOrange,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "艺术家",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = SongbookColors.BurntOrange,
-                    fontWeight = FontWeight.Medium
-                )
+                if (isStickyTitleVisible) {
+                    HorizontalDivider(color = SongbookColors.OutlineVariant.copy(alpha = 0.2f))
+                }
             }
         }
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
@@ -150,16 +187,21 @@ fun ArtistDetailScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // 2. 艺术家名称与数据面板
+            // 2. 艺术家名称
+            item {
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.displayMedium,
+                    color = SongbookColors.BurntOrange,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            // 3. 数据面板与操作按钮
             item {
                 Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    Text(
-                        text = artistName,
-                        style = MaterialTheme.typography.displayMedium,
-                        color = SongbookColors.BurntOrange,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(32.dp)
