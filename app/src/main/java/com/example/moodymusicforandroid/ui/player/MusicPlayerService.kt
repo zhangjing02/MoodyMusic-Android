@@ -85,6 +85,11 @@ class MusicPlayerService : Service() {
     private val retryHandler = Handler(Looper.getMainLooper())
     private val MAX_RETRY_COUNT = 2
 
+    // 媒体流准备看门狗 (10秒超时保护)
+    private val prepareTimeoutHandler = Handler(Looper.getMainLooper())
+    private var prepareTimeoutRunnable: Runnable? = null
+    private val PREPARE_TIMEOUT_MS = 10000L
+
     private val notificationManager by lazy { getSystemService(NOTIFICATION_SERVICE) as NotificationManager }
 
     private val openPendingIntent: PendingIntent by lazy {
@@ -255,6 +260,7 @@ class MusicPlayerService : Service() {
         loadCoverBitmap(item.coverUrl)
 
         retryHandler.removeCallbacksAndMessages(null)
+        prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
         progressHandler.removeCallbacks(progressRunnable)
         mediaPlayer?.release()
         mediaPlayer = MediaPlayer().apply {
@@ -262,8 +268,32 @@ class MusicPlayerService : Service() {
             try {
                 Log.i(TAG, "Playing song [${currentIndex + 1}/${playlist.size}]: ${item.songTitle}, url=$targetUrl (retryCount=$retryCount)")
                 setDataSource(targetUrl)
+
+                // 启动 10 秒网络准备看门狗，防止原生底层在弱网下永不回调卡死
+                val songNameForTimeout = item.songTitle
+                val indexForTimeout = currentIndex
+                val watchdog = Runnable {
+                    if (isPreparing && !isMediaPlayerPrepared && userWantsToPlay && currentIndex == indexForTimeout) {
+                        Log.w(TAG, "MediaPlayer prepareAsync watchdog timeout (10s) for: $songNameForTimeout, auto skipping")
+                        isPreparing = false
+                        isMediaPlayerPrepared = false
+                        try {
+                            mediaPlayer?.reset()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error resetting mediaPlayer on timeout", e)
+                        }
+                        Handler(Looper.getMainLooper()).post {
+                            Toast.makeText(applicationContext, "《$songNameForTimeout》加载超时，正在跳过...", Toast.LENGTH_SHORT).show()
+                        }
+                        playNext()
+                    }
+                }
+                prepareTimeoutRunnable = watchdog
+                prepareTimeoutHandler.postDelayed(watchdog, PREPARE_TIMEOUT_MS)
+
                 prepareAsync()
                 setOnPreparedListener {
+                    prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
                     Log.i(TAG, "MediaPlayer prepared: ${item.songTitle}, userWantsToPlay=$userWantsToPlay")
                     retryCount = 0 // 播放成功，重置重试计数器
                     isMediaPlayerPrepared = true
@@ -281,11 +311,13 @@ class MusicPlayerService : Service() {
                     updateMetadata()
                 }
                 setOnCompletionListener {
+                    prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
                     isMediaPlayerPrepared = false
                     isPreparing = false
                     onSongCompleted()
                 }
                 setOnErrorListener { _, what, extra ->
+                    prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
                     Log.e(TAG, "MediaPlayer error: what=$what extra=$extra, retryCount=$retryCount")
                     isMediaPlayerPrepared = false
                     isPreparing = false
@@ -310,6 +342,7 @@ class MusicPlayerService : Service() {
                     true
                 }
             } catch (e: Exception) {
+                prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
                 Log.e(TAG, "setDataSource failed: ${e.message}", e)
                 isMediaPlayerPrepared = false
                 isPreparing = false
@@ -448,6 +481,7 @@ class MusicPlayerService : Service() {
     fun pausePlayback() {
         userWantsToPlay = false
         isPreparing = false
+        prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
         if (isMediaPlayerPrepared && mediaPlayer?.isPlaying == true) {
             mediaPlayer?.pause()
         }
@@ -557,6 +591,7 @@ class MusicPlayerService : Service() {
         isMediaPlayerPrepared = false
         retryCount = 0
         retryHandler.removeCallbacksAndMessages(null)
+        prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
         abandonAudioFocus()
         progressHandler.removeCallbacks(progressRunnable)
         try {

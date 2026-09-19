@@ -5,10 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
 import android.util.Log
-import android.view.FrameMetrics
-import android.view.Window
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -118,7 +115,6 @@ class MainActivity : AppCompatActivity() {
         requestNotificationPermission()
         EventBusManager.register(this)
         ThemeManager.initTheme(this)
-        setupJankMonitor()
 
         setContent {
             val owner = this@MainActivity as androidx.navigationevent.NavigationEventDispatcherOwner
@@ -156,30 +152,6 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
     }
 
-    private fun setupJankMonitor() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val refreshRate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                display?.refreshRate ?: 60f
-            } else {
-                @Suppress("DEPRECATION")
-                windowManager.defaultDisplay.refreshRate
-            }
-            val frameDeadlineMs = 1000f / refreshRate
-            val jankThresholdMs = frameDeadlineMs * 1.5f
-            val monitorThread = android.os.HandlerThread("JankMonitorThread").apply { start() }
-            val handler = Handler(monitorThread.looper)
-            window.addOnFrameMetricsAvailableListener(
-                Window.OnFrameMetricsAvailableListener { _, frameMetrics, _ ->
-                    val totalDurationNs = frameMetrics.getMetric(FrameMetrics.TOTAL_DURATION)
-                    val durationMs = totalDurationNs / 1_000_000f
-                    if (durationMs > jankThresholdMs) {
-                        Log.w("JankMonitor", "⚠️ [掉帧] 总耗时:${"%.1f".format(durationMs)}ms")
-                    }
-                },
-                handler
-            )
-        }
-    }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onEventReceived(event: BaseEvent) {
