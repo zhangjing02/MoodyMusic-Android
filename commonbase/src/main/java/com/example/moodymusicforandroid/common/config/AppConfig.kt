@@ -1,5 +1,6 @@
 package com.example.moodymusicforandroid.common.config
 
+import android.net.Uri
 import com.example.moodymusicforandroid.commonbase.BuildConfig
 
 /**
@@ -20,19 +21,32 @@ object AppConfig {
         get() = BuildConfig.API_BASE_URL.trimEnd('/') + "/"
 
     /**
+     * 辅助方法：对 URL 进行 RFC 3986 安全字符转义，兼容中文字符与空格，避免 Stagefright/MediaPlayer 抛出 I/O 错误。
+     */
+    fun safeEncodeUrl(url: String?): String {
+        if (url.isNullOrBlank()) return ""
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return url
+        return Uri.encode(url, "@#&=*+-_.,:!?()/~'%")
+    }
+
+    /**
      * 辅助方法：将相对资源路径（例如 "/storage/covers/hero.jpg" 或 "storage/..."）
-     * 自动拼接为带域名的完整 URL。如果传入的已经是绝对 URL 则原样返回。
+     * 自动拼接为带域名的完整 URL，并进行安全转义。如果传入的已经是绝对 URL 则转义后返回。
      */
     fun resolveUrl(path: String?): String {
         if (path.isNullOrBlank()) return ""
-        if (path.startsWith("http://") || path.startsWith("https://") ||
-            path.startsWith("file:///") || path.startsWith("content://") ||
+        if (path.startsWith("file:///") || path.startsWith("content://") ||
             path.startsWith("android.resource://")
         ) {
             return path
         }
-        val cleanPath = if (path.startsWith("/")) path else "/$path"
-        return "${BuildConfig.API_BASE_URL.trimEnd('/')}$cleanPath"
+        val fullUrl = if (path.startsWith("http://") || path.startsWith("https://")) {
+            path
+        } else {
+            val cleanPath = if (path.startsWith("/")) path else "/$path"
+            "${BuildConfig.API_BASE_URL.trimEnd('/')}$cleanPath"
+        }
+        return safeEncodeUrl(fullUrl)
     }
 
     /**
@@ -41,10 +55,11 @@ object AppConfig {
      */
     fun resolveStorageUrl(path: String?): String {
         if (path.isNullOrBlank()) return ""
-        if (path.startsWith("http://") || path.startsWith("https://") ||
-            path.startsWith("file:///") || path.startsWith("content://")
-        ) {
+        if (path.startsWith("file:///") || path.startsWith("content://")) {
             return path
+        }
+        if (path.startsWith("http://") || path.startsWith("https://")) {
+            return safeEncodeUrl(path)
         }
         val trimmed = path.trim().trimStart('/')
         val finalPath = if (trimmed.startsWith("storage/")) trimmed else "storage/$trimmed"

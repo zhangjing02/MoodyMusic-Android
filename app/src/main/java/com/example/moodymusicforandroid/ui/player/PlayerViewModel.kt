@@ -396,12 +396,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun buildAudioUrl(path: String?): String {
-        if (path.isNullOrBlank()) return ""
-        if (path.startsWith("http://") || path.startsWith("https://")) {
-            return path
-        }
-        val clean = if (path.startsWith("storage/")) path else "storage/$path"
-        return AppConfig.resolveUrl(clean)
+        return AppConfig.resolveStorageUrl(path)
     }
 
     override fun onCleared() {

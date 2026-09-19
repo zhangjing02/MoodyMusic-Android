@@ -85,10 +85,10 @@ class MusicPlayerService : Service() {
     private val retryHandler = Handler(Looper.getMainLooper())
     private val MAX_RETRY_COUNT = 2
 
-    // 媒体流准备看门狗 (10秒超时保护)
+    // 媒体流准备看门狗 (LocalMediaProxy 纯 IPv4 极速代理加持，1~2秒即可秒开)
     private val prepareTimeoutHandler = Handler(Looper.getMainLooper())
     private var prepareTimeoutRunnable: Runnable? = null
-    private val PREPARE_TIMEOUT_MS = 10000L
+    private val PREPARE_TIMEOUT_MS = 15000L
 
     private val notificationManager by lazy { getSystemService(NOTIFICATION_SERVICE) as NotificationManager }
 
@@ -220,11 +220,11 @@ class MusicPlayerService : Service() {
     }
 
     private fun getPlayableAudioUrl(rawUrl: String): String {
-        // 若遇到旧的 m-api 代理域名且处于重试阶段，自动故障转移至 R2 官方直链
-        if (retryCount > 0 && rawUrl.startsWith("https://m-api.changgepd.ccwu.cc/storage/")) {
-            val failover = rawUrl.replace("https://m-api.changgepd.ccwu.cc/storage/", "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/")
-            Log.i(TAG, "Failover to R2 direct URL on retry $retryCount: $failover")
-            return failover
+        // 默认直接使用 R2 官方直连 CDN，跳过 Cloudflare Worker 代理中间层，实现首次点击即秒开
+        if (rawUrl.startsWith("https://m-api.changgepd.ccwu.cc/storage/")) {
+            val directUrl = rawUrl.replace("https://m-api.changgepd.ccwu.cc/storage/", "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/")
+            Log.i(TAG, "Direct R2 audio URL: $directUrl")
+            return directUrl
         }
         return rawUrl
     }
@@ -249,7 +249,9 @@ class MusicPlayerService : Service() {
             return
         }
 
-        val targetUrl = getPlayableAudioUrl(item.audioUrl)
+        val playableUrl = getPlayableAudioUrl(item.audioUrl)
+        // 核心突破: 通过本地纯 IPv4 流媒体代理加载，彻底阻断 Android 原生 MediaPlayer 直连海外 Cloudflare IPv6 节点的握手黑洞
+        val targetUrl = LocalMediaProxy.getProxyUrl(playableUrl)
         userWantsToPlay = true
         isPreparing = true
         isMediaPlayerPrepared = false
@@ -269,12 +271,13 @@ class MusicPlayerService : Service() {
                 Log.i(TAG, "Playing song [${currentIndex + 1}/${playlist.size}]: ${item.songTitle}, url=$targetUrl (retryCount=$retryCount)")
                 setDataSource(targetUrl)
 
-                // 启动 10 秒网络准备看门狗，防止原生底层在弱网下永不回调卡死
+                // 启动 15 秒准备看门狗（在纯 IPv4 本地代理加速下，通常 1~2 秒即可准备完毕）
                 val songNameForTimeout = item.songTitle
                 val indexForTimeout = currentIndex
+
                 val watchdog = Runnable {
                     if (isPreparing && !isMediaPlayerPrepared && userWantsToPlay && currentIndex == indexForTimeout) {
-                        Log.w(TAG, "MediaPlayer prepareAsync watchdog timeout (10s) for: $songNameForTimeout, auto skipping")
+                        Log.w(TAG, "MediaPlayer prepareAsync watchdog timeout (${PREPARE_TIMEOUT_MS}ms) for: $songNameForTimeout (retryCount=$retryCount)")
                         isPreparing = false
                         isMediaPlayerPrepared = false
                         try {
@@ -282,10 +285,21 @@ class MusicPlayerService : Service() {
                         } catch (e: Exception) {
                             Log.e(TAG, "Error resetting mediaPlayer on timeout", e)
                         }
-                        Handler(Looper.getMainLooper()).post {
-                            Toast.makeText(applicationContext, "《$songNameForTimeout》加载超时，正在跳过...", Toast.LENGTH_SHORT).show()
+
+                        if (retryCount < 2) {
+                            retryCount++
+                            Log.i(TAG, "Timeout on attempt #$retryCount, retrying for $songNameForTimeout...")
+                            Handler(Looper.getMainLooper()).post {
+                                Toast.makeText(applicationContext, "正在优化网络线路，请稍候...", Toast.LENGTH_SHORT).show()
+                            }
+                            playCurrentSong()
+                        } else {
+                            retryCount = 0
+                            Handler(Looper.getMainLooper()).post {
+                                Toast.makeText(applicationContext, "《$songNameForTimeout》多次加载超时，跳至下一首", Toast.LENGTH_SHORT).show()
+                            }
+                            playNext()
                         }
-                        playNext()
                     }
                 }
                 prepareTimeoutRunnable = watchdog

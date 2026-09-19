@@ -1134,9 +1134,12 @@ private suspend fun fetchLyricsChain(
     songTitle: String,
     artistName: String
 ): List<LrcLine> {
-    // 1. 优先尝试从后端云存储加载
+    // 1. 优先尝试从云存储直连加载
     if (!lrcPath.isNullOrBlank()) {
-        val fullUrl = AppConfig.resolveStorageUrl(lrcPath)
+        val rawUrl = AppConfig.resolveStorageUrl(lrcPath)
+        val fullUrl = if (rawUrl.startsWith("https://m-api.changgepd.ccwu.cc/storage/")) {
+            rawUrl.replace("https://m-api.changgepd.ccwu.cc/storage/", "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/")
+        } else rawUrl
         val timestampUrl = if (fullUrl.contains("?")) "$fullUrl&t=${System.currentTimeMillis()}" else "$fullUrl?t=${System.currentTimeMillis()}"
         try {
             val url = URL(timestampUrl)
