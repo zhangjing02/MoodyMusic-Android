@@ -78,13 +78,13 @@ class LoginActivity : AppCompatActivity() {
         ThemeManager.initTheme(this)
 
         if (intent.getBooleanExtra("KICKED_OUT", false)) {
-            Toast.makeText(this, "您的账号已在其他设备登录，请重新登录", Toast.LENGTH_SHORT).show()
+            com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(this, "您的账号已在其他设备登录，请重新登录")
         }
 
-        // 绑定 Toast 提示
+        // 绑定 Toast 提示（使用 ToastUtils 防无限叠加与自动脱敏）
         viewModel.toastMessage.observe(this) { msg ->
             if (!msg.isNullOrBlank()) {
-                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(this, msg)
             }
         }
 
@@ -135,7 +135,7 @@ class LoginActivity : AppCompatActivity() {
         when (event.eventType) {
             EventType.AUTH_TOKEN_EXPIRED -> {
                 if (event.eventData == "KICKED_OUT") {
-                    Toast.makeText(this, "您的账号已在其他设备登录，请重新登录", Toast.LENGTH_SHORT).show()
+                    com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(this, "您的账号已在其他设备登录，请重新登录")
                 }
             }
             EventType.USER_LOGIN -> navigateToMain()

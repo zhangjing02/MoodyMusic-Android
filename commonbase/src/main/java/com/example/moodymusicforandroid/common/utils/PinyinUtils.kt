@@ -1,4 +1,4 @@
-﻿package com.example.moodymusicforandroid.common.utils
+package com.example.moodymusicforandroid.common.utils
 
 import java.nio.charset.Charset
 
@@ -12,6 +12,7 @@ object PinyinUtils {
      * 常用特殊姓氏与多音字首字母映射表
      */
     private val SPECIAL_SURNAMES: Map<Char, Char> = mapOf(
+        // 多音字与特殊姓氏
         '重' to 'C', // 重新/重庆
         '区' to 'O', // 区(ōu)
         '朴' to 'P', // 朴(piáo)树
@@ -24,8 +25,70 @@ object PinyinUtils {
         '缪' to 'M', // 缪(miào)
         '繁' to 'P', // 繁(pó)
         '折' to 'S', // 折(shé)
-        '乐' to 'Y', // 乐(yuè)
-        '樂' to 'Y',
+        '乐' to 'Y', '樂' to 'Y', // 乐(yuè)
+        '那' to 'N', // 那(nā/nà)英
+
+        // 华语乐坛二级汉字/特殊姓氏补全（GB2312 扩展区）
+        '庾' to 'Y', // 庾(yǔ)澄庆
+        '窦' to 'D', '竇' to 'D', // 窦(dòu)唯
+        '臧' to 'Z', // 臧(zāng)天朔
+        '邰' to 'T', // 邰(tái)正宵
+        '岑' to 'C', // 岑(cén)宁儿
+        '裘' to 'Q', // 裘(qiú)德 / 裘海正
+        '郁' to 'Y', // 郁(yù)可唯
+        '邝' to 'K', '鄺' to 'K', // 邝(kuàng)美云
+        '卞' to 'B', // 卞(biàn)留念
+        '迟' to 'C', '遲' to 'C', // 迟(chí)志强
+        '甄' to 'Z', // 甄(zhēn)妮
+        '瞿' to 'Q', // 瞿(qú)颖
+        '靳' to 'J', // 靳(jìn)东
+        '郝' to 'H', // 郝(hǎo)云
+        '鲍' to 'B', '鮑' to 'B', // 鲍(bào)家街
+        '龚' to 'G', '龔' to 'G', // 龚(gōng)琳娜
+        '阎' to 'Y', '閻' to 'Y', // 阎(yán)维文
+        '欧' to 'O', '歐' to 'O', // 欧(ōu)阳
+        '齐' to 'Q', '齊' to 'Q', // 齐(qí)秦
+        '腾' to 'T', '騰' to 'T', // 腾(téng)格尔
+        '艾' to 'A', // 艾(ài)敬
+        '降' to 'J', // 降(jiàng)央卓玛
+        '屠' to 'T', // 屠(tú)洪刚
+        '杭' to 'H', // 杭(háng)天琪
+        '尹' to 'Y', // 尹(yǐn)相杰
+        '萨' to 'S', '薩' to 'S', // 萨(sà)顶顶
+        '斯' to 'S', // 斯(sī)琴格日乐
+        '央' to 'Y', // 央(yāng)吉玛
+        '扎' to 'Z', // 扎(zhā)西顿珠
+        '容' to 'R', // 容(róng)祖儿
+        '谭' to 'T', '譚' to 'T', // 谭(tán)咏麟
+        '潘' to 'P', // 潘(pān)玮柏
+        '关' to 'G', '關' to 'G', // 关(guān)淑怡
+        '卢' to 'L', '盧' to 'L', // 卢(lú)冠廷
+        '罗' to 'L', '羅' to 'L', // 罗(luó)大佑
+        '叶' to 'Y', '葉' to 'Y', // 叶(yè)倩文
+        '钟' to 'Z', '鍾' to 'Z', // 钟(zhōng)汉良
+        '梁' to 'L', // 梁(liáng)静茹
+        '汪' to 'W', // 汪(wāng)峰
+        '童' to 'T', // 童(tóng)安格
+        '孟' to 'M', // 孟(mèng)庭苇
+        '巫' to 'W', // 巫(wū)启贤
+        '柯' to 'K', // 柯(kē)以敏
+        '戴' to 'D', // 戴(dài)佩妮
+        '姜' to 'J', // 姜(jiāng)育恒
+        '熊' to 'X', // 熊(xióng)天平
+        '苏' to 'S', '蘇' to 'S', // 苏(sū)芮
+        '辛' to 'X', // 辛(xīn)晓琪
+        '黎' to 'L', // 黎(lí)明
+        '崔' to 'C', // 崔(cuī)健
+        '刀' to 'D', // 刀(dāo)郎
+        '伍' to 'W', // 伍(wǔ)佰
+        '莫' to 'M', // 莫(mò)文蔚
+        '费' to 'F', '費' to 'F', // 费(fèi)玉清
+        '薛' to 'X', // 薛(xuē)之谦
+        '蔡' to 'C', // 蔡(cài)琴/依林
+        '韦' to 'W', '韋' to 'W', // 韦(wéi)唯
+        '庞' to 'P', '龐' to 'P', // 庞(páng)龙
+
+        // 繁简对照常用姓氏
         '张' to 'Z', '張' to 'Z',
         '陈' to 'C', '陳' to 'C',
         '刘' to 'L', '劉' to 'L',

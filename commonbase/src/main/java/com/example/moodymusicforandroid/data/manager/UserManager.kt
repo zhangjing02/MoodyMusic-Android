@@ -726,6 +726,7 @@ object UserManager {
      */
     fun onLoginSuccess(user: User, token: String, refreshToken: String) {
         PreferencesManager.saveUserToken(token)
+        PreferencesManager.saveLoginTimestamp(System.currentTimeMillis())
         val displayName = user.getDisplayName().ifBlank { user.username }
         PreferencesManager.saveUserInfo(user.userId.toString(), displayName)
 

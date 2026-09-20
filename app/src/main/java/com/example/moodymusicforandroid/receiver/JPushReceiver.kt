@@ -74,6 +74,9 @@ class JPushReceiver : JPushMessageReceiver() {
 
         /** Intent extra key：对应班级 ID */
         const val EXTRA_CLASS_ID = "class_id"
+
+        @Volatile
+        private var lastKickOutProcessedTime = 0L
     }
 
     // ──────────────────────────────────────────
@@ -90,6 +93,7 @@ class JPushReceiver : JPushMessageReceiver() {
         var action: String? = null
         var albumId: String? = null
         var classId: String? = null
+        var kickTimestamp: Long = 0L
 
         try {
             // 优先从 extra 解析 (极光透传的标准 extras 字段)
@@ -98,6 +102,9 @@ class JPushReceiver : JPushMessageReceiver() {
                 action = json.get("action")?.asString
                 albumId = json.get("album_id")?.asString
                 classId = json.get("class_id")?.asString
+                kickTimestamp = json.get("kick_timestamp")?.asLong
+                    ?: json.get("timestamp")?.asLong
+                    ?: 0L
             }
             // 兜底：尝试从 msg 解析 (若发送方整体将 JSON 放入 msg_content)
             if (action == null && msg.isNotBlank() && msg.startsWith("{")) {
@@ -107,10 +114,16 @@ class JPushReceiver : JPushMessageReceiver() {
                     action = extras.get("action")?.asString
                     albumId = extras.get("album_id")?.asString
                     classId = extras.get("class_id")?.asString
+                    kickTimestamp = extras.get("kick_timestamp")?.asLong
+                        ?: extras.get("timestamp")?.asLong
+                        ?: 0L
                 } else {
                     action = json.get("action")?.asString
                     albumId = json.get("album_id")?.asString
                     classId = json.get("class_id")?.asString
+                    kickTimestamp = json.get("kick_timestamp")?.asLong
+                        ?: json.get("timestamp")?.asLong
+                        ?: 0L
                 }
             }
         } catch (e: Exception) {
@@ -118,8 +131,8 @@ class JPushReceiver : JPushMessageReceiver() {
         }
 
         if (action == ACTION_KICK_OUT) {
-            Log.d(TAG, "[onMessage] KICK_OUT signal received, triggering kickout")
-            handleKickOut(context)
+            Log.d(TAG, "[onMessage] KICK_OUT signal received (kickTimestamp=$kickTimestamp), checking validity")
+            handleKickOut(context, kickTimestamp)
             return
         }
 
@@ -165,8 +178,6 @@ class JPushReceiver : JPushMessageReceiver() {
         }
     }
 
-
-
     /**
      * 处理 APP_VERSION_UPDATE 信号
      * 收到云端新版本发布推送，立即在后台异步静默请求蒲公英检测更新，更新全局 StateFlow
@@ -180,14 +191,43 @@ class JPushReceiver : JPushMessageReceiver() {
     /**
      * 处理 KICK_OUT 互踢信号
      *
-     * 完整流程：
-     * 1. 清除 PreferencesManager 中的登录凭据（token / userId 等）
-     * 2. 通知 UserManager 清除 Room 数据库中的用户状态
-     * 3. 弹出轻量 Toast 提示当前设备已退出登录
-     * 4. 通过 EventBus 发送 AUTH_TOKEN_EXPIRED 事件，触发前台组件响应式更新
+     * 防护策略：
+     * 1. 状态拦截：若当前用户根本未登录，忽略；
+     * 2. 历史遗留拦截：若消息生成时间早于本次设备登录时间，直接判定为离线积压废弃消息并丢弃；
+     * 3. 握手残余保护：若刚登录不足 5 秒收到无时间戳互踢消息，安全丢弃；
+     * 4. 频率防抖：8 秒内仅允许触发一次互踢清理流程，避免极光透传并发冲刷；
+     * 5. 执行清理与通知：清除凭据、通知 UserManager、Toast 提示、广播 AUTH_TOKEN_EXPIRED。
      */
-    private fun handleKickOut(context: Context?) {
-        Log.d(TAG, "[handleKickOut] 用户被互踢，清除本地登录状态并轻提示")
+    private fun handleKickOut(context: Context?, kickTimestamp: Long = 0L) {
+        // 1. 状态拦截：未登录态无需互踢
+        if (!PreferencesManager.isLoggedIn()) {
+            Log.d(TAG, "[handleKickOut] 当前设备未处于登录态，忽略互踢信号")
+            return
+        }
+
+        val loginTime = PreferencesManager.getLoginTimestamp()
+        val now = System.currentTimeMillis()
+
+        // 2. 历史遗留拦截：若消息生成时间早于或等于登录时间，说明是登录前在其他设备或离线时期产生的历史积压消息
+        if (kickTimestamp > 0L && kickTimestamp <= loginTime) {
+            Log.w(TAG, "[handleKickOut] 拦截历史遗留互踢消息 (kickTimestamp=$kickTimestamp <= loginTimestamp=$loginTime)，安全丢弃")
+            return
+        }
+
+        // 3. 容灾保护窗：如果刚登录不足 5 秒收到无时间戳的历史透传消息，视为极光重连时倾泻的离线积压残余
+        if (loginTime > 0L && (now - loginTime) < 5000L && kickTimestamp <= 0L) {
+            Log.w(TAG, "[handleKickOut] 登录后5秒内收到无时间戳互踢消息，判定为极光握手离线遗留，安全丢弃 (now-loginTime=${now - loginTime}ms)")
+            return
+        }
+
+        // 4. 频率防抖：8 秒内防重复触发
+        if (now - lastKickOutProcessedTime < 8000L) {
+            Log.w(TAG, "[handleKickOut] 8秒内已处理过互踢清理，跳过重复处理")
+            return
+        }
+        lastKickOutProcessedTime = now
+
+        Log.d(TAG, "[handleKickOut] 用户被互踢，清除本地登录状态并轻提示 (kickTime=$kickTimestamp, loginTime=$loginTime)")
 
         // Step 1: 清除 SharedPreferences 中的登录凭据
         try {

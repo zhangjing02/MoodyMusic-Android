@@ -108,15 +108,38 @@ MoodyMusicForAndroid/
 │   │   │   ├── classroom/      # 教室座位认领与互动页面
 │   │   │   ├── components/     # SongbookImage 等全局 Compose 组件
 │   │   │   └── theme/          # Compose 颜色、字体排印与 Material3 主题
-│   │   ├── receiver/           # JPush 极光广播接收器
+│   │   ├── receiver/           # JPush 极光广播接收器（防下线风暴与离线冲刷）
 │   │   └── MoodyMusicApplication.kt
 │   └── build.gradle.kts
 ├── commonbase/                 # 公共基础库
 │   ├── src/main/java/com/example/moodymusicforandroid/
 │   │   ├── common/
 │   │   │   ├── config/         # AppConfig 全局配置中心 (Single Source of Truth)
-│   │   │   └── network/        # RetrofitClient 与统一拦截器
+│   │   │   ├── network/        # RetrofitClient、统一脱敏与拦截器
+│   │   │   └── utils/          # PinyinUtils (生僻字字典)、ToastUtils (防排队)
 │   │   └── data/model/         # 数据模型与 HomeBlock SDUI 多态解析
 │   └── build.gradle.kts
 └── gradle.properties           # 全局配置中心 (MOODY_API_BASE_URL)
 ```
+
+---
+
+## 🛡️ 客户端数据访问、错误脱敏与体验优化铁律 (Client Architecture & Guidelines)
+
+### 1. 严格禁止发起无参全量曲库扫描请求
+- **按需分层拉取**：客户端只能通过骨架接口 `GET /api/skeleton` 获取轻量艺人名单；点击具体艺人时，必须携带具体 ID 调用 `GET /api/songs?artistId=db_xxx` 按需加载对应作品。
+- **杜绝全量拉取**：严禁客户端任何界面直接请求无参的 `/api/songs`，避免造成 D1 数据库 15,000+ 行全表扫描消耗每日配额。
+
+### 2. 底层基础设施异常全局脱敏净化 (Error Sanitization)
+- **拦截技术堆栈穿透**：当云端由于配额耗尽、锁表或网络波动抛出 `D1_ERROR`、`sqlite`、`row read limit`、`HTTP 5xx` 等技术错误时，严禁将长串英文原始报错展示给用户；
+- **全链路收敛**：在 `BaseViewModel` 的 `handleResponse` / `handleError` 以及 `ToastUtils.showShort` 中均内置安全净化引擎，遇技术异常统一展示友好中文：
+  > **「服务器异常，请稍后重试」**
+
+### 3. 单点登录互踢风暴防护与通知清理机制
+- **登录即清空历史残留**：新设备登录成功时，调用 `JPushInterface.clearAllNotifications()` 清理系统通知栏历史残留；
+- **毫秒级时间戳比对**：端侧记录精确登录毫秒时间戳 `loginTimestamp`，拦截丢弃任何早于当前登录时刻的离线积压互踢消息；
+- **系统 Toast 防排队与防抖**：`ToastUtils` 在展示前主动 `cancel()` 上一个系统排队 Toast，互踢相关提示实施 6 秒严格防抖，彻底告别疯狂弹窗排队的吓人现象。
+
+### 4. 汉字拼音分组生僻字与多音字映射规范
+- **GB2312 编码陷阱**：GB2312 编码仅一级常用字（3755 个）按拼音排序；如“庾”（`0xE2D7`）与“窦”（`0xF1BC`）等二级汉字属于偏僻/生僻字区，编码大于 `0xD7F9`，无法通过编码区间推导拼音。
+- **扩展字典维护**：所有音乐人特殊姓氏与二级字必须在 `PinyinUtils.SPECIAL_SURNAMES` 中集中维护映射（如庾->Y、窦->D、臧->Z、邰->T、岑->C、裘->Q、郁->Y、邝->K、那->N），确保 A-Z 字母索引导航 100% 准确归位。

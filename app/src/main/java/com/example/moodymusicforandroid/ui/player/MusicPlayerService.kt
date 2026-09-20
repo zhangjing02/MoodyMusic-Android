@@ -404,14 +404,13 @@ class MusicPlayerService : Service() {
                 playCurrentSong()
             }
             PlayMode.SEQUENTIAL -> {
-                // 顺序播放：若未到末尾继续下一首，到了末尾停止播放
+                // 顺序播放：若未到末尾继续下一首；整张专辑/列表播放完毕后，自动收起底部播放悬浮窗并释放资源
                 if (currentIndex + 1 < playlist.size) {
                     currentIndex++
                     playCurrentSong()
                 } else {
-                    pausePlayback()
-                    seekTo(0)
-                    broadcastPlayState(isPlaying = false)
+                    Log.i(TAG, "[onSongCompleted] 顺序播放已播完全部曲目，调用 stopPlayback 收起底部悬浮窗并释放资源")
+                    stopPlayback()
                 }
             }
             PlayMode.LIST_LOOP -> {

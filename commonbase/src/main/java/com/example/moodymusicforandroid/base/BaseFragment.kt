@@ -194,7 +194,7 @@ abstract class BaseFragment<VB : ViewDataBinding, VM : BaseViewModel> : Fragment
      * 显示Toast
      */
     protected fun showToast(message: String) {
-        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+        com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(context, message)
     }
 
     /**

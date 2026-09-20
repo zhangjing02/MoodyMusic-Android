@@ -237,6 +237,12 @@ class AuthViewModel : BaseViewModel() {
             val refreshToken = loginData.refreshToken ?: backendUser.refreshToken ?: ""
             UserManager.onLoginSuccess(backendUser, token, refreshToken)
             loginUser.postValue(UserManager.userProfile.value ?: backendUser)
+            // 新设备登录成功，立即清空极光给他的所有遗留通知残留
+            try {
+                PreferencesManager.getContext()?.let { ctx ->
+                    cn.jpush.android.api.JPushInterface.clearAllNotifications(ctx)
+                }
+            } catch (_: Exception) {}
         }
     }
 

@@ -32,6 +32,9 @@ object RetrofitClient {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
+    @Volatile
+    private var last401KickTime = 0L
+
     private val headerInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
         val requestBuilder = originalRequest.newBuilder()
@@ -74,21 +77,25 @@ object RetrofitClient {
                     peek.contains("在其他设备登录") ||
                     peek.contains("已在其他设备")
                 ) {
-                    android.util.Log.e("RetrofitClient", "=== 401 KICK OUT DETECTED IN OKHTTP ===")
-                    PreferencesManager.clearUserInfo()
-                    try {
-                        com.example.moodymusicforandroid.data.manager.UserManager.onLogout()
-                    } catch (_: Exception) {}
-                    PreferencesManager.getContext()?.let { ctx ->
-                        com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(
-                            ctx,
-                            "您的账号已在其他设备登录，当前已退出登录"
+                    val now = System.currentTimeMillis()
+                    if (now - last401KickTime > 6000L) {
+                        last401KickTime = now
+                        android.util.Log.e("RetrofitClient", "=== 401 KICK OUT DETECTED IN OKHTTP ===")
+                        PreferencesManager.clearUserInfo()
+                        try {
+                            com.example.moodymusicforandroid.data.manager.UserManager.onLogout()
+                        } catch (_: Exception) {}
+                        PreferencesManager.getContext()?.let { ctx ->
+                            com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(
+                                ctx,
+                                "您的账号已在其他设备登录，当前已退出登录"
+                            )
+                        }
+                        com.example.moodymusicforandroid.common.eventbus.EventBusManager.post(
+                            com.example.moodymusicforandroid.common.eventbus.EventType.AUTH_TOKEN_EXPIRED,
+                            "KICKED_OUT"
                         )
                     }
-                    com.example.moodymusicforandroid.common.eventbus.EventBusManager.post(
-                        com.example.moodymusicforandroid.common.eventbus.EventType.AUTH_TOKEN_EXPIRED,
-                        "KICKED_OUT"
-                    )
                 }
             } catch (_: Exception) {}
         }

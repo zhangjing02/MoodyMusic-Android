@@ -88,4 +88,35 @@ object DeviceInfoUtils {
             "UNKNOWN"
         }
     }
+
+    private var cachedIsLowEnd: Boolean? = null
+
+    /**
+     * 判断是否属于低端机或不支持系统级 RenderEffect GPU 高斯模糊的设备
+     * 1. Android 11 (API 30) 及以下机型：系统底层无 RenderEffect，无法直接进行硬件级 RenderNode Blur
+     * 2. 低内存设备 (ActivityManager.isLowRamDevice)
+     * 3. 设备总运行内存小于 4.0 GB 的入门机型
+     */
+    fun isLowEndDevice(context: Context? = PreferencesManager.getContext()): Boolean {
+        cachedIsLowEnd?.let { return it }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            cachedIsLowEnd = true
+            return true
+        }
+        val ctx = context ?: return false
+        return try {
+            val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            if (am?.isLowRamDevice == true) {
+                cachedIsLowEnd = true
+                return true
+            }
+            val memInfo = android.app.ActivityManager.MemoryInfo()
+            am?.getMemoryInfo(memInfo)
+            val isLowMem = memInfo.totalMem < 4L * 1024 * 1024 * 1024 // < 4GB RAM
+            cachedIsLowEnd = isLowMem
+            isLowMem
+        } catch (_: Exception) {
+            false
+        }
+    }
 }

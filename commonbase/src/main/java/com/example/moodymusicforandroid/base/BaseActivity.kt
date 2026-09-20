@@ -201,7 +201,7 @@ abstract class BaseActivity<VB : ViewDataBinding, VM : BaseViewModel> : AppCompa
      * 显示Toast
      */
     protected fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        com.example.moodymusicforandroid.common.utils.ToastUtils.showShort(this, message)
     }
 
     /**

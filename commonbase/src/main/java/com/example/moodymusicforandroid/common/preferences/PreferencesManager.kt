@@ -45,6 +45,7 @@ object PreferencesManager {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_JPUSH_REG_ID = "jpush_registration_id"
     private const val KEY_APP_VERSION = "app_version"
+    private const val KEY_LOGIN_TIMESTAMP = "login_timestamp"
 
     fun saveJPushRegistrationId(regId: String) {
         putString(KEY_JPUSH_REG_ID, regId)
@@ -52,6 +53,14 @@ object PreferencesManager {
 
     fun getJPushRegistrationId(): String? {
         return getString(KEY_JPUSH_REG_ID)
+    }
+
+    fun saveLoginTimestamp(timestamp: Long) {
+        putLong(KEY_LOGIN_TIMESTAMP, timestamp)
+    }
+
+    fun getLoginTimestamp(): Long {
+        return getLong(KEY_LOGIN_TIMESTAMP, 0L)
     }
 
     // 设置相关的键名
@@ -380,6 +389,7 @@ object PreferencesManager {
         remove(KEY_USER_ID)
         remove(KEY_USER_NAME)
         putBoolean(KEY_IS_LOGGED_IN, false)
+        remove(KEY_LOGIN_TIMESTAMP)
     }
 
     // ==================== 设置相关方法 ====================

@@ -127,10 +127,11 @@ abstract class BaseViewModel : ViewModel() {
         forwardBusinessError: Boolean
     ) {
         if (response.isError()) {
+            val safeMsg = com.example.moodymusicforandroid.common.utils.ToastUtils.sanitizeErrorMessage(response.message)
             // 业务错误处理
             val businessException = BusinessException(
                 code = response.code,
-                message = response.message,
+                message = safeMsg,
                 data = response.data
             )
 
@@ -142,13 +143,13 @@ abstract class BaseViewModel : ViewModel() {
                 _businessError.value = BusinessError.from(businessException)
             } else {
                 // 基类统一处理，显示toast
-                val errorMsg = response.getErrorMsg()
+                val errorMsg = safeMsg
                 if (showErrorToast && errorMsg.isNotEmpty()) {
                     _toastMessage.value = errorMsg
                 }
             }
 
-            _errorMessage.value = businessException.displayMessage
+            _errorMessage.value = safeMsg
         }
     }
 
@@ -170,19 +171,20 @@ abstract class BaseViewModel : ViewModel() {
             is BusinessException -> {
                 handleSpecialBusinessError(throwable)
 
+                val safeMsg = com.example.moodymusicforandroid.common.utils.ToastUtils.sanitizeErrorMessage(throwable.displayMessage)
                 if (forwardBusinessError) {
-                    _businessError.value = BusinessError.from(throwable)
+                    _businessError.value = BusinessError.from(throwable).copy(message = safeMsg)
                 } else {
                     if (showErrorToast) {
-                        _toastMessage.value = throwable.displayMessage
+                        _toastMessage.value = safeMsg
                     }
                 }
-                _errorMessage.value = throwable.displayMessage
+                _errorMessage.value = safeMsg
             }
 
             // HTTP异常（4xx, 5xx）
             is HttpException -> {
-                val errorMsg = throwable.getErrorMessage()
+                val errorMsg = com.example.moodymusicforandroid.common.utils.ToastUtils.sanitizeErrorMessage(throwable.getErrorMessage())
                 if (showErrorToast) {
                     _toastMessage.value = errorMsg
                 }
@@ -191,8 +193,9 @@ abstract class BaseViewModel : ViewModel() {
             // Retrofit HTTP异常（从 errorBody 解析服务端消息，并对 401 互踢进行拦截）
             is RetrofitHttpException -> {
                 val (parsedMsg, rawBody) = parseRetrofitHttpErrorWithBody(throwable)
-                val errorMsg = parsedMsg
+                val rawError = parsedMsg
                     ?: HttpException(throwable.code(), throwable.message()).getErrorMessage()
+                val errorMsg = com.example.moodymusicforandroid.common.utils.ToastUtils.sanitizeErrorMessage(rawError)
 
                 if (throwable.code() == 401) {
                     val isKickedOut = rawBody.contains("SESSION_KICKED_OUT") ||
@@ -209,7 +212,7 @@ abstract class BaseViewModel : ViewModel() {
 
             // 网络异常
             is SocketTimeoutException, is UnknownHostException, is SSLException -> {
-                val errorMsg = NetworkException.handleException(throwable)
+                val errorMsg = com.example.moodymusicforandroid.common.utils.ToastUtils.sanitizeErrorMessage(NetworkException.handleException(throwable))
                 if (showErrorToast) {
                     _toastMessage.value = errorMsg
                 }
@@ -227,7 +230,8 @@ abstract class BaseViewModel : ViewModel() {
 
             // 其他异常
             else -> {
-                val errorMsg = throwable.message ?: "请求失败，请稍后重试"
+                val rawMsg = throwable.message ?: "请求失败，请稍后重试"
+                val errorMsg = com.example.moodymusicforandroid.common.utils.ToastUtils.sanitizeErrorMessage(rawMsg)
                 if (showErrorToast) {
                     _toastMessage.value = errorMsg
                 }
@@ -316,7 +320,7 @@ abstract class BaseViewModel : ViewModel() {
      * 显示Toast消息
      */
     protected fun showToast(message: String) {
-        _toastMessage.value = message
+        _toastMessage.value = com.example.moodymusicforandroid.common.utils.ToastUtils.sanitizeErrorMessage(message)
     }
 
     /**
