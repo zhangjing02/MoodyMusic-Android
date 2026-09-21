@@ -314,8 +314,8 @@ fun MainScreen(
                                     navigator.navigate(RouteAlbumDetail(id, title))
                                 }
                             },
-                            onArtistClick = { id, name ->
-                                navigator.navigate(RouteArtistDetail(id, name))
+                            onArtistClick = { id, name, avatar ->
+                                navigator.navigate(RouteArtistDetail(id, name, avatar))
                             },
                             onArticleClick = { articleId ->
                                 if (articleId == "butterfly_lovers_deep_dive") {
@@ -363,8 +363,8 @@ fun MainScreen(
                     entry<RouteDiscover> {
                         DiscoverScreen(
                             onMenuClick = { coroutineScope.launch { drawerState.open() } },
-                            onArtistClick = { id, name ->
-                                navigator.navigate(RouteArtistDetail(id, name))
+                            onArtistClick = { id, name, avatar ->
+                                navigator.navigate(RouteArtistDetail(id, name, avatar))
                             }
                         )
                     }
@@ -386,8 +386,8 @@ fun MainScreen(
                             onAlbumClick = { id, title ->
                                 navigator.navigate(RouteAlbumDetail(id, title))
                             },
-                            onArtistClick = { id, name ->
-                                navigator.navigate(RouteArtistDetail(id, name))
+                            onArtistClick = { id, name, avatar ->
+                                navigator.navigate(RouteArtistDetail(id, name, avatar))
                             },
                             onPlaylistClick = { playlistId, name ->
                                 navigator.navigate(RoutePlaylistDetail(playlistId = playlistId, playlistName = name))
@@ -443,8 +443,8 @@ fun MainScreen(
                             onAlbumClick = { id, title ->
                                 navigator.navigate(RouteAlbumDetail(id, title))
                             },
-                            onArtistClick = { id, name ->
-                                navigator.navigate(RouteArtistDetail(id, name))
+                            onArtistClick = { id, name, avatar ->
+                                navigator.navigate(RouteArtistDetail(id, name, avatar))
                             }
                         )
                     }
@@ -453,6 +453,7 @@ fun MainScreen(
                         ArtistDetailScreen(
                             artistId = key.artistId,
                             artistName = key.artistName,
+                            artistAvatar = key.avatarUrl,
                             onBackClick = { navigator.goBack() },
                             onAlbumClick = { artistId, albumTitle ->
                                 navigator.navigate(

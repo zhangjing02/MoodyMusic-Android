@@ -157,7 +157,7 @@ fun CategoryTabsBlock(
 fun ArtistGridBlock(
     data: ArtistGridData,
     modifier: Modifier = Modifier,
-    onArtistClick: (String, String) -> Unit = { _, _ -> }
+    onArtistClick: (artistId: String, artistName: String, avatarUrl: String?) -> Unit = { _, _, _ -> }
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -174,14 +174,14 @@ fun ArtistGridBlock(
                 ArtistGridCard(
                     artist = left,
                     modifier = Modifier.weight(1f),
-                    onClick = { onArtistClick(left.id, left.name) }
+                    onClick = { onArtistClick(left.id, left.name, left.avatarUrl) }
                 )
 
                 if (right != null) {
                     ArtistGridCard(
                         artist = right,
                         modifier = Modifier.weight(1f),
-                        onClick = { onArtistClick(right.id, right.name) }
+                        onClick = { onArtistClick(right.id, right.name, right.avatarUrl) }
                     )
                 } else {
                     Spacer(modifier = Modifier.weight(1f))

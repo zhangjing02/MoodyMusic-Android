@@ -48,7 +48,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = viewModel(),
     onSongClick: (FavoriteSong) -> Unit = {},
     onAlbumClick: (String, String) -> Unit = { _, _ -> },
-    onArtistClick: (String, String) -> Unit = { _, _ -> },
+    onArtistClick: (artistId: String, artistName: String, avatarUrl: String?) -> Unit = { _, _, _ -> },
     onPlaylistClick: (Long, String) -> Unit = { _, _ -> },
     onPlayPlaylistClick: (PlaylistEntity) -> Unit = {},
     onOpenCollectionManager: (initialTab: Int) -> Unit = {},

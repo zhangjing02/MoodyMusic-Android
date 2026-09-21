@@ -46,7 +46,7 @@ fun CollectionManagerScreen(
     onBackClick: () -> Unit = {},
     onSongClick: (FavoriteSong) -> Unit = {},
     onAlbumClick: (albumId: String, title: String) -> Unit = { _, _ -> },
-    onArtistClick: (artistId: String, name: String) -> Unit = { _, _ -> }
+    onArtistClick: (artistId: String, name: String, avatarUrl: String?) -> Unit = { _, _, _ -> }
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(initialTab.coerceIn(0, 2)) }
     var isEditMode by remember { mutableStateOf(false) }
@@ -373,7 +373,7 @@ fun CollectionManagerScreen(
                                             if (isSelected) selectedArtistIds.remove(artist.artistId)
                                             else selectedArtistIds.add(artist.artistId)
                                         } else {
-                                            onArtistClick(artist.artistId, artistName)
+                                            onArtistClick(artist.artistId, artistName, artist.avatar)
                                         }
                                     },
                                     onSingleUnfollow = {

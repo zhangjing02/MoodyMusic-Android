@@ -67,7 +67,7 @@ fun HomeScreen(
     onMenuClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAlbumClick: (String, String) -> Unit = { _, _ -> },
-    onArtistClick: (String, String) -> Unit = { _, _ -> },
+    onArtistClick: (artistId: String, artistName: String, avatarUrl: String?) -> Unit = { _, _, _ -> },
     onArticleClick: (String) -> Unit = {},
     onThemeClick: (themeId: String, title: String, audioUrl: String, coverUrl: String, artistName: String, storyUrl: String?) -> Unit = { _, _, _, _, _, _ -> }
 ) {
@@ -261,7 +261,7 @@ fun HomeScreen(
                             data = titleData,
                             onActionClick = { route ->
                                 when (route) {
-                                    "all_artists" -> onArtistClick("all", "精选艺术家")
+                                    "all_artists" -> onArtistClick("all", "精选艺术家", null)
                                     "play_all_tracks" -> onAlbumClick("daily_tracks", "今日单曲集")
                                     "archive_gallery" -> onAlbumClick("archive_gallery", "时代留声机")
                                     else -> onAlbumClick("society_weekly", "SOCIETY WEEKLY")
@@ -285,13 +285,13 @@ fun HomeScreen(
                                 ArtistGridCard(
                                     artist = left,
                                     modifier = Modifier.weight(1f),
-                                    onClick = { onArtistClick(left.id, left.name) }
+                                    onClick = { onArtistClick(left.id, left.name, left.avatarUrl) }
                                 )
                                 if (right != null) {
                                     ArtistGridCard(
                                         artist = right,
                                         modifier = Modifier.weight(1f),
-                                        onClick = { onArtistClick(right.id, right.name) }
+                                        onClick = { onArtistClick(right.id, right.name, right.avatarUrl) }
                                     )
                                 } else {
                                     Spacer(modifier = Modifier.weight(1f))

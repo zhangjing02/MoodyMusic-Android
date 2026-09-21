@@ -15,7 +15,8 @@ data object RouteLibrary : NavKey
 @Serializable
 data class RouteArtistDetail(
     val artistId: String = "abigail_chen",
-    val artistName: String = "阿比盖尔·陈"
+    val artistName: String = "阿比盖尔·陈",
+    val avatarUrl: String? = null
 ) : NavKey
 
 @Serializable

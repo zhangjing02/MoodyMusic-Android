@@ -18,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,18 +29,32 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.example.moodymusicforandroid.R
+import com.example.moodymusicforandroid.common.config.AppConfig
 import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.data.model.AlbumWithSongs
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
+import kotlin.math.abs
 
-private val NON_DIGIT_REGEX = Regex("\\D")
+private val ARTIST_HERO_PALETTES = listOf(
+    listOf(Color(0xFFC86D51), Color(0xFFA34D35)), // 焦橙 / 陶土
+    listOf(Color(0xFF6B7A60), Color(0xFF4D5B44)), // 鼠尾草绿 / 橄榄
+    listOf(Color(0xFFB58450), Color(0xFF8F6233)), // 复古琥珀 / 黄铜
+    listOf(Color(0xFF5E6D82), Color(0xFF414E61)), // 靛蓝 / 灰蓝
+    listOf(Color(0xFF94685A), Color(0xFF754D41)), // 暖褐 / 赭石
+    listOf(Color(0xFF7D6B7D), Color(0xFF5C4C5C)), // 枯紫 / 暮色
+    listOf(Color(0xFF5C7873), Color(0xFF3F5854)), // 墨绿 / 青瓷
+    listOf(Color(0xFF8C7355), Color(0xFF6E5539))  // 亚麻 / 浅褐
+)
 
 @Composable
 fun ArtistDetailScreen(
     artistId: String = "",
     artistName: String = "",
+    artistAvatar: String? = null,
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
     onAlbumClick: (artistId: String, albumTitle: String) -> Unit = { _, _ -> },
@@ -47,11 +64,27 @@ fun ArtistDetailScreen(
         key = "ArtistDetailViewModel_$artistId",
         factory = viewModelFactory {
             initializer {
-                val ssh = SavedStateHandle(mapOf("artistId" to artistId, "artistName" to artistName))
+                val ssh = SavedStateHandle(
+                    mapOf(
+                        "artistId" to artistId,
+                        "artistName" to artistName,
+                        "artistAvatar" to (artistAvatar ?: "")
+                    )
+                )
                 ArtistDetailViewModel(ssh)
             }
         }
     )
+
+    // 当 ViewModel 已被缓存时，如果进入页面携带了新头像或专辑为空，动态同步并刷新
+    LaunchedEffect(artistId, artistAvatar) {
+        if (!artistAvatar.isNullOrBlank()) {
+            viewModel.updateAvatar(artistAvatar)
+        }
+        if (viewModel.uiState.value.albums.isEmpty()) {
+            viewModel.loadArtistDetail()
+        }
+    }
 
     val uiState by viewModel.uiState.collectAsState()
     val followedArtistIds by UserManager.followedArtistIds.collectAsState()
@@ -128,23 +161,34 @@ fun ArtistDetailScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // 1. 艺术家封面（优先用 API 头像，否则用占位）
+            // 1. 艺术家封面（优先用真实高清头像，失败或无图时优雅降级为专属艺术大图）
             item {
-                val currentAvatar = uiState.artistAvatar
-                val resolvedHeroModel = remember(currentAvatar, artistId) {
-                    val hasCustom = !currentAvatar.isNullOrBlank() &&
-                        !currentAvatar.contains("default.png") &&
-                        !currentAvatar.contains("landing_cover.png") &&
-                        !currentAvatar.startsWith("/src/")
+                val context = LocalContext.current
+                val currentAvatar = uiState.artistAvatar ?: artistAvatar
+                val hasCustom = !currentAvatar.isNullOrBlank() &&
+                    !currentAvatar.contains("default.png") &&
+                    !currentAvatar.contains("landing_cover.png") &&
+                    !currentAvatar.startsWith("/src/")
+
+                val resolvedHeroUrl = remember(currentAvatar) {
                     if (hasCustom) {
-                        com.example.moodymusicforandroid.common.config.AppConfig.resolveUrl(currentAvatar)
+                        AppConfig.resolveUrl(currentAvatar)
                     } else {
-                        val rawId = artistId.replace(NON_DIGIT_REGEX, "")
-                        if (rawId.isNotBlank()) {
-                            "file:///android_asset/avatars/artists/artist_$rawId.jpg"
-                        } else {
-                            ""
-                        }
+                        null
+                    }
+                }
+
+                val palette = remember(displayName) {
+                    val index = abs(displayName.hashCode()) % ARTIST_HERO_PALETTES.size
+                    ARTIST_HERO_PALETTES[index]
+                }
+                val displayChar = remember(displayName) {
+                    val trimmed = displayName.trim()
+                    if (trimmed.isEmpty()) "M"
+                    else {
+                        val first = trimmed.first()
+                        if (first in 'a'..'z') first.uppercaseChar().toString()
+                        else first.toString()
                     }
                 }
 
@@ -156,12 +200,45 @@ fun ArtistDetailScreen(
                         .clip(RoundedCornerShape(4.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
-                    SongbookImage(
-                        model = resolvedHeroModel,
-                        contentDescription = artistName,
-                        fallbackRes = R.drawable.artist_abigail_chen,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    if (resolvedHeroUrl != null) {
+                        val imageRequest = remember(context, resolvedHeroUrl) {
+                            ImageRequest.Builder(context)
+                                .data(resolvedHeroUrl)
+                                .crossfade(true)
+                                .allowHardware(false)
+                                .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                .build()
+                        }
+
+                        SubcomposeAsyncImage(
+                            model = imageRequest,
+                            contentDescription = displayName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            loading = {
+                                ArtistHeroFallback(
+                                    displayChar = displayChar,
+                                    palette = palette,
+                                    name = displayName
+                                )
+                            },
+                            error = {
+                                ArtistHeroFallback(
+                                    displayChar = displayChar,
+                                    palette = palette,
+                                    name = displayName
+                                )
+                            }
+                        )
+                    } else {
+                        ArtistHeroFallback(
+                            displayChar = displayChar,
+                            palette = palette,
+                            name = displayName
+                        )
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -435,3 +512,45 @@ data class ArtistAlbumItem(
     val imageUrl: String,
     val fallbackRes: Int
 )
+
+@Composable
+private fun ArtistHeroFallback(
+    displayChar: String,
+    palette: List<Color>,
+    name: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.linearGradient(
+                    colors = palette,
+                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(800f, 1000f)
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = displayChar,
+                color = Color.White.copy(alpha = 0.85f),
+                fontWeight = FontWeight.Light,
+                fontSize = 80.sp,
+                fontFamily = FontFamily.Serif
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = name,
+                color = Color.White.copy(alpha = 0.9f),
+                fontWeight = FontWeight.Medium,
+                fontSize = 18.sp,
+                letterSpacing = 1.sp
+            )
+        }
+    }
+}

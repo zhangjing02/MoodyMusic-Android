@@ -1,4 +1,4 @@
-﻿package com.example.moodymusicforandroid.ui.artist
+package com.example.moodymusicforandroid.ui.artist
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -24,13 +24,25 @@ class ArtistDetailViewModel(
 
     private val artistId: String = savedStateHandle["artistId"] ?: ""
     private val artistNameArg: String = savedStateHandle["artistName"] ?: ""
+    private val artistAvatarArg: String? = savedStateHandle["artistAvatar"]
 
-    private val _uiState = MutableStateFlow(ArtistDetailUiState(artistName = artistNameArg))
+    private val _uiState = MutableStateFlow(
+        ArtistDetailUiState(
+            artistName = artistNameArg,
+            artistAvatar = artistAvatarArg?.takeIf { it.isNotBlank() }
+        )
+    )
     val uiState: StateFlow<ArtistDetailUiState> = _uiState.asStateFlow()
 
     init {
         if (artistId.isNotBlank()) {
             loadArtistDetail()
+        }
+    }
+
+    fun updateAvatar(avatar: String?) {
+        if (!avatar.isNullOrBlank() && _uiState.value.artistAvatar != avatar) {
+            _uiState.value = _uiState.value.copy(artistAvatar = avatar)
         }
     }
 
@@ -44,7 +56,7 @@ class ArtistDetailViewModel(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         albums = artistData?.albums ?: emptyList(),
-                        artistAvatar = artistData?.avatar
+                        artistAvatar = artistData?.avatar ?: _uiState.value.artistAvatar
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(

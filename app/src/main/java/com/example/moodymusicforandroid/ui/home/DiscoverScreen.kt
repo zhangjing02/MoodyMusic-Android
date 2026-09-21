@@ -67,7 +67,7 @@ fun DiscoverScreen(
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = viewModel(),
     onMenuClick: () -> Unit = {},
-    onArtistClick: (artistId: String, artistName: String) -> Unit = { _, _ -> }
+    onArtistClick: (artistId: String, artistName: String, avatarUrl: String?) -> Unit = { _, _, _ -> }
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedGenre by remember { mutableStateOf("全部") }
@@ -410,7 +410,7 @@ fun DiscoverScreen(
                             avatarUrl = artist.avatarUrl,
                             artistId = artist.id,
                             fallbackRes = artist.fallbackRes,
-                            onClick = { onArtistClick(artist.id, artist.name) }
+                            onClick = { onArtistClick(artist.id, artist.name, artist.avatarUrl) }
                         )
                     }
                 }

@@ -31,7 +31,7 @@ import com.example.moodymusicforandroid.ui.theme.SongbookColors
 fun FollowedArtistsSection(
     artists: List<LibraryArtistItem>,
     modifier: Modifier = Modifier,
-    onArtistClick: (String, String) -> Unit = { _, _ -> },
+    onArtistClick: (artistId: String, artistName: String, avatarUrl: String?) -> Unit = { _, _, _ -> },
     onBrowseAllClick: () -> Unit = {}
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -74,7 +74,7 @@ fun FollowedArtistsSection(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { onArtistClick(artist.artistId, artist.getDisplayName()) }
+                            .clickable { onArtistClick(artist.artistId, artist.getDisplayName(), artist.avatar) }
                     ) {
                         Box(
                             modifier = Modifier
