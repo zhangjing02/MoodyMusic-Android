@@ -59,3 +59,11 @@ data class PlayQueueItem(
     val lrcPath: String? = null,
     val queueId: String = java.util.UUID.randomUUID().toString()
 ) : Serializable
+
+/**
+ * 「加入当前播放列表」操作结果
+ * - ADDED：成功追加到队列末尾
+ * - DUPLICATE：队列中已存在相同音频，未重复添加
+ * - STARTED_NEW：原队列为空，已新建单曲播放会话
+ */
+enum class AddToQueueResult { ADDED, DUPLICATE, STARTED_NEW }

@@ -299,6 +299,87 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * 将一首歌追加到当前播放队列末尾。
+     *
+     * 返回值：
+     * - ADDED：成功追加
+     * - DUPLICATE：已在队列中，未重复添加
+     * - STARTED_NEW：原队列为空，已新建单曲播放会话
+     */
+    fun addToQueue(
+        audioUrl: String,
+        songTitle: String,
+        artistName: String,
+        albumTitle: String,
+        coverUrl: String,
+        lrcPath: String? = null
+    ): AddToQueueResult {
+        val item = PlayQueueItem(
+            songTitle = songTitle,
+            artistName = artistName,
+            albumTitle = albumTitle,
+            coverUrl = coverUrl,
+            audioUrl = audioUrl,
+            lrcPath = lrcPath
+        )
+
+        val result = if (isBound) {
+            musicService?.addToQueue(item) ?: run {
+                // Service 绑定但引用丢失，降级走 Intent
+                sendAddToQueueIntent(item)
+                // 本地推断结果
+                if (_playState.value.queue.isEmpty()) AddToQueueResult.STARTED_NEW
+                else if (_playState.value.queue.any { it.audioUrl == audioUrl }) AddToQueueResult.DUPLICATE
+                else AddToQueueResult.ADDED
+            }
+        } else {
+            // 未绑定：先本地判断，再发 Intent
+            val localResult = when {
+                _playState.value.queue.isEmpty() -> AddToQueueResult.STARTED_NEW
+                _playState.value.queue.any { it.audioUrl == audioUrl } -> AddToQueueResult.DUPLICATE
+                else -> AddToQueueResult.ADDED
+            }
+            sendAddToQueueIntent(item)
+            localResult
+        }
+
+        // 乐观更新 _playState，让 UI 无需等 EventBus 回调即刻响应
+        when (result) {
+            AddToQueueResult.ADDED -> {
+                val newQueue = _playState.value.queue + item
+                _playState.value = _playState.value.copy(queue = newQueue)
+            }
+            AddToQueueResult.STARTED_NEW -> {
+                _playState.value = MusicPlayState(
+                    songTitle = songTitle,
+                    artistName = artistName,
+                    albumTitle = albumTitle,
+                    coverUrl = coverUrl,
+                    audioUrl = audioUrl,
+                    lrcPath = lrcPath,
+                    isPlaying = true,
+                    duration = 0,
+                    position = 0,
+                    playlistIndex = 0,
+                    playMode = _playState.value.playMode,
+                    queue = listOf(item)
+                )
+            }
+            AddToQueueResult.DUPLICATE -> { /* 不更新状态 */ }
+        }
+
+        return result
+    }
+
+    private fun sendAddToQueueIntent(item: PlayQueueItem) {
+        val intent = Intent(getApplication(), MusicPlayerService::class.java).apply {
+            action = MusicPlayerService.ACTION_ADD_TO_QUEUE
+            putExtra(MusicPlayerService.EXTRA_QUEUE_ITEM, item)
+        }
+        getApplication<Application>().startService(intent)
+    }
+
     fun clearQueue() {
         stop()
     }

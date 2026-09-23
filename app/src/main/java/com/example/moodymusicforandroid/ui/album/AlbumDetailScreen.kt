@@ -429,6 +429,18 @@ fun AlbumDetailScreen(
             albumTitle = albumTitle,
             coverUrl = uiState.coverUrl,
             filePath = targetSong.path ?: "",
+            currentQueue = playState.queue,
+            onAddToCurrentQueue = if (playerViewModel != null) {
+                {
+                    playerViewModel.addToQueue(
+                        audioUrl  = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl(targetSong.path ?: ""),
+                        songTitle = targetSong.title,
+                        artistName = artistName,
+                        albumTitle = albumTitle,
+                        coverUrl  = uiState.coverUrl
+                    )
+                }
+            } else null,
             onDismiss = { songToAddToPlaylist = null }
         )
     }

@@ -79,10 +79,17 @@ class LibraryViewModel : BaseViewModel() {
      */
     fun loadData() {
         if (!UserManager.isLoggedIn.value) {
-            _isRefreshing.value = false
+            // 访客模式：需要用协程 + delay 让 true → false 跨两帧发出。
+            // 若在同一帧内同步赋值 true 再 false，LiveData/Compose 会批处理只见到 false，
+            // PullToRefreshBox 内的 LaunchedEffect(isRefreshing) 永远触发不到 state.endRefresh()。
             _userProfile.value = null
             _userLibrary.value = null
             _favoriteSongs.value = emptyList()
+            viewModelScope.launch {
+                _isRefreshing.postValue(true)
+                kotlinx.coroutines.delay(350)
+                _isRefreshing.postValue(false)
+            }
             return
         }
 

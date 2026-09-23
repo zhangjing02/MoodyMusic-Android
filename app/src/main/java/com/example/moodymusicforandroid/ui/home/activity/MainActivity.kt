@@ -735,7 +735,17 @@ fun MainScreen(
                         onTogglePlayMode = { playerViewModel.togglePlayMode() },
                         onSelectQueueItem = { index -> playerViewModel.playTrackInQueue(index) },
                         onRemoveQueueItem = { index -> playerViewModel.removeFromQueue(index) },
-                        onClearQueue = { playerViewModel.clearQueue() }
+                        onClearQueue = { playerViewModel.clearQueue() },
+                        onAddToCurrentQueue = {
+                            playerViewModel.addToQueue(
+                                audioUrl   = playState.audioUrl,
+                                songTitle  = playState.songTitle,
+                                artistName = playState.artistName,
+                                albumTitle = playState.albumTitle,
+                                coverUrl   = playState.coverUrl,
+                                lrcPath    = playState.lrcPath
+                            )
+                        }
                     )
                 }
             }

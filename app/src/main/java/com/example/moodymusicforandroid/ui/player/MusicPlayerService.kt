@@ -53,10 +53,12 @@ class MusicPlayerService : Service() {
         const val ACTION_PLAY_INDEX = "com.example.moodymusicforandroid.ACTION_PLAY_INDEX"
         const val ACTION_REMOVE_INDEX = "com.example.moodymusicforandroid.ACTION_REMOVE_INDEX"
         const val ACTION_CLEAR_QUEUE = "com.example.moodymusicforandroid.ACTION_CLEAR_QUEUE"
+        const val ACTION_ADD_TO_QUEUE = "com.example.moodymusicforandroid.ACTION_ADD_TO_QUEUE"
 
         const val EXTRA_PLAYLIST = "extra_playlist"
         const val EXTRA_INDEX = "extra_index"
         const val EXTRA_SEEK_POSITION = "extra_seek_position"
+        const val EXTRA_QUEUE_ITEM = "extra_queue_item"
 
         val AUDIO_ATTRIBUTES: AudioAttributes = AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -205,6 +207,11 @@ class MusicPlayerService : Service() {
                 if (idx >= 0) removeItem(idx)
             }
             ACTION_CLEAR_QUEUE -> clearQueue()
+            ACTION_ADD_TO_QUEUE -> {
+                @Suppress("UNCHECKED_CAST")
+                val item = intent.getSerializableExtra(EXTRA_QUEUE_ITEM) as? PlayQueueItem
+                if (item != null) addToQueue(item)
+            }
         }
         return START_STICKY
     }
@@ -584,6 +591,32 @@ class MusicPlayerService : Service() {
 
     fun clearQueue() {
         stopPlayback()
+    }
+
+    /**
+     * 将一首歌追加到当前播放队列末尾。
+     *
+     * - 队列为空时：以该曲新建单曲播放会话，返回 STARTED_NEW
+     * - 队列中已存在相同 audioUrl：跳过，返回 DUPLICATE
+     * - 其他情况：追加到末尾并广播，返回 ADDED
+     */
+    fun addToQueue(item: PlayQueueItem): AddToQueueResult {
+        return if (playlist.isEmpty()) {
+            // 空队列 → 直接开播
+            playlist.add(item)
+            currentIndex = 0
+            retryCount = 0
+            playCurrentSong()
+            AddToQueueResult.STARTED_NEW
+        } else if (playlist.any { it.audioUrl == item.audioUrl }) {
+            // 已存在 → 去重
+            AddToQueueResult.DUPLICATE
+        } else {
+            // 追加末尾
+            playlist.add(item)
+            broadcastPlayState(isPlaying = isPlaying())
+            AddToQueueResult.ADDED
+        }
     }
 
     fun seekTo(posMs: Int) {

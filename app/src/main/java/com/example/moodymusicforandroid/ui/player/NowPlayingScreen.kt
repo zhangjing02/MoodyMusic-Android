@@ -89,6 +89,7 @@ fun NowPlayingScreen(
     onSelectQueueItem: (Int) -> Unit = {},
     onRemoveQueueItem: (Int) -> Unit = {},
     onClearQueue: () -> Unit = {},
+    onAddToCurrentQueue: (() -> AddToQueueResult)? = null,
     modifier: Modifier = Modifier
 ) {
     var showQueueSheet by remember { mutableStateOf(false) }
@@ -496,6 +497,8 @@ fun NowPlayingScreen(
             coverUrl = playState.coverUrl,
             filePath = playState.audioUrl,
             duration = (playState.duration / 1000).toInt(),
+            currentQueue = playState.queue,
+            onAddToCurrentQueue = onAddToCurrentQueue,
             onDismiss = { showAddToPlaylistSheet = false }
         )
     }

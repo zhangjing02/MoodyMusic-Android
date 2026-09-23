@@ -32,12 +32,12 @@ import java.util.Locale
 /**
  * 现代颂歌 (The Modern Songbook) 露出式极简下拉刷新布局容器
  *
- * 采用经典“整体下移露出头部”交互规范：
+ * 采用经典"整体下移露出头部"交互规范：
  * 1. 手势下拉时，内容列表整体平滑向下滑移，在上方露出独立呼吸空间。
- * 2. 头部高度与下拉距离精准同步并严格裁切，保证内容与头部 0 重叠、0 穿透。
- * 3. 露出极简内嵌头部：回转细线箭头、状态提示与【上次更新时间】。
- * 4. 释放刷新时，内容固定停留在头部下方，静默加载。
- * 5. 刷新结束后平滑弹回，告别悬浮遮挡内容的粗糙圆形进度条。
+ * 2. 头部采用固定高度容器 + graphicsLayer 滑入，全程零额外 Measure/Layout pass。
+ * 3. 内容区同样通过 graphicsLayer translationY 驱动，全程 GPU-only 流畅动画。
+ * 4. 头部始终保留在 Composition 树中（不做条件渲染），用 alpha 控制可见性，
+ *    避免频繁进出 Composition 带来的抖动。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,49 +52,39 @@ fun SongbookPullToRefreshLayout(
 ) {
     val density = LocalDensity.current
     val headerHeightPx = with(density) { headerHeight.toPx() }
+    val minThresholdPx = with(density) { 10.dp.toPx() }
     val haptic = LocalHapticFeedback.current
 
-    // 上次更新时间格式化
+    // 上次更新时间（仅在刷新完成时更新，完全不随下拉帧变动）
     var lastUpdatedText by remember {
         val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
         mutableStateOf("上次更新 ${sdf.format(Date())}")
     }
-
-    // 当刷新完成时更新时间戳
     LaunchedEffect(isRefreshing) {
         if (!isRefreshing) {
-            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-            lastUpdatedText = "上次更新 ${sdf.format(Date())}"
+            lastUpdatedText = "上次更新 ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}"
         }
     }
 
-    // 有效下拉比例：刷新时锁定至少为 1.0f
-    val fraction = state.distanceFraction
-    val effectiveFraction = if (isRefreshing) maxOf(fraction, 1f) else fraction
+    val currentRefreshing by rememberUpdatedState(isRefreshing)
+
+    // 触达临界点状态：手势下拉距离是否触达 1.0f 阈值
+    // 彻底解耦 isRefreshing 脏状态，确保首次进入无论处于何种加载态，手势下拉均能 100% 触发箭头翻转动效
+    val isThresholdReached by remember {
+        derivedStateOf {
+            state.distanceFraction >= 1.0f
+        }
+    }
 
     // 触达临界点轻微震动反馈
     var hasTriggeredHaptic by remember { mutableStateOf(false) }
-    LaunchedEffect(effectiveFraction >= 1.0f) {
-        if (effectiveFraction >= 1.0f && !hasTriggeredHaptic && !isRefreshing) {
+    LaunchedEffect(isThresholdReached) {
+        if (isThresholdReached && !hasTriggeredHaptic && !currentRefreshing) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             hasTriggeredHaptic = true
-        } else if (effectiveFraction < 1.0f) {
+        } else if (!isThresholdReached) {
             hasTriggeredHaptic = false
         }
-    }
-
-    // 下拉位移计算：阈值内线性跟随，超额时阻尼伸展
-    val pullOffsetPx = remember(effectiveFraction, headerHeightPx) {
-        if (effectiveFraction <= 1f) {
-            effectiveFraction * headerHeightPx
-        } else {
-            headerHeightPx + (effectiveFraction - 1f) * headerHeightPx * 0.35f
-        }
-    }
-
-    // 露出区域高度：精准对应下拉位移，上限为 headerHeight
-    val revealHeight = with(density) {
-        pullOffsetPx.coerceAtMost(headerHeightPx).toDp()
     }
 
     PullToRefreshBox(
@@ -102,41 +92,56 @@ fun SongbookPullToRefreshLayout(
         onRefresh = onRefresh,
         state = state,
         modifier = modifier,
-        indicator = {} // 禁用官方圆形悬浮条
+        indicator = {} // 禁用官方圆形悬浮指示器
     ) {
-        // ── 1. 露出式头部布局 (Reveal Header) ──────────────────────
-        // 严格位于状态栏与内容区之间，使用 clipToBounds 确保无内容交叉重叠
-        if (pullOffsetPx > 2f || isRefreshing) {
-            val headerAlpha = if (isRefreshing) {
-                1f
-            } else {
-                val minThresholdPx = with(density) { 10.dp.toPx() }
-                ((pullOffsetPx - minThresholdPx) / (headerHeightPx * 0.6f)).coerceIn(0f, 1f)
-            }
-
+        // ── 1. 露出式头部（完全在 graphicsLayer 绘制阶段计算位移与透明度，零 Recomposition）──────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = headerTopPadding)
+                .height(headerHeight)
+                .clipToBounds()
+        ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = headerTopPadding)
-                    .height(revealHeight)
-                    .clipToBounds()
-                    .graphicsLayer { alpha = headerAlpha },
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        // 绘制阶段延迟读取状态，跳过 Composition 和 Layout 阶段
+                        val f = if (currentRefreshing) maxOf(state.distanceFraction, 1f) else state.distanceFraction
+                        val pullOffset = if (f <= 1f) {
+                            f * headerHeightPx
+                        } else {
+                            headerHeightPx + (f - 1f) * headerHeightPx * 0.35f
+                        }
+                        translationY = pullOffset.coerceAtMost(headerHeightPx) - headerHeightPx
+                        alpha = if (currentRefreshing) {
+                            1f
+                        } else {
+                            ((pullOffset - minThresholdPx) / (headerHeightPx * 0.6f)).coerceIn(0f, 1f)
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 SongbookRevealHeaderContent(
-                    pullFraction = effectiveFraction,
+                    isThresholdReached = isThresholdReached,
                     isRefreshing = isRefreshing,
                     lastUpdatedText = lastUpdatedText
                 )
             }
         }
 
-        // ── 2. 主内容区域 (随手势整体平滑下移，绝不被头部遮挡) ──────
+        // ── 2. 主内容（同样在 graphicsLayer 内部延迟读取位移，回弹全程零 Recomposition！）────────
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    translationY = pullOffsetPx
+                    val f = if (currentRefreshing) maxOf(state.distanceFraction, 1f) else state.distanceFraction
+                    val pullOffset = if (f <= 1f) {
+                        f * headerHeightPx
+                    } else {
+                        headerHeightPx + (f - 1f) * headerHeightPx * 0.35f
+                    }
+                    translationY = pullOffset
                 }
         ) {
             content()
@@ -145,17 +150,18 @@ fun SongbookPullToRefreshLayout(
 }
 
 /**
- * 露出式头部内容：旋转小箭头 + 状态文案 + 上次更新时间
+ * 露出式头部内容：旋转细线箭头 + 状态文案 + 上次更新时间
+ * 仅在 isThresholdReached / isRefreshing 改变时重组，微下拉回弹时保持完全稳定
  */
 @Composable
 private fun SongbookRevealHeaderContent(
-    pullFraction: Float,
+    isThresholdReached: Boolean,
     isRefreshing: Boolean,
     lastUpdatedText: String
 ) {
     val arrowRotation by animateFloatAsState(
-        targetValue = if (pullFraction >= 1.0f) 180f else 0f,
-        animationSpec = tween(220),
+        targetValue = if (isThresholdReached) 180f else 0f,
+        animationSpec = tween(200),
         label = "arrowRotation"
     )
 
@@ -163,7 +169,7 @@ private fun SongbookRevealHeaderContent(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        // 1. 状态图标（加载中圆环 vs 下拉指向箭头）
+        // 状态图标（加载中圆环 vs 下拉箭头）
         Box(
             modifier = Modifier.size(24.dp),
             contentAlignment = Alignment.Center
@@ -187,16 +193,13 @@ private fun SongbookRevealHeaderContent(
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        // 2. 状态文案与上次更新时间
-        Column(
-            verticalArrangement = Arrangement.Center
-        ) {
+        // 状态文案 + 上次更新时间
+        Column(verticalArrangement = Arrangement.Center) {
             val statusTitle = when {
                 isRefreshing -> "正在更新..."
-                pullFraction >= 1.0f -> "释放立即刷新"
+                isThresholdReached -> "释放立即刷新"
                 else -> "下拉翻阅手札"
             }
-
             Text(
                 text = statusTitle,
                 style = MaterialTheme.typography.labelMedium,
@@ -204,7 +207,6 @@ private fun SongbookRevealHeaderContent(
                 fontSize = 12.5.sp,
                 fontWeight = FontWeight.Medium
             )
-
             Text(
                 text = lastUpdatedText,
                 style = MaterialTheme.typography.labelSmall,
@@ -216,7 +218,7 @@ private fun SongbookRevealHeaderContent(
 }
 
 /**
- * 极简线条小箭头：精准绘制，随手势阈值 180 度平滑回转
+ * 极简线条小箭头：随手势阈值 180° 平滑回转
  */
 @Composable
 private fun MinimalistHairlineArrow(
@@ -232,7 +234,6 @@ private fun MinimalistHairlineArrow(
         val h = size.height
         val stroke = 1.6.dp.toPx()
 
-        // 竖直轴线
         drawLine(
             color = SongbookColors.BurntOrange,
             start = Offset(w / 2f, 1.dp.toPx()),
@@ -240,7 +241,6 @@ private fun MinimalistHairlineArrow(
             strokeWidth = stroke,
             cap = StrokeCap.Round
         )
-        // 左箭头翼
         drawLine(
             color = SongbookColors.BurntOrange,
             start = Offset(2.5.dp.toPx(), h - 6.5.dp.toPx()),
@@ -248,7 +248,6 @@ private fun MinimalistHairlineArrow(
             strokeWidth = stroke,
             cap = StrokeCap.Round
         )
-        // 右箭头翼
         drawLine(
             color = SongbookColors.BurntOrange,
             start = Offset(w - 2.5.dp.toPx(), h - 6.5.dp.toPx()),

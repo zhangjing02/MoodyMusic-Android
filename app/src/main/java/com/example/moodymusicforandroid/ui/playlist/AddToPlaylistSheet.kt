@@ -20,14 +20,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
+import androidx.compose.ui.res.painterResource
+import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.data.local.db.PlaylistEntity
 import com.example.moodymusicforandroid.data.manager.PlaylistManager
+import com.example.moodymusicforandroid.ui.player.AddToQueueResult
+import com.example.moodymusicforandroid.ui.player.PlayQueueItem
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import kotlinx.coroutines.launch
 
@@ -46,6 +52,8 @@ fun AddToPlaylistSheet(
     coverUrl: String,
     filePath: String,
     duration: Int = 0,
+    currentQueue: List<PlayQueueItem> = emptyList(),
+    onAddToCurrentQueue: (() -> AddToQueueResult)? = null,
     onDismiss: () -> Unit
 ) {
     if (!visible) return
@@ -69,6 +77,16 @@ fun AddToPlaylistSheet(
         if (songId > 0) {
             memberPlaylistIds = PlaylistManager.getSongMembershipIds(songId)
         }
+    }
+
+    // 「加入当前播放列表」勾选状态：从传入 queue 派生，点击成功后乐观翻转，不依赖重开 Sheet 刷新
+    // 注意：filePath 可能是相对路径，队列里的 audioUrl 是完整 CDN URL，需归一化后比对
+    val context = LocalContext.current
+    val resolvedFilePath = remember(filePath) {
+        com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl(filePath)
+    }
+    var isInQueue by remember(currentQueue, resolvedFilePath) {
+        mutableStateOf(currentQueue.any { it.audioUrl == resolvedFilePath })
     }
 
     ModalBottomSheet(
@@ -187,6 +205,65 @@ fun AddToPlaylistSheet(
                         Text("创建并收录", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+
+            // ── 固定置顶行：加入当前播放列表 (YouTube 极简操作项风格) ──
+            if (onAddToCurrentQueue != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            if (isInQueue) {
+                                // 已在队列：Toast 提示
+                                Toast.makeText(context, "「${songTitle.ifBlank { "该歌曲" }}」已在当前播放列表中", Toast.LENGTH_SHORT).show()
+                            } else {
+                                val result = onAddToCurrentQueue()
+                                when (result) {
+                                    AddToQueueResult.ADDED, AddToQueueResult.STARTED_NEW -> {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        // 添加成功即刻收起弹窗，顺畅干脆
+                                        onDismiss()
+                                    }
+                                    AddToQueueResult.DUPLICATE -> {
+                                        isInQueue = true
+                                        Toast.makeText(context, "「${songTitle.ifBlank { "该歌曲" }}」已在当前播放列表中", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // 左侧：标准播放列表图标
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_playlist),
+                        contentDescription = null,
+                        tint = if (isInQueue) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp)
+                    )
+
+                    // 中间：单行清晰操作选项文本，绝无冗余说明
+                    Text(
+                        text = "加入当前播放列表",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // 右侧：若已收录在当前待播队列中，显示一个优雅极简的对钩
+                    if (isInQueue) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = SongbookColors.BurntOrange,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
             HorizontalDivider(color = SongbookColors.GhostBorder, thickness = 0.8.dp)

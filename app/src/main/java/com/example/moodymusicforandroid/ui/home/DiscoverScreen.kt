@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -61,7 +62,7 @@ import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DiscoverScreen(
     modifier: Modifier = Modifier,
@@ -185,7 +186,7 @@ fun DiscoverScreen(
     // 预先计算每个字母在 LazyColumn 中的起始条目绝对索引，支持精准跳转
     val groupIndexMap = remember(groupedArtists) {
         val map = mutableMapOf<String, Int>()
-        var currentIndex = 4 // 前置 4 个 item: TopBar(0), Search(1), Genres(2), ArchiveTitle(3)
+        var currentIndex = 3 // 前置 3 个 item: Search(0), Genres(1), ArchiveTitle(2)
         groupedArtists.forEach { (initial, artistsInGroup) ->
             map[initial] = currentIndex
             currentIndex += 1 + artistsInGroup.size // 1个分组大标题 + N个艺术家条目
@@ -194,6 +195,21 @@ fun DiscoverScreen(
     }
 
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val topBarContentHeight = 44.dp
+    val topBarTotalHeight = statusBarTop + topBarContentHeight
+
+    // 滚动驱动的 TopBar 背景 Alpha (0f -> 1f)：
+    // 在顶部未滚动时：alpha = 0f，完全透明，融入背景，零色差！
+    // 向上滑动前 60dp 过程中：alpha 平滑过渡到 1f，变身为实色吸顶栏，完美遮挡滑过的卡片
+    val topBarAlpha by remember {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (listState.firstVisibleItemScrollOffset / 120f).coerceIn(0f, 1f)
+            }
+        }
+    }
 
     // 跟踪手势拖拽选中的字母与快速滚动协程
     var draggingLetter by remember { mutableStateOf<String?>(null) }
@@ -250,48 +266,19 @@ fun DiscoverScreen(
             headerTopPadding = statusBarTop,
             modifier = Modifier.fillMaxSize()
         ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 20.dp, end = 28.dp),
-                contentPadding = PaddingValues(
-                    top = statusBarTop + 6.dp,
-                    bottom = 140.dp
-                )
-            ) {
-                // 1. TopBar
-                item(key = "header_topbar") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = onMenuClick, modifier = Modifier.size(36.dp)) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Menu",
-                                tint = SongbookColors.BurntOrange
-                            )
-                        }
-
-                        Text(
-                            text = "歌手",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontStyle = FontStyle.Italic,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-
-                        Spacer(modifier = Modifier.size(36.dp))
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // 2. 极简低饱和搜索框
-                item(key = "header_search") {
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 20.dp, end = 28.dp),
+                    contentPadding = PaddingValues(
+                        top = topBarTotalHeight + 8.dp,
+                        bottom = 140.dp
+                    )
+                ) {
+                    // 1. 极简低饱和搜索框 (首个列表项)
+                    item(key = "header_search") {
                     TextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
@@ -432,9 +419,54 @@ fun DiscoverScreen(
                     }
                 }
             }
-        }
 
-        // 6. 右侧快捷字母导航索引栏（侧边水滴跟随气泡 + 波浪放大动效 + 智能就近吸附 + 磨砂导轨）
+            // 顶部吸顶 TopBar（位于列表之上，最高 Z-Order）
+            // - 在最顶部未滚动时：topBarAlpha 为 0f，完全透明，融入页面背景色，0 色差！
+            // - 向上滚动时：topBarAlpha 渐变到 1f，平滑变身为实体背景 + 细分割线，无缝吸顶；
+            // - 下拉刷新时：随整个内容整体下移，完全不遮挡顶部的刷新文字与旋转指示器。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
+                    .padding(top = statusBarTop)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 28.dp, top = 4.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onMenuClick, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menu",
+                            tint = SongbookColors.BurntOrange
+                        )
+                    }
+
+                    Text(
+                        text = "歌手",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.size(36.dp))
+                }
+                // 底部细分割线，同样跟随 topBarAlpha 淡入淡出
+                HorizontalDivider(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f * topBarAlpha),
+                    thickness = 0.5.dp
+                )
+            }
+        }
+    }
+
+        // 7. 右侧快捷字母导航索引栏（侧边水滴跟随气泡 + 波浪放大动效 + 智能就近吸附 + 磨砂导轨）
         AlphabetIndexBar(
             alphabetList = alphabetList,
             groupedArtists = groupedArtists,
