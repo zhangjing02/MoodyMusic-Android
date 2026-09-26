@@ -39,11 +39,6 @@ class CommunityViewModel : ViewModel() {
     private val _toastMessage = MutableSharedFlow<String>()
     val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
 
-    init {
-        fetchNotices()
-        fetchPosts("resource")
-    }
-
     // ==================== 公告相关 ====================
 
     fun fetchNotices() {

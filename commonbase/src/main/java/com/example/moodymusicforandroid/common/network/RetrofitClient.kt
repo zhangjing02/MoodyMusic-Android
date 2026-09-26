@@ -6,6 +6,8 @@ import com.example.moodymusicforandroid.data.model.User
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import okhttp3.Authenticator
+import okhttp3.Dns
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -16,6 +18,8 @@ import okhttp3.Route
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.net.Inet4Address
+import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
@@ -30,6 +34,32 @@ object RetrofitClient {
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
+    }
+
+    /**
+     * IPv4 优先 DNS 策略
+     *
+     * 国内三大运营商 4G/5G 网络在双栈环境下，OkHttp 默认通过 Happy Eyeballs 算法
+     * 优先尝试 IPv6 连接。然而 Cloudflare Anycast IPv6 在国内骨干网（电信/联通/移动）
+     * 存在严重丢包与路由黑洞，导致 API 请求（/api/skeleton、/api/home/feed 等）
+     * 连接超时（15秒）后才回退到 IPv4，进而引发歌手列表、首页数据全部加载失败。
+     *
+     * 此 DNS 实现与 LocalMediaProxy 的 IPv4 强制策略保持完全一致：
+     * 解析结果中优先筛选 Inet4Address，仅当无 IPv4 地址时才降级使用原始结果。
+     *
+     * 注：okhttp3.Dns 是 Java interface，Kotlin 不支持 SAM lambda 简写，
+     * 必须使用 object : Dns { override fun lookup(...) } 显式匿名对象写法。
+     */
+    private val ipv4PreferredDns: Dns = object : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            return try {
+                val addresses = Dns.SYSTEM.lookup(hostname)
+                val ipv4List = addresses.filterIsInstance<Inet4Address>()
+                if (ipv4List.isNotEmpty()) ipv4List else addresses
+            } catch (e: Exception) {
+                Dns.SYSTEM.lookup(hostname)
+            }
+        }
     }
 
     @Volatile
@@ -107,6 +137,7 @@ object RetrofitClient {
 
     private val refreshHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .dns(ipv4PreferredDns)
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
@@ -161,22 +192,44 @@ object RetrofitClient {
         }
     }
 
+    /**
+     * 将请求的目标基准地址改写为指定网关（保持原始 path、query 和 headers 不变）
+     */
+    private fun rewriteRequestGateway(request: Request, targetBaseUrl: String): Request? {
+        if (targetBaseUrl.isBlank()) return null
+        val targetHttpUrl = targetBaseUrl.toHttpUrlOrNull() ?: return null
+        val originalUrl = request.url
+        val newUrl = originalUrl.newBuilder()
+            .scheme(targetHttpUrl.scheme)
+            .host(targetHttpUrl.host)
+            .port(targetHttpUrl.port)
+            .build()
+        return request.newBuilder().url(newUrl).build()
+    }
+
+    /**
+     * 三级高可用重试与容灾拦截器 (Multi-Gateway Failover Interceptor)
+     *
+     * 设计哲学：
+     * 1. 【零冗余开销】：主网关正常时 100% 独占流量，绝不向备用网关发起任何多余网络探测；
+     * 2. 【备用网关秒级平移】：主网关遇网络中断 (SocketException, 5xx等)，自动使用备用网关 (MOODY_API_FALLBACK_URL) 透明重试；
+     * 3. 【生命线最后防线】：版本更新检测接口 (/api/app/version/check) 在前两者均不可达时，
+     *    启用独立第三账号网关 (MOODY_API_LIFELINE_URL) 强力托底，确保升级弹窗与救命广播永远可达。
+     */
     private val retryInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
         val canRetry = originalRequest.method.equals("GET", ignoreCase = true) ||
             originalRequest.method.equals("HEAD", ignoreCase = true)
 
+        // 1. 尝试主网关
         var response = try {
             chain.proceed(originalRequest)
         } catch (_: Exception) {
             null
         }
 
-        var retryCount = 0
-        val maxRetryCount = 2
-
-        while (canRetry && (response == null || response.code in 500..599) && retryCount < maxRetryCount) {
-            retryCount++
+        // 2. 主网关失败且允许重试，先在主网关重试 1 次
+        if (canRetry && (response == null || response.code in 500..599)) {
             response?.close()
             response = try {
                 chain.proceed(originalRequest)
@@ -185,10 +238,40 @@ object RetrofitClient {
             }
         }
 
-        response ?: throw java.io.IOException("Network request failed after retries")
+        // 3. 主网关仍失败：自动平移至第二备用网关 (MOODY_API_FALLBACK_URL)
+        val fallbackBase = com.example.moodymusicforandroid.common.config.AppConfig.apiFallbackUrl
+        if (canRetry && (response == null || response.code in 500..599) && fallbackBase.isNotBlank()) {
+            val fallbackRequest = rewriteRequestGateway(originalRequest, fallbackBase)
+            if (fallbackRequest != null) {
+                response?.close()
+                response = try {
+                    chain.proceed(fallbackRequest)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        }
+
+        // 4. 若为版本检测关键接口，且备用网关仍失败：启动第三生命线网关 (MOODY_API_LIFELINE_URL) 强力兜底
+        val isVersionCheck = originalRequest.url.encodedPath.contains("app/version/check")
+        val lifelineBase = com.example.moodymusicforandroid.common.config.AppConfig.apiLifelineUrl
+        if (canRetry && isVersionCheck && (response == null || response.code in 500..599) && lifelineBase.isNotBlank()) {
+            val lifelineRequest = rewriteRequestGateway(originalRequest, lifelineBase)
+            if (lifelineRequest != null) {
+                response?.close()
+                response = try {
+                    chain.proceed(lifelineRequest)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        }
+
+        response ?: throw java.io.IOException("Network request failed after multi-gateway retries")
     }
 
     private val okHttpClient = OkHttpClient.Builder()
+        .dns(ipv4PreferredDns)
         .addInterceptor(headerInterceptor)
         .addInterceptor(retryInterceptor)
         .addInterceptor(loggingInterceptor)

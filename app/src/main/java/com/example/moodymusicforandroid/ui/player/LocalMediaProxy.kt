@@ -39,27 +39,61 @@ object LocalMediaProxy {
     @Volatile
     private var isRunning = false
 
+    // 本地长效 DNS 缓存（避免 4G 下反复经历系统 DNS 的 408 超时）
+    private val dnsCache = java.util.concurrent.ConcurrentHashMap<String, List<InetAddress>>()
+
+    // R2 存储桶专用的 Cloudflare Anycast 优质 IPv4 节点池（当系统 DNS 崩溃或超时时的硬核托底）
+    private val R2_FALLBACK_IPS by lazy {
+        listOf(
+            "104.18.50.34",
+            "104.18.54.45",
+            "172.64.32.1",
+            "104.16.1.1"
+        ).mapNotNull {
+            try { InetAddress.getByName(it) } catch (_: Exception) { null }
+        }
+    }
+
     // 专用于流媒体代理的纯 IPv4 OkHttpClient
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .dns(object : Dns {
                 override fun lookup(hostname: String): List<InetAddress> {
-                    return try {
+                    // 1. 优先命中内存长效 DNS 缓存（0 毫秒秒出，彻底消灭 408 假死）
+                    dnsCache[hostname]?.let { cached ->
+                        if (cached.isNotEmpty()) {
+                            Log.d(TAG, "DNS Cache Hit for $hostname -> ${cached.map { it.hostAddress }}")
+                            return cached
+                        }
+                    }
+
+                    // 2. 尝试系统 DNS 并严格过滤纯 IPv4
+                    val result = try {
                         val addresses = Dns.SYSTEM.lookup(hostname)
                         val ipv4List = addresses.filterIsInstance<Inet4Address>()
-                        if (ipv4List.isNotEmpty()) {
-                            Log.d(TAG, "DNS IPv4-only for $hostname -> ${ipv4List.map { it.hostAddress }}")
-                            ipv4List
-                        } else {
-                            addresses
-                        }
+                        if (ipv4List.isNotEmpty()) ipv4List else addresses
                     } catch (e: Exception) {
-                        Log.w(TAG, "DNS lookup fallback for $hostname: ${e.message}")
-                        Dns.SYSTEM.lookup(hostname)
+                        Log.w(TAG, "System DNS lookup failed/timed out for $hostname: ${e.message}")
+                        emptyList()
                     }
+
+                    if (result.isNotEmpty()) {
+                        dnsCache[hostname] = result
+                        Log.d(TAG, "DNS IPv4-only resolved for $hostname -> ${result.map { it.hostAddress }}")
+                        return result
+                    }
+
+                    // 3. 若为 R2 桶域名且系统 DNS 失败，启用 Cloudflare Anycast 优质 IPv4 兜底
+                    if (hostname.endsWith("r2.dev", ignoreCase = true) && R2_FALLBACK_IPS.isNotEmpty()) {
+                        Log.i(TAG, "Using R2 Anycast IPv4 fallback pool for $hostname")
+                        dnsCache[hostname] = R2_FALLBACK_IPS
+                        return R2_FALLBACK_IPS
+                    }
+
+                    return Dns.SYSTEM.lookup(hostname)
                 }
             })
-            .connectTimeout(8, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .followRedirects(true)
             .build()
@@ -141,11 +175,13 @@ object LocalMediaProxy {
                 return
             }
 
-            Log.i(TAG, "Proxying $method for: $targetUrl (Range: $rangeHeader)")
+            // 对 targetUrl 进行安全字符转义（防止任何中文字符或未转义符号引发解析异常）
+            val safeTargetUrl = com.example.moodymusicforandroid.common.config.AppConfig.safeEncodeUrl(targetUrl)
+            Log.i(TAG, "Proxying $method for: $safeTargetUrl (Range: $rangeHeader)")
 
             // 构造上游纯 IPv4 OkHttp 请求
             val reqBuilder = Request.Builder()
-                .url(targetUrl)
+                .url(safeTargetUrl)
                 .header("User-Agent", "MoodyMusic/1.0 (Android Native Player Proxy)")
             if (rangeHeader != null) {
                 reqBuilder.header("Range", rangeHeader)
@@ -189,7 +225,7 @@ object LocalMediaProxy {
 
             if (!method.equals("HEAD", ignoreCase = true)) {
                 response.body?.byteStream()?.use { input ->
-                    input.copyTo(out)
+                    input.copyTo(out, bufferSize = 65536)
                 }
             }
             out.flush()

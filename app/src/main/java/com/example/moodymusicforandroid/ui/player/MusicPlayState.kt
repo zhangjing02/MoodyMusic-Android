@@ -57,7 +57,8 @@ data class PlayQueueItem(
     val coverUrl: String,
     val audioUrl: String,
     val lrcPath: String? = null,
-    val queueId: String = java.util.UUID.randomUUID().toString()
+    val queueId: String = java.util.UUID.randomUUID().toString(),
+    val duration: Int? = null
 ) : Serializable
 
 /**

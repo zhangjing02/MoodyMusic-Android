@@ -17,6 +17,12 @@ android {
         val apiBaseUrl = (project.findProperty("MOODY_API_BASE_URL") as? String)
             ?: "https://m-api.changgepd.ccwu.cc/"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+
+        val apiFallbackUrl = (project.findProperty("MOODY_API_FALLBACK_URL") as? String) ?: ""
+        buildConfigField("String", "API_FALLBACK_URL", "\"$apiFallbackUrl\"")
+
+        val apiLifelineUrl = (project.findProperty("MOODY_API_LIFELINE_URL") as? String) ?: ""
+        buildConfigField("String", "API_LIFELINE_URL", "\"$apiLifelineUrl\"")
     }
 
     compileOptions {

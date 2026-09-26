@@ -78,7 +78,9 @@ fun DiscoverScreen(
     val coroutineScope = rememberCoroutineScope()
 
     // 监听 ViewModel 中的数据与刷新状态
-    val artistsFromVm by viewModel.artists.observeAsState(initial = emptyList())
+    // null = 尚未加载成功（初始/错误态） → 展示本地兜底数据
+    // non-null = 后端真实数据（哪怕是空列表，都直接展示，不再叠加兜底）
+    val artistsFromVm by viewModel.artists.observeAsState(initial = null)
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val pullToRefreshState = rememberPullToRefreshState()
 
@@ -141,9 +143,12 @@ fun DiscoverScreen(
     )
 
     // 合并后端数据与本地数据，使用 PinyinUtils 将汉字准确映射为标准拼音首字母 ('A'..'Z', '#')
+    // artistsFromVm == null → 网络尚未就绪/请求失败 → 展示兜底
+    // artistsFromVm != null → 已拿到后端真实响应 → 直接展示（哪怕是空列表）
     val allArtists = remember(artistsFromVm) {
-        if (artistsFromVm.isNotEmpty()) {
-            artistsFromVm.map { vmArtist ->
+        val vmList = artistsFromVm
+        if (vmList != null) {
+            vmList.map { vmArtist ->
                 val pinyinInitial = PinyinUtils.getPinyinInitial(vmArtist.name)
                 DirectoryArtist(
                     id = vmArtist.id,

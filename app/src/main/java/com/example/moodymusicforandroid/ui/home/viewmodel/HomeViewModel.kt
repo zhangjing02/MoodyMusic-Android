@@ -178,8 +178,8 @@ class HomeViewModel : BaseViewModel() {
                             artist = "李宗盛",
                             year = "2007",
                             subtitle = "30首歲月金曲 · 寫盡人世間的悲歡离合",
-                            coverUrl = "https://m-api.changgepd.ccwu.cc/storage/covers/albums/album_jonathan_lee.jpg",
-                            audioUrl = "https://m-api.changgepd.ccwu.cc/storage/music/theme/jonathan_lee_30.m4a",
+                            coverUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("covers/albums/album_jonathan_lee.jpg"),
+                            audioUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("music/theme/jonathan_lee_30.m4a"),
                             isTheme = true,
                             themeId = "jonathan_lee_theme"
                         ),
@@ -200,7 +200,7 @@ class HomeViewModel : BaseViewModel() {
                             artist = "Love Piano",
                             year = "2026",
                             subtitle = "流行情歌鋼琴改編，只想靜靜聽音樂",
-                            coverUrl = "https://m-api.changgepd.ccwu.cc/storage/covers/albums/pop_piano_cover.jpg",
+                            coverUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("covers/albums/pop_piano_cover.jpg"),
                             audioUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/music/theme/pop_piano.mp3",
                             isTheme = true,
                             themeId = "pop_piano_theme"

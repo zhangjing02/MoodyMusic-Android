@@ -31,7 +31,8 @@ class ThemeDetailViewModel : BaseViewModel() {
             _uiState.value = ThemeDetailUiState.Loading
             try {
                 val story = if (!storyUrl.isNullOrBlank()) {
-                    MoodyApiProvider.apiService.getThemeStoryByUrl(storyUrl)
+                    val safeUrl = com.example.moodymusicforandroid.common.config.AppConfig.canonicalizeUrl(storyUrl)
+                    MoodyApiProvider.apiService.getThemeStoryByUrl(safeUrl)
                 } else {
                     MoodyApiProvider.apiService.getThemeStoryById(themeId)
                 }

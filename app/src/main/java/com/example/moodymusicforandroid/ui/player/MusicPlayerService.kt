@@ -87,10 +87,11 @@ class MusicPlayerService : Service() {
     private val retryHandler = Handler(Looper.getMainLooper())
     private val MAX_RETRY_COUNT = 2
 
-    // 媒体流准备看门狗 (LocalMediaProxy 纯 IPv4 极速代理加持，1~2秒即可秒开)
+    // 媒体流准备看门狗 (动态自适应：常规歌曲基准 15s，长篇大作/整轨特辑 25s)
     private val prepareTimeoutHandler = Handler(Looper.getMainLooper())
     private var prepareTimeoutRunnable: Runnable? = null
-    private val PREPARE_TIMEOUT_MS = 15000L
+    private val BASE_PREPARE_TIMEOUT_MS = 15000L
+    private val EXTENDED_PREPARE_TIMEOUT_MS = 25000L
 
     private val notificationManager by lazy { getSystemService(NOTIFICATION_SERVICE) as NotificationManager }
 
@@ -227,13 +228,12 @@ class MusicPlayerService : Service() {
     }
 
     private fun getPlayableAudioUrl(rawUrl: String): String {
-        // 默认直接使用 R2 官方直连 CDN，跳过 Cloudflare Worker 代理中间层，实现首次点击即秒开
-        if (rawUrl.startsWith("https://m-api.changgepd.ccwu.cc/storage/")) {
-            val directUrl = rawUrl.replace("https://m-api.changgepd.ccwu.cc/storage/", "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/")
-            Log.i(TAG, "Direct R2 audio URL: $directUrl")
-            return directUrl
+        if (rawUrl.isBlank()) return rawUrl
+        var finalUrl = com.example.moodymusicforandroid.common.config.AppConfig.canonicalizeUrl(rawUrl)
+        if (finalUrl.startsWith("https://m-api.changgepd.ccwu.cc/storage/")) {
+            finalUrl = finalUrl.replace("https://m-api.changgepd.ccwu.cc/storage/", "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/")
         }
-        return rawUrl
+        return finalUrl
     }
 
     private fun playCurrentSong() {
@@ -278,13 +278,22 @@ class MusicPlayerService : Service() {
                 Log.i(TAG, "Playing song [${currentIndex + 1}/${playlist.size}]: ${item.songTitle}, url=$targetUrl (retryCount=$retryCount)")
                 setDataSource(targetUrl)
 
-                // 启动 15 秒准备看门狗（在纯 IPv4 本地代理加速下，通常 1~2 秒即可准备完毕）
+                // 动态自适应准备看门狗 (Dynamic Watchdog Timeout)
+                // 1. 常规单曲基准保底 15 秒（在纯 IPv4 本地代理加速下，通常 1~3 秒即可秒开并立刻注销看门狗）
+                // 2. 长篇特辑/整轨大碟/交响乐/时长>600秒，放宽至 25 秒，杜绝毫秒级卡点误杀
+                val isLargeOrLongTrack = item.audioUrl.contains("theme", ignoreCase = true) ||
+                    item.audioUrl.contains("collection", ignoreCase = true) ||
+                    item.audioUrl.contains("concerto", ignoreCase = true) ||
+                    item.audioUrl.contains("live", ignoreCase = true) ||
+                    (item.duration != null && item.duration > 600)
+                val currentTimeoutMs = if (isLargeOrLongTrack) EXTENDED_PREPARE_TIMEOUT_MS else BASE_PREPARE_TIMEOUT_MS
+
                 val songNameForTimeout = item.songTitle
                 val indexForTimeout = currentIndex
 
                 val watchdog = Runnable {
                     if (isPreparing && !isMediaPlayerPrepared && userWantsToPlay && currentIndex == indexForTimeout) {
-                        Log.w(TAG, "MediaPlayer prepareAsync watchdog timeout (${PREPARE_TIMEOUT_MS}ms) for: $songNameForTimeout (retryCount=$retryCount)")
+                        Log.w(TAG, "MediaPlayer prepareAsync watchdog timeout (${currentTimeoutMs}ms) for: $songNameForTimeout (retryCount=$retryCount)")
                         isPreparing = false
                         isMediaPlayerPrepared = false
                         try {
@@ -310,7 +319,7 @@ class MusicPlayerService : Service() {
                     }
                 }
                 prepareTimeoutRunnable = watchdog
-                prepareTimeoutHandler.postDelayed(watchdog, PREPARE_TIMEOUT_MS)
+                prepareTimeoutHandler.postDelayed(watchdog, currentTimeoutMs)
 
                 prepareAsync()
                 setOnPreparedListener {
@@ -771,12 +780,11 @@ class MusicPlayerService : Service() {
             return
         }
         currentCoverUrl = coverUrl
-        currentCoverBitmap = null
-
+        val safeCoverUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveUrl(coverUrl)
         try {
             Glide.with(applicationContext)
                 .asBitmap()
-                .load(coverUrl)
+                .load(safeCoverUrl)
                 .into(object : CustomTarget<Bitmap>(256, 256) {
                     override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                         if (currentCoverUrl == coverUrl) {

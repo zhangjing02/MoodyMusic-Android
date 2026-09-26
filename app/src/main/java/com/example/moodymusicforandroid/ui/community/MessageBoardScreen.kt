@@ -66,6 +66,12 @@ fun MessageBoardScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        if (posts.isEmpty()) {
+            viewModel.fetchPosts(selectedCategory)
+        }
+    }
+
     // 分类筛选选项定义（已移除“全部”选项，避免异构内容无序混排）
     val categories = remember {
         listOf(
