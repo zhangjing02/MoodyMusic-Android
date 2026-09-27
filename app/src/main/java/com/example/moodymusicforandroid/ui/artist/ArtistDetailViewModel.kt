@@ -53,9 +53,18 @@ class ArtistDetailViewModel(
                 val response = MoodyApiProvider.apiService.getArtistDetail(artistId)
                 if (response.code == 200) {
                     val artistData = response.data?.firstOrNull()
+                    val rawAlbums = artistData?.albums ?: emptyList()
+                    val sortedAlbums = rawAlbums.sortedWith(
+                        compareByDescending<AlbumWithSongs> { album ->
+                            album.songs.any { !it.path.isNullOrBlank() }
+                        }.thenBy { album ->
+                            val yr = album.year.takeIf { it != "未知" && it.isNotBlank() } ?: "9999"
+                            yr
+                        }
+                    )
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        albums = artistData?.albums ?: emptyList(),
+                        albums = sortedAlbums,
                         artistAvatar = artistData?.avatar ?: _uiState.value.artistAvatar
                     )
                 } else {

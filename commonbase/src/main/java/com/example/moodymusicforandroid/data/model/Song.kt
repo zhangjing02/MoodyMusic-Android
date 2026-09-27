@@ -9,16 +9,19 @@ data class Song(
     @SerializedName("id")
     val id: Long,
 
-    @SerializedName("album_id")
-    val albumId: Long,
+    @SerializedName(value = "album_id", alternate = ["Album_ID", "albumId"])
+    val albumId: Long = 0,
+
+    @SerializedName(value = "artist_id", alternate = ["ArtistID", "artistId"])
+    val artistId: Long? = null,
 
     @SerializedName("title")
     val title: String,
 
-    @SerializedName("file_path")
+    @SerializedName(value = "file_path", alternate = ["FilePath", "path"])
     val filePath: String? = null,
 
-    @SerializedName("lrc_path")
+    @SerializedName(value = "lrc_path", alternate = ["LrcPath", "lrc"])
     val lrcPath: String? = null,
 
     @SerializedName("track_index")

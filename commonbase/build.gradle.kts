@@ -23,6 +23,11 @@ android {
 
         val apiLifelineUrl = (project.findProperty("MOODY_API_LIFELINE_URL") as? String) ?: ""
         buildConfigField("String", "API_LIFELINE_URL", "\"$apiLifelineUrl\"")
+
+        val groqApiKey = (project.findProperty("GROQ_API_KEY") as? String)
+            ?: System.getenv("GROQ_API_KEY")
+            ?: ""
+        buildConfigField("String", "GROQ_API_KEY", "\"$groqApiKey\"")
     }
 
     compileOptions {

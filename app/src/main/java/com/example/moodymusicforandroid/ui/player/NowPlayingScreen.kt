@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -90,6 +91,8 @@ fun NowPlayingScreen(
     onRemoveQueueItem: (Int) -> Unit = {},
     onClearQueue: () -> Unit = {},
     onAddToCurrentQueue: (() -> AddToQueueResult)? = null,
+    onStopRoaming: () -> Unit = {},
+    onLoadMoreRoaming: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showQueueSheet by remember { mutableStateOf(false) }
@@ -473,6 +476,8 @@ fun NowPlayingScreen(
             currentIndex = playState.playlistIndex,
             isPlaying = playState.isPlaying,
             playMode = playState.playMode,
+            isRoamingMode = playState.isRoamingMode,
+            isRoamingLoading = playState.isRoamingLoading,
             onDismiss = { showQueueSheet = false },
             onTogglePlayMode = onTogglePlayMode,
             onSelectSong = { index ->
@@ -484,7 +489,12 @@ fun NowPlayingScreen(
             onClearQueue = {
                 onClearQueue()
                 showQueueSheet = false
-            }
+            },
+            onStopRoaming = {
+                onStopRoaming()
+                showQueueSheet = false
+            },
+            onLoadMoreRoaming = onLoadMoreRoaming
         )
 
         // ── 7. 听歌归档抽屉 (AddToPlaylistSheet) ──
@@ -1314,11 +1324,15 @@ private fun PlayQueueBottomSheet(
     currentIndex: Int,
     isPlaying: Boolean,
     playMode: PlayMode,
+    isRoamingMode: Boolean = false,
+    isRoamingLoading: Boolean = false,
     onDismiss: () -> Unit,
     onTogglePlayMode: () -> Unit,
     onSelectSong: (Int) -> Unit,
     onRemoveSong: (Int) -> Unit,
-    onClearQueue: () -> Unit
+    onClearQueue: () -> Unit,
+    onStopRoaming: () -> Unit = {},
+    onLoadMoreRoaming: () -> Unit = {}
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -1360,54 +1374,100 @@ private fun PlayQueueBottomSheet(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 顶栏：播放模式切换 + 歌曲数量统计 + 清空列表
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val modeIcon = when (playMode) {
-                        PlayMode.LIST_LOOP -> R.drawable.ic_repeat
-                        PlayMode.SINGLE_LOOP -> R.drawable.ic_repeat_one
-                        PlayMode.SHUFFLE -> R.drawable.ic_shuffle
-                        PlayMode.SEQUENTIAL -> R.drawable.ic_order
-                    }
-
+                // 顶栏：漫游模式 or 普通播放模式切换 + 数量 + 操作按钮
+                if (isRoamingMode) {
+                    // ── 漫游模式专属顶栏 ──────────────────────────────
                     Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onTogglePlayMode)
-                            .padding(vertical = 4.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            painter = painterResource(modeIcon),
-                            contentDescription = playMode.label,
-                            tint = SongbookColors.BurntOrangeLight,
-                            modifier = Modifier.size(19.dp)
-                        )
-                        Spacer(modifier = Modifier.width(7.dp))
-                        Text(
-                            text = "${playMode.label} (${queue.size})",
-                            color = Color.White.copy(alpha = 0.92f),
-                            fontSize = 14.5.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // ✨ 漫游徽章
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(SongbookColors.BurntOrange.copy(alpha = 0.18f))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "✨ 随心漫游中",
+                                    color = SongbookColors.BurntOrangeLight,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "(${queue.size})",
+                                color = Color.White.copy(alpha = 0.50f),
+                                fontSize = 13.sp
+                            )
+                        }
+                        // 退出漫游按钮
+                        TextButton(
+                            onClick = onStopRoaming,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "退出漫游",
+                                color = Color.White.copy(alpha = 0.55f),
+                                fontSize = 13.sp
+                            )
+                        }
                     }
+                } else {
+                    // ── 普通播放模式顶栏 ──────────────────────────────
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val modeIcon = when (playMode) {
+                            PlayMode.LIST_LOOP -> R.drawable.ic_repeat
+                            PlayMode.SINGLE_LOOP -> R.drawable.ic_repeat_one
+                            PlayMode.SHUFFLE -> R.drawable.ic_shuffle
+                            PlayMode.SEQUENTIAL -> R.drawable.ic_order
+                        }
 
-                    if (queue.isNotEmpty()) {
-                        IconButton(
-                            onClick = onClearQueue,
-                            modifier = Modifier.size(36.dp)
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onTogglePlayMode)
+                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_trash),
-                                contentDescription = "清空队列",
-                                tint = Color.White.copy(alpha = 0.45f),
-                                modifier = Modifier.size(18.dp)
+                                painter = painterResource(modeIcon),
+                                contentDescription = playMode.label,
+                                tint = SongbookColors.BurntOrangeLight,
+                                modifier = Modifier.size(19.dp)
                             )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            Text(
+                                text = "${playMode.label} (${queue.size})",
+                                color = Color.White.copy(alpha = 0.92f),
+                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        if (queue.isNotEmpty()) {
+                            IconButton(
+                                onClick = onClearQueue,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_trash),
+                                    contentDescription = "清空队列",
+                                    tint = Color.White.copy(alpha = 0.45f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -1442,14 +1502,68 @@ private fun PlayQueueBottomSheet(
                     ) {
                         itemsIndexed(queue, key = { _, item -> item.queueId }) { index, item ->
                             val isCurrent = index == currentIndex
+                            // 漫游模式：已播项目显示半透明效果
+                            val rowAlpha = if (isRoamingMode && index < currentIndex) 0.45f else 1f
                             PlayQueueRowItem(
-                                modifier = Modifier.animateItem(),
+                                modifier = Modifier
+                                    .animateItem()
+                                    .graphicsLayer { alpha = rowAlpha },
                                 item = item,
                                 isCurrent = isCurrent,
                                 isPlaying = isPlaying,
                                 onClick = { onSelectSong(index) },
                                 onRemove = { onRemoveSong(index) }
                             )
+                        }
+                        // 漫游模式：底部根据真实加载状态呈现
+                        if (isRoamingMode) {
+                            item(key = "roaming_footer_section") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    if (isRoamingLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(13.dp),
+                                            color = SongbookColors.BurntOrangeLight.copy(alpha = 0.85f),
+                                            strokeWidth = 1.6.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "正在全库为你探索新曲...",
+                                            color = Color.White.copy(alpha = 0.55f),
+                                            fontSize = 12.5.sp
+                                        )
+                                    } else {
+                                        Surface(
+                                            onClick = onLoadMoreRoaming,
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = SongbookColors.BurntOrange.copy(alpha = 0.14f),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                0.8.dp,
+                                                SongbookColors.BurntOrangeLight.copy(alpha = 0.40f)
+                                            )
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("✨", fontSize = 12.sp)
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "点击探索更多 (再添 5 首)",
+                                                    color = SongbookColors.BurntOrangeLight,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

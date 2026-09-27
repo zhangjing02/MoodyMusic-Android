@@ -2,6 +2,9 @@ package com.example.moodymusicforandroid.ui.player
 
 import android.net.Uri
 import android.util.Log
+import com.example.moodymusicforandroid.common.config.AppConfig
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -56,7 +59,15 @@ object LocalMediaProxy {
 
     // 专用于流媒体代理的纯 IPv4 OkHttpClient
     private val okHttpClient: OkHttpClient by lazy {
+        val dispatcher = Dispatcher().apply {
+            maxRequests = 64
+            maxRequestsPerHost = 20
+        }
+        val pool = ConnectionPool(20, 5, TimeUnit.MINUTES)
+
         OkHttpClient.Builder()
+            .dispatcher(dispatcher)
+            .connectionPool(pool)
             .dns(object : Dns {
                 override fun lookup(hostname: String): List<InetAddress> {
                     // 1. 优先命中内存长效 DNS 缓存（0 毫秒秒出，彻底消灭 408 假死）
@@ -175,61 +186,79 @@ object LocalMediaProxy {
                 return
             }
 
-            // 对 targetUrl 进行安全字符转义（防止任何中文字符或未转义符号引发解析异常）
-            val safeTargetUrl = com.example.moodymusicforandroid.common.config.AppConfig.safeEncodeUrl(targetUrl)
+            // 对 targetUrl 进行安全字符转义与域名收敛（R2 域名自动映射到边缘网关中继端点）
+            val safeTargetUrl = AppConfig.safeEncodeUrl(targetUrl)
             Log.i(TAG, "Proxying $method for: $safeTargetUrl (Range: $rangeHeader)")
 
-            // 构造上游纯 IPv4 OkHttp 请求
-            val reqBuilder = Request.Builder()
-                .url(safeTargetUrl)
-                .header("User-Agent", "MoodyMusic/1.0 (Android Native Player Proxy)")
-            if (rangeHeader != null) {
-                reqBuilder.header("Range", rangeHeader)
-            }
-            if (method.equals("HEAD", ignoreCase = true)) {
-                reqBuilder.head()
-            } else {
-                reqBuilder.get()
+            // 构造上游纯 IPv4 OkHttp 请求辅助函数
+            fun buildRequest(url: String): Request {
+                val reqBuilder = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "MoodyMusic/1.0 (Android Native Player Proxy)")
+                if (rangeHeader != null) {
+                    reqBuilder.header("Range", rangeHeader)
+                }
+                if (method.equals("HEAD", ignoreCase = true)) {
+                    reqBuilder.head()
+                } else {
+                    reqBuilder.get()
+                }
+                return reqBuilder.build()
             }
 
-            val response = okHttpClient.newCall(reqBuilder.build()).execute()
-            val out = clientSocket.getOutputStream()
-            val writer = OutputStreamWriter(out, Charsets.US_ASCII)
-
-            val statusCode = response.code
-            val statusMessage = response.message.ifBlank {
-                when (statusCode) {
-                    200 -> "OK"
-                    206 -> "Partial Content"
-                    else -> "Response"
+            // 优先通过 safeTargetUrl (网关中继) 请求，若网络异常且与原始 targetUrl 不同，则回退直连
+            val response = try {
+                okHttpClient.newCall(buildRequest(safeTargetUrl)).execute()
+            } catch (e: Exception) {
+                if (safeTargetUrl != targetUrl) {
+                    Log.w(TAG, "Relay request failed (${e.message}), falling back to direct url: $targetUrl")
+                    okHttpClient.newCall(buildRequest(targetUrl)).execute()
+                } else {
+                    throw e
                 }
             }
 
-            writer.write("HTTP/1.1 $statusCode $statusMessage\r\n")
-            // 转发音频流所需关键响应头
-            response.headers.forEach { (name, value) ->
-                val lowerName = name.lowercase()
-                if (lowerName == "content-type" ||
-                    lowerName == "content-length" ||
-                    lowerName == "content-range" ||
-                    lowerName == "accept-ranges" ||
-                    lowerName == "etag" ||
-                    lowerName == "last-modified"
-                ) {
-                    writer.write("$name: $value\r\n")
-                }
-            }
-            writer.write("Connection: close\r\n")
-            writer.write("\r\n")
-            writer.flush()
+            // 核心修复: 使用 use 确保无论 client 任何时候主动断开或抛出 Broken pipe，上游 OkHttp 响应体与连接 100% 立即释放
+            response.use { resp ->
+                val out = clientSocket.getOutputStream()
+                val writer = OutputStreamWriter(out, Charsets.US_ASCII)
 
-            if (!method.equals("HEAD", ignoreCase = true)) {
-                response.body?.byteStream()?.use { input ->
-                    input.copyTo(out, bufferSize = 65536)
+                val statusCode = resp.code
+                val statusMessage = resp.message.ifBlank {
+                    when (statusCode) {
+                        200 -> "OK"
+                        206 -> "Partial Content"
+                        else -> "Response"
+                    }
                 }
+
+                writer.write("HTTP/1.1 $statusCode $statusMessage\r\n")
+                // 转发音频流所需关键响应头
+                resp.headers.forEach { (name, value) ->
+                    val lowerName = name.lowercase()
+                    if (lowerName == "content-type" ||
+                        lowerName == "content-length" ||
+                        lowerName == "content-range" ||
+                        lowerName == "accept-ranges" ||
+                        lowerName == "etag" ||
+                        lowerName == "last-modified"
+                    ) {
+                        writer.write("$name: $value\r\n")
+                    }
+                }
+                writer.write("Connection: close\r\n")
+                writer.write("\r\n")
+                writer.flush()
+
+                if (!method.equals("HEAD", ignoreCase = true)) {
+                    resp.body?.byteStream()?.use { input ->
+                        input.copyTo(out, bufferSize = 65536)
+                    }
+                }
+                try {
+                    out.flush()
+                } catch (_: Exception) {}
             }
-            out.flush()
-            response.close()
         } catch (e: Exception) {
             // 用户切歌或拖动进度条时，播放器会主动断开前一个连接，属正常行为
             Log.d(TAG, "Proxy client connection closed: ${e.message}")

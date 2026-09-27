@@ -50,6 +50,16 @@ interface MoodyApiService {
     ): BaseResponse<List<Artist>>
 
     /**
+     * 随机漫游：获取随机歌曲列表
+     * GET /api/songs/random?limit=10
+     */
+    @GET("api/songs/random")
+    suspend fun getRandomSongs(
+        @Query("limit") limit: Int = 10,
+        @Query("excludeIds") excludeIds: String? = null
+    ): BaseResponse<List<Song>>
+
+    /**
      * 获取艺人详情（含专辑+歌曲嵌套树）
      * GET /api/songs?artistId=db_xxx
      * 返回 List<ArtistWithAlbums>，通常只含一个元素（对应该艺人）
@@ -57,6 +67,17 @@ interface MoodyApiService {
     @GET("api/songs")
     suspend fun getArtistDetail(
         @Query("artistId") artistId: String
+    ): BaseResponse<List<ArtistWithAlbums>>
+
+    /**
+     * 根据艺人名称与专辑查询专辑曲目树
+     * GET /api/songs?artist=周华健&album=朋友
+     */
+    @GET("api/songs")
+    suspend fun getSongsByArtist(
+        @Query("artistId") artistId: String? = null,
+        @Query("artist") artist: String? = null,
+        @Query("album") album: String? = null
     ): BaseResponse<List<ArtistWithAlbums>>
 
     /**

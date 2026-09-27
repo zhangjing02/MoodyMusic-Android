@@ -99,6 +99,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val audioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(this, "麦克风权限已开启，长按即可语音点歌 🎙️", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "需要麦克风权限以支持语音点歌", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun requestAudioPermission() {
+        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val permission = Manifest.permission.POST_NOTIFICATIONS
@@ -141,6 +155,9 @@ class MainActivity : AppCompatActivity() {
                         onLogoutClick = {
                             UserManager.onLogout()
                             Toast.makeText(this, "已退出登录", Toast.LENGTH_SHORT).show()
+                        },
+                        onRequestAudioPermission = {
+                            requestAudioPermission()
                         }
                     )
                 }
@@ -178,7 +195,8 @@ fun MainScreen(
     onAuthClick: () -> Unit,
     onThemeClick: (ThemeManager.ThemeMode) -> Unit,
     onFontClick: (FontManager.FontStyle) -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    onRequestAudioPermission: () -> Unit = {}
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
@@ -191,6 +209,8 @@ fun MainScreen(
     // 全局 PlayerViewModel
     val playerViewModel: PlayerViewModel = viewModel()
     val playState by playerViewModel.playState.collectAsState()
+    val isVoiceEnabled by playerViewModel.isVoiceEnabled.collectAsState()
+    val isVoiceListening by playerViewModel.isVoiceListening.collectAsState()
     val communityViewModel: CommunityViewModel = viewModel()
 
     val navigationState = rememberNavigationState(
@@ -289,6 +309,16 @@ fun MainScreen(
                             playerViewModel = playerViewModel,
                             onMenuClick = { coroutineScope.launch { drawerState.open() } },
                             onAvatarClick = onAuthClick,
+                            onRoamingClick = {
+                                if (playerViewModel.playState.value.isRoamingMode) {
+                                    playerViewModel.stopRoamingMode(destroyPlayer = true)
+                                    android.widget.Toast.makeText(context, "✨ 已退出随心漫游并关闭播放", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    playerViewModel.startRoamingMode()
+                                }
+                            },
+                            onRequestAudioPermission = onRequestAudioPermission,
+                            onVoiceSearchClick = onRequestAudioPermission,
                             onAlbumClick = { id, title ->
                                 if (id == "butterfly_lovers_album") {
                                     val isBottomPlayerVisible = playState.songTitle.isNotBlank()
@@ -674,7 +704,31 @@ fun MainScreen(
                                 navigationState.topLevelRoute = route as androidx.navigation3.runtime.NavKey
                                 navigator.navigate(route as androidx.navigation3.runtime.NavKey)
                             },
-                            hazeState = hazeState
+                            hazeState = hazeState,
+                            isVoiceEnabled = isVoiceEnabled,
+                            isVoiceListening = isVoiceListening,
+                            onStartVoiceRecording = {
+                                val hasPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.RECORD_AUDIO
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (!hasPermission) {
+                                    onRequestAudioPermission()
+                                    false
+                                } else {
+                                    playerViewModel.startVoiceRecording()
+                                }
+                            },
+                            onFinishVoiceRecording = {
+                                playerViewModel.finishVoiceRecording()
+                            },
+                            onCancelVoiceRecording = {
+                                playerViewModel.cancelVoiceRecording()
+                            },
+                            onVoiceNeedOpenPrompt = {
+                                playerViewModel.promptVoiceNeedOpen()
+                                Toast.makeText(context, "语音功能未开启，请先在右上角开启", Toast.LENGTH_SHORT).show()
+                            }
                         )
                     }
                 }
@@ -736,6 +790,8 @@ fun MainScreen(
                         onSelectQueueItem = { index -> playerViewModel.playTrackInQueue(index) },
                         onRemoveQueueItem = { index -> playerViewModel.removeFromQueue(index) },
                         onClearQueue = { playerViewModel.clearQueue() },
+                        onStopRoaming = { playerViewModel.stopRoamingMode() },
+                        onLoadMoreRoaming = { playerViewModel.loadMoreRoamingSongs() },
                         onAddToCurrentQueue = {
                             playerViewModel.addToQueue(
                                 audioUrl   = playState.audioUrl,

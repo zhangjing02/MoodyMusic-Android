@@ -4,16 +4,24 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,8 +44,13 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.ui.navigation.RouteDiscover
 import com.example.moodymusicforandroid.ui.navigation.RouteHome
@@ -66,7 +81,13 @@ fun MainBottomBar(
     currentRoute: Any,
     onNavigate: (Any) -> Unit,
     modifier: Modifier = Modifier,
-    hazeState: HazeState? = null
+    hazeState: HazeState? = null,
+    isVoiceEnabled: Boolean = false,
+    isVoiceListening: Boolean = false,
+    onStartVoiceRecording: () -> Boolean = { false },
+    onFinishVoiceRecording: () -> Unit = {},
+    onCancelVoiceRecording: () -> Unit = {},
+    onVoiceNeedOpenPrompt: () -> Unit = {}
 ) {
     SongbookBlurContainer(
         modifier = modifier.fillMaxWidth(),
@@ -85,7 +106,13 @@ fun MainBottomBar(
         ) {
             MainBottomBarContent(
                 currentRoute = currentRoute,
-                onNavigate = onNavigate
+                onNavigate = onNavigate,
+                isVoiceEnabled = isVoiceEnabled,
+                isVoiceListening = isVoiceListening,
+                onStartVoiceRecording = onStartVoiceRecording,
+                onFinishVoiceRecording = onFinishVoiceRecording,
+                onCancelVoiceRecording = onCancelVoiceRecording,
+                onVoiceNeedOpenPrompt = onVoiceNeedOpenPrompt
             )
         }
     }
@@ -98,7 +125,13 @@ fun MainBottomBar(
 fun MainBottomBarContent(
     currentRoute: Any,
     onNavigate: (Any) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isVoiceEnabled: Boolean = false,
+    isVoiceListening: Boolean = false,
+    onStartVoiceRecording: () -> Boolean = { false },
+    onFinishVoiceRecording: () -> Unit = {},
+    onCancelVoiceRecording: () -> Unit = {},
+    onVoiceNeedOpenPrompt: () -> Unit = {}
 ) {
     Row(
         modifier = modifier
@@ -113,7 +146,13 @@ fun MainBottomBarContent(
         )
         DiscoverNavIcon(
             isSelected = currentRoute is RouteDiscover,
-            onClick = { onNavigate(RouteDiscover) }
+            isVoiceEnabled = isVoiceEnabled,
+            isVoiceListening = isVoiceListening,
+            onClick = { onNavigate(RouteDiscover) },
+            onStartVoice = onStartVoiceRecording,
+            onFinishVoice = onFinishVoiceRecording,
+            onCancelVoice = onCancelVoiceRecording,
+            onVoiceDisabled = onVoiceNeedOpenPrompt
         )
         LibraryNavIcon(
             isSelected = currentRoute is RouteLibrary,
@@ -205,32 +244,158 @@ private fun HomeNavIcon(isSelected: Boolean, onClick: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 发现：矢量行星 + 卫星 360° 椭圆轨道绕行
+// 发现：矢量行星 + 卫星 360° 椭圆轨道绕行 + 长按声波引力语音交互
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun DiscoverNavIcon(isSelected: Boolean, onClick: () -> Unit) {
+private fun DiscoverNavIcon(
+    isSelected: Boolean,
+    isVoiceEnabled: Boolean,
+    isVoiceListening: Boolean,
+    onClick: () -> Unit,
+    onStartVoice: () -> Boolean,
+    onFinishVoice: () -> Unit,
+    onCancelVoice: () -> Unit,
+    onVoiceDisabled: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // 颜色变化：录音中变为火漆焦橙色；选中为主色；未选中为微透明 onSurface
+    val targetTint = when {
+        isVoiceListening -> SongbookColors.BurntOrange
+        isSelected -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
+    }
     val tint by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-                      else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
-        animationSpec = tween(220), label = "discoverTint"
+        targetValue = targetTint,
+        animationSpec = tween(220),
+        label = "discoverTint"
     )
+
+    // 行星大小：长按录音中微引力放大至 1.20f；普通选中 1.08f；默认 1.0f
+    val targetScale = when {
+        isVoiceListening -> 1.20f
+        isSelected -> 1.08f
+        else -> 1.0f
+    }
     val planetScale by animateFloatAsState(
-        targetValue = if (isSelected) 1.08f else 1.0f,
+        targetValue = targetScale,
         animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
         label = "planetScale"
     )
-    val orbitProgress = remember { Animatable(0f) }
 
+    // 卫星公转与引力声波无限循环动效（录音中激活）
+    val infiniteTransition = rememberInfiniteTransition(label = "discover_listening_anim")
+
+    // 1. 录音时卫星高速巡弋公转（700ms 一圈，充满宇宙探索灵动感）
+    val listeningOrbit by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "listening_orbit"
+    )
+
+    // 2. 录音时声波引力同心波纹扩散涟漪
+    val rippleRadius by infiniteTransition.animateFloat(
+        initialValue = 16f,
+        targetValue = 28f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "listening_ripple_radius"
+    )
+    val rippleAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.50f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "listening_ripple_alpha"
+    )
+
+    // 普通选中时的卫星单次公转动效
+    val singleOrbitProgress = remember { Animatable(0f) }
     LaunchedEffect(isSelected) {
-        if (isSelected) {
-            orbitProgress.snapTo(0f)
-            orbitProgress.animateTo(1f, tween(780, easing = FastOutSlowInEasing))
+        if (isSelected && !isVoiceListening) {
+            singleOrbitProgress.snapTo(0f)
+            singleOrbitProgress.animateTo(1f, tween(780, easing = FastOutSlowInEasing))
         } else {
-            orbitProgress.snapTo(0f)
+            singleOrbitProgress.snapTo(0f)
         }
     }
 
-    NavBox(onClick) {
+    val currentIsVoiceEnabled by rememberUpdatedState(isVoiceEnabled)
+    val currentOnStartVoice by rememberUpdatedState(onStartVoice)
+    val currentOnFinishVoice by rememberUpdatedState(onFinishVoice)
+    val currentOnCancelVoice by rememberUpdatedState(onCancelVoice)
+    val currentOnVoiceDisabled by rememberUpdatedState(onVoiceDisabled)
+    val currentOnClick by rememberUpdatedState(onClick)
+
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (isVoiceListening) Color(0xFFF7E6D7) else Color.Transparent
+            )
+            .pointerInput(Unit) {
+                // 彻底解耦短按单击与长按手势：
+                // 1. 若手势持续超过 220ms，判定为长按，消费手势，手指抬起时绝对不调用 onClick()（坚决不切页！）
+                // 2. 只有快速单击抬起（< 220ms）才触发 onClick() 导航到 RouteDiscover
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var isLongPress = false
+                    var voiceRecordingStarted = false
+                    val longPressJob = coroutineScope.launch {
+                        delay(220) // 220ms 判定长按
+                        isLongPress = true
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (currentIsVoiceEnabled) {
+                            voiceRecordingStarted = currentOnStartVoice()
+                        } else {
+                            currentOnVoiceDisabled()
+                        }
+                    }
+                    val up = waitForUpOrCancellation()
+                    longPressJob.cancel()
+                    if (up != null && isLongPress) {
+                        up.consume()
+                        if (currentIsVoiceEnabled && voiceRecordingStarted) {
+                            currentOnFinishVoice()
+                        }
+                    } else if (up == null && isLongPress) {
+                        if (currentIsVoiceEnabled && voiceRecordingStarted) {
+                            currentOnCancelVoice()
+                        }
+                    } else if (up != null && !isLongPress) {
+                        // 短按轻触：正常切页
+                        currentOnClick()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // 声波引力扩散光晕 Canvas（录音中柔和绽放）
+        if (isVoiceListening) {
+            Canvas(modifier = Modifier.size(56.dp)) {
+                // 外部扩散声波
+                drawCircle(
+                    color = SongbookColors.BurntOrange.copy(alpha = rippleAlpha),
+                    radius = rippleRadius.dp.toPx()
+                )
+                // 内部核心温暖底托
+                drawCircle(
+                    color = SongbookColors.BurntOrange.copy(alpha = 0.18f),
+                    radius = 18.dp.toPx()
+                )
+            }
+        }
+
         Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
             Icon(
                 painter = painterResource(R.drawable.ic_nav_discover_vec),
@@ -241,15 +406,16 @@ private fun DiscoverNavIcon(isSelected: Boolean, onClick: () -> Unit) {
                 tint = tint
             )
 
+            // 卫星公转 Canvas
             val satColor = tint
             Canvas(modifier = Modifier.size(34.dp)) {
-                val p = orbitProgress.value
-                if (p < 0.01f || p > 0.99f) return@Canvas
+                val p = if (isVoiceListening) listeningOrbit else singleOrbitProgress.value
+                if (!isVoiceListening && (p < 0.01f || p > 0.99f)) return@Canvas
 
                 val cx    = size.width  * 0.47f
                 val cy    = size.height * 0.50f
-                val rx    = size.width  * 0.41f
-                val ry    = size.height * 0.15f
+                val rx    = size.width  * (if (isVoiceListening) 0.46f else 0.41f)
+                val ry    = size.height * (if (isVoiceListening) 0.18f else 0.15f)
                 val tiltR = (-28f * PI / 180f).toFloat()
                 val cosT  = cos(tiltR)
                 val sinT  = sin(tiltR)
@@ -264,7 +430,7 @@ private fun DiscoverNavIcon(isSelected: Boolean, onClick: () -> Unit) {
 
                 drawCircle(
                     color  = satColor,
-                    radius = size.width * 0.07f,
+                    radius = size.width * (if (isVoiceListening) 0.085f else 0.07f),
                     center = Offset(satX, satY),
                     style  = Fill
                 )

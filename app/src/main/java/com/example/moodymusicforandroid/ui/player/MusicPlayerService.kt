@@ -229,11 +229,7 @@ class MusicPlayerService : Service() {
 
     private fun getPlayableAudioUrl(rawUrl: String): String {
         if (rawUrl.isBlank()) return rawUrl
-        var finalUrl = com.example.moodymusicforandroid.common.config.AppConfig.canonicalizeUrl(rawUrl)
-        if (finalUrl.startsWith("https://m-api.changgepd.ccwu.cc/storage/")) {
-            finalUrl = finalUrl.replace("https://m-api.changgepd.ccwu.cc/storage/", "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/")
-        }
-        return finalUrl
+        return com.example.moodymusicforandroid.common.config.AppConfig.canonicalizeUrl(rawUrl)
     }
 
     private fun playCurrentSong() {
@@ -767,10 +763,11 @@ class MusicPlayerService : Service() {
     }
 
     private fun loadCoverBitmap(coverUrl: String) {
-        if (coverUrl.isBlank()) {
-            currentCoverBitmap = null
-            currentCoverUrl = null
-            updateMetadata(null)
+        if (coverUrl.isBlank() || coverUrl.contains("vinyl_default") || coverUrl.startsWith("/src/assets")) {
+            val bitmap = BitmapFactory.decodeResource(resources, R.drawable.album_vintage_vinyl)
+            currentCoverBitmap = bitmap
+            currentCoverUrl = coverUrl
+            updateMetadata(bitmap)
             updateNotification()
             return
         }
@@ -781,6 +778,13 @@ class MusicPlayerService : Service() {
         }
         currentCoverUrl = coverUrl
         val safeCoverUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveUrl(coverUrl)
+        if (safeCoverUrl.isBlank()) {
+            val bitmap = BitmapFactory.decodeResource(resources, R.drawable.album_vintage_vinyl)
+            currentCoverBitmap = bitmap
+            updateMetadata(bitmap)
+            updateNotification()
+            return
+        }
         try {
             Glide.with(applicationContext)
                 .asBitmap()

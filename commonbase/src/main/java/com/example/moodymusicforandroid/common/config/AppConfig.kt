@@ -51,6 +51,22 @@ object AppConfig {
         }
 
     /**
+     * Groq API Key（用于 Whisper 语音转录与大模型意图提取）
+     * 自动从 BuildConfig (驱动自系统环境变量/gradle.properties) 注入
+     */
+    val groqApiKey: String
+        get() {
+            val raw = try { BuildConfig.GROQ_API_KEY } catch (_: Exception) { "" }
+            return if (raw.isNullOrBlank()) (System.getenv("GROQ_API_KEY") ?: "") else raw
+        }
+
+    /**
+     * Groq API 反向代理中继基准地址（由 Netlify 边缘节点中继，彻底解决中国大陆 IP 直连 403 Forbidden 封锁）
+     */
+    val groqApiBaseUrl: String
+        get() = "${apiBaseUrl}groq/"
+
+    /**
      * 需要自动收敛收编的被阻断旧域名列表
      * 历史遗留或数据库存量数据中若含有这些域名，将全自动平移至当前合法 apiBaseUrl
      */
@@ -62,12 +78,23 @@ object AppConfig {
 
     /**
      * 核心收敛方法：将包含历史被墙域名的绝对 URL 透明平移映射为当前可用的网关地址
+     * 同时将 R2 存储集群直链 (*.r2.dev) 收敛为网关边缘中继端点 (/r2-proxy/pub-xxxx/...)，彻底消灭国内网络直连 R2 的 GFW 阻断
      */
     fun canonicalizeUrl(rawUrl: String?): String {
         if (rawUrl.isNullOrBlank()) return ""
         var url = rawUrl.trim()
         val targetBase = apiBaseUrl.trimEnd('/')
 
+        // 1. 将 R2 各桶直链收敛至网关边缘中继端点
+        // 匹配格式: https://pub-xxxx.r2.dev/music/... -> https://moody-music-gateway.netlify.app/r2-proxy/pub-xxxx/music/...
+        val r2Match = Regex("""^https?://(pub-[a-zA-Z0-9]+)\.r2\.dev/(.*)$""").find(url)
+        if (r2Match != null) {
+            val bucket = r2Match.groupValues[1]
+            val path = r2Match.groupValues[2]
+            return "$targetBase/r2-proxy/$bucket/$path"
+        }
+
+        // 2. 历史被阻断域名平移
         for (blockedHost in LEGACY_BLOCKED_DOMAINS) {
             if (url.contains(blockedHost, ignoreCase = true)) {
                 url = url.replace("https://$blockedHost", targetBase, ignoreCase = true)
@@ -97,6 +124,10 @@ object AppConfig {
             path.startsWith("android.resource://")
         ) {
             return path
+        }
+        // 如果是前端 Web 默认黑胶图片相对路径，直接返回空，由客户端加载本地内置黑胶资源，杜绝 404
+        if (path.contains("vinyl_default") || path.startsWith("/src/assets")) {
+            return ""
         }
         val canonical = canonicalizeUrl(path)
         val fullUrl = if (canonical.startsWith("http://") || canonical.startsWith("https://")) {

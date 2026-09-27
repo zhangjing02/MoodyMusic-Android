@@ -1,4 +1,4 @@
-﻿package com.example.moodymusicforandroid.ui.album
+package com.example.moodymusicforandroid.ui.album
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -42,8 +42,17 @@ class AlbumDetailViewModel(
                 if (response.code == 200) {
                     val artistData = response.data?.firstOrNull()
                     // 找到匹配专辑（忽略大小写）
-                    val album = artistData?.albums?.firstOrNull { album ->
-                        album.title.trim().equals(albumTitle.trim(), ignoreCase = true)
+                    var album = artistData?.albums?.firstOrNull { a ->
+                        a.title.trim().equals(albumTitle.trim(), ignoreCase = true)
+                    }
+                    if (album == null) {
+                        // 兜底：若全集名录未包含，发起单专辑精准查询
+                        try {
+                            val albumResp = MoodyApiProvider.apiService.getSongsByArtist(artistId = artistId, album = albumTitle)
+                            if (albumResp.code == 200) {
+                                album = albumResp.data?.firstOrNull()?.albums?.firstOrNull()
+                            }
+                        } catch (_: Exception) {}
                     }
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,

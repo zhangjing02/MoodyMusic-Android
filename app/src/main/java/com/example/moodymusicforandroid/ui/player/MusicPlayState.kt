@@ -46,6 +46,8 @@ data class MusicPlayState(
     val position: Int = 0,
     val playlistIndex: Int = 0,
     val playMode: PlayMode = PlayMode.SEQUENTIAL,
+    val isRoamingMode: Boolean = false,
+    val isRoamingLoading: Boolean = false,
     val queue: List<PlayQueueItem> = emptyList()
 )
 
