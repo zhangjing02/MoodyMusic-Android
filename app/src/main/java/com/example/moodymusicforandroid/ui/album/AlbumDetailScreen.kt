@@ -617,7 +617,28 @@ private fun findActiveTrackIndex(
     if (playState.songTitle.isBlank() && playState.audioUrl.isBlank()) return -1
     if (songs.isEmpty()) return -1
 
-    // 1. 最高精度：音频 path / audioUrl 路径精确校对
+    // 1. 唯一匹配核心铁律：跨专辑绝对隔离
+    // 若当前查看的专辑与正在播放的专辑都具有明确标题且不一致，坚决不高亮任何曲目
+    if (currentAlbumTitle.isNotBlank() && playState.albumTitle.isNotBlank()) {
+        val cleanCurrentAlbum = cleanAlbumOrTitle(currentAlbumTitle)
+        val cleanPlayAlbum = cleanAlbumOrTitle(playState.albumTitle)
+        if (!cleanCurrentAlbum.equals(cleanPlayAlbum, ignoreCase = true)) {
+            return -1
+        }
+    }
+
+    // 2. 歌手校对：若当前页面歌手与全局播放状态的歌手都明确存在且不匹配，返回 -1
+    if (currentArtistName.isNotBlank() && playState.artistName.isNotBlank()) {
+        val cleanCurrentArtist = cleanAlbumOrTitle(currentArtistName)
+        val cleanPlayArtist = cleanAlbumOrTitle(playState.artistName)
+        val isArtistMatch = cleanPlayArtist.contains(cleanCurrentArtist, ignoreCase = true) ||
+                            cleanCurrentArtist.contains(cleanPlayArtist, ignoreCase = true)
+        if (!isArtistMatch) {
+            return -1
+        }
+    }
+
+    // 3. 专辑内最高精度校对：音频 path / audioUrl 路径精确校对
     if (playState.audioUrl.isNotBlank()) {
         val pathIndex = songs.indexOfFirst { song ->
             val path = song.path?.trim()?.removePrefix("/") ?: return@indexOfFirst false
@@ -626,38 +647,32 @@ private fun findActiveTrackIndex(
         if (pathIndex != -1) return pathIndex
     }
 
-    // 2. 所属专辑与歌手校对：防止同名歌曲在不同专辑中误高亮
-    val isAlbumMatch = currentAlbumTitle.isNotBlank() && playState.albumTitle.isNotBlank() &&
-        currentAlbumTitle.trim().equals(playState.albumTitle.trim(), ignoreCase = true)
-    val isArtistMatch = currentArtistName.isNotBlank() && playState.artistName.isNotBlank() &&
-        (playState.artistName.contains(currentArtistName, ignoreCase = true) ||
-         currentArtistName.contains(playState.artistName, ignoreCase = true))
-
-    // 如果全局正在播放的既不是当前专辑也不是当前歌手（且全局有明确的专辑或歌手信息），则判定非本专辑歌曲
-    val hasContext = playState.albumTitle.isNotBlank() || playState.artistName.isNotBlank()
-    if (hasContext && !isAlbumMatch && !isArtistMatch) {
-        return -1
-    }
-
-    // 3. 歌曲标题精确对比（忽略前后空格与大小写）
+    // 4. 歌曲标题精确对比（忽略前后空格与大小写）
     val targetTitle = playState.songTitle.trim()
     val exactTitleIndex = songs.indexOfFirst { song ->
         song.title.trim().equals(targetTitle, ignoreCase = true)
     }
     if (exactTitleIndex != -1) return exactTitleIndex
 
-    // 4. 歌曲标题容错对比（过滤 "01. "、"01 - "、括号内副标题等）
+    // 5. 歌曲标题容错对比（过滤 "01. "、"01 - "、括号内副标题等）
     val cleanTarget = cleanSongTitle(targetTitle)
     val cleanTitleIndex = songs.indexOfFirst { song ->
         cleanSongTitle(song.title).equals(cleanTarget, ignoreCase = true)
     }
     if (cleanTitleIndex != -1) return cleanTitleIndex
 
-    // 5. 包含关系容错
+    // 6. 包含关系容错
     return songs.indexOfFirst { song ->
         val s = song.title.trim()
         s.isNotBlank() && (targetTitle.contains(s, ignoreCase = true) || s.contains(targetTitle, ignoreCase = true))
     }
+}
+
+private fun cleanAlbumOrTitle(raw: String): String {
+    return raw.replace(PREFIX_NUMBER_REGEX, "")
+        .replace(BRACKET_COMMENT_REGEX, "")
+        .replace(Regex("[\\s·•_\\-]+"), "")
+        .trim()
 }
 
 private val PREFIX_NUMBER_REGEX = Regex("^[0-9]+[\\.\\s_\\-]+")
