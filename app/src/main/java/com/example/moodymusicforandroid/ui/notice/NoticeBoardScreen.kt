@@ -5,6 +5,8 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -215,12 +217,16 @@ private fun NoticeCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, SongbookColors.GhostBorder, RoundedCornerShape(16.dp))
-            .clickable { isExpanded = !isExpanded }
-            .animateContentSize(),
-        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-        shape = RoundedCornerShape(16.dp)
+            .animateContentSize(
+                animationSpec = spring(
+                    stiffness = Spring.StiffnessMediumLow,
+                    dampingRatio = Spring.DampingRatioNoBouncy
+                )
+            )
+            .clickable { isExpanded = !isExpanded },
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, SongbookColors.GhostBorder),
+        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             // 顶栏：标签胶囊 + 时间 + 删除/展开
@@ -419,9 +425,8 @@ private fun NoticeContent(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val urlRegex = remember { Regex("""(https?://[^\s\u4e00-\u9fa5，。？！（）《》“”\n\r]+)""") }
-    val matches = remember(content) { urlRegex.findAll(content).toList() }
 
-    if (matches.isEmpty()) {
+    if (!urlRegex.containsMatchIn(content)) {
         Text(
             text = content,
             style = MaterialTheme.typography.bodyMedium,
@@ -433,95 +438,86 @@ private fun NoticeContent(
         return
     }
 
-    // 网页链接跟随复制小图标映射（极简、纯粹，不破坏行高与排版）
-    val inlineContentMap = remember(matches) {
-        val map = mutableMapOf<String, InlineTextContent>()
-        matches.forEachIndexed { index, matchResult ->
-            val url = matchResult.value
-            val inlineKey = "copy_btn_$index"
-            map[inlineKey] = InlineTextContent(
-                Placeholder(
-                    width = 16.sp,
-                    height = 14.sp,
-                    placeholderVerticalAlign = PlaceholderVerticalAlign.Center
-                )
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
+    val lines = remember(content) { content.lines() }
+    val displayLines = if (isExpanded) lines else lines.take(3)
+
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        displayLines.forEach { line ->
+            val match = urlRegex.find(line)
+            if (match == null) {
+                if (line.isNotEmpty()) {
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SongbookColors.SoftCharcoal.copy(alpha = 0.85f),
+                        lineHeight = 22.sp
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            } else {
+                val url = match.value
+                val annotatedLine = buildAnnotatedString {
+                    val range = match.range
+                    if (range.first > 0) {
+                        append(line.substring(0, range.first))
+                    }
+                    val start = length
+                    append(url)
+                    val end = length
+                    addLink(
+                        LinkAnnotation.Url(
+                            url = url,
+                            styles = TextLinkStyles(
+                                style = SpanStyle(
+                                    color = SongbookColors.BurntOrange,
+                                    textDecoration = TextDecoration.Underline,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        ),
+                        start = start,
+                        end = end
+                    )
+                    if (range.last + 1 < line.length) {
+                        append(line.substring(range.last + 1))
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = annotatedLine,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = SongbookColors.SoftCharcoal.copy(alpha = 0.85f),
+                            lineHeight = 22.sp
+                        ),
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    IconButton(
+                        onClick = {
                             clipboardManager.setText(AnnotatedString(url))
                             Toast.makeText(context, "已复制链接", Toast.LENGTH_SHORT).show()
                         },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = com.example.moodymusicforandroid.R.drawable.ic_copy),
-                        contentDescription = "复制链接",
-                        tint = SongbookColors.BurntOrange.copy(alpha = 0.75f),
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
-            }
-        }
-        map
-    }
-
-    // 富文本带超链接及后置复制图标
-    val annotatedString = remember(content, matches) {
-        buildAnnotatedString {
-            var lastIndex = 0
-            matches.forEachIndexed { index, matchResult ->
-                val range = matchResult.range
-                if (range.first > lastIndex) {
-                    append(content.substring(lastIndex, range.first))
-                }
-                val url = matchResult.value
-                val start = length
-                append(url)
-                val end = length
-
-                // 添加超链接高亮及浏览器打开行为
-                addLink(
-                    LinkAnnotation.Url(
-                        url = url,
-                        styles = TextLinkStyles(
-                            style = SpanStyle(
-                                color = SongbookColors.BurntOrange,
-                                textDecoration = TextDecoration.Underline,
-                                fontWeight = FontWeight.Medium
-                            )
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = com.example.moodymusicforandroid.R.drawable.ic_copy),
+                            contentDescription = "复制链接",
+                            tint = SongbookColors.BurntOrange.copy(alpha = 0.75f),
+                            modifier = Modifier.size(13.5.dp)
                         )
-                    ),
-                    start = start,
-                    end = end
-                )
-
-                // 链接右侧紧随其后的复制小图标
-                append(" ")
-                appendInlineContent("copy_btn_$index", "[copy]")
-
-                lastIndex = range.last + 1
-            }
-            if (lastIndex < content.length) {
-                append(content.substring(lastIndex))
+                    }
+                }
             }
         }
     }
-
-    Text(
-        text = annotatedString,
-        inlineContent = inlineContentMap,
-        style = MaterialTheme.typography.bodyMedium.copy(
-            color = SongbookColors.SoftCharcoal.copy(alpha = 0.85f),
-            lineHeight = 22.sp
-        ),
-        maxLines = if (isExpanded) Int.MAX_VALUE else 3,
-        overflow = TextOverflow.Ellipsis
-    )
 }
 
 @Composable
