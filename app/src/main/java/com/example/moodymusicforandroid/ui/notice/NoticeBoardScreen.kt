@@ -250,7 +250,7 @@ private fun NoticeCard(
     canDelete: Boolean,
     onDeleteClick: () -> Unit
 ) {
-    var isExpanded by remember { mutableStateOf(notice.isPinned) }
+    var isExpanded by remember { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(
         targetValue = if (isExpanded) 180f else 0f,
         animationSpec = tween(durationMillis = 220),
@@ -313,7 +313,7 @@ private fun NoticeCard(
                         }
                     }
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
+                        imageVector = Icons.Default.KeyboardArrowUp,
                         contentDescription = if (isExpanded) "收起" else "展开",
                         tint = SongbookColors.SoftCharcoal.copy(alpha = 0.5f),
                         modifier = Modifier
