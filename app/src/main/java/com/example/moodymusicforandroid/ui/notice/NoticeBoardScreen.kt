@@ -257,18 +257,28 @@ private fun NoticeCard(
         label = "arrow_rotation"
     )
 
-    Surface(
-        onClick = { isExpanded = !isExpanded },
+    Card(
         shape = RoundedCornerShape(16.dp),
-        color = SongbookColors.SurfaceLow,
+        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
         border = BorderStroke(1.dp, SongbookColors.GhostBorder),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                isExpanded = !isExpanded
+            }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                )
                 .padding(18.dp)
         ) {
             // 顶栏：标签胶囊 + 时间 + 删除/展开
