@@ -251,21 +251,25 @@ private fun NoticeCard(
     onDeleteClick: () -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(notice.isPinned) }
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (isExpanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 220),
+        label = "arrow_rotation"
+    )
 
-    Card(
+    Surface(
+        onClick = { isExpanded = !isExpanded },
+        shape = RoundedCornerShape(16.dp),
+        color = SongbookColors.SurfaceLow,
+        border = BorderStroke(1.dp, SongbookColors.GhostBorder),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isExpanded = !isExpanded },
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, SongbookColors.GhostBorder),
-        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow)
+            .clip(RoundedCornerShape(16.dp))
     ) {
         Column(
             modifier = Modifier
+                .fillMaxWidth()
                 .padding(18.dp)
-                .animateContentSize(
-                    animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)
-                )
         ) {
             // 顶栏：标签胶囊 + 时间 + 删除/展开
             Row(
@@ -299,10 +303,12 @@ private fun NoticeCard(
                         }
                     }
                     Icon(
-                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = if (isExpanded) "收起" else "展开",
                         tint = SongbookColors.SoftCharcoal.copy(alpha = 0.5f),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier
+                            .size(20.dp)
+                            .rotate(arrowRotation)
                     )
                 }
             }
