@@ -9,6 +9,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.Placeholder
@@ -431,7 +433,7 @@ private fun NoticeContent(
         return
     }
 
-    // 网页链接跟随复制小按钮映射
+    // 网页链接跟随复制小图标映射（极简、纯粹，不破坏行高与排版）
     val inlineContentMap = remember(matches) {
         val map = mutableMapOf<String, InlineTextContent>()
         matches.forEachIndexed { index, matchResult ->
@@ -439,47 +441,36 @@ private fun NoticeContent(
             val inlineKey = "copy_btn_$index"
             map[inlineKey] = InlineTextContent(
                 Placeholder(
-                    width = 44.sp,
-                    height = 18.sp,
+                    width = 16.sp,
+                    height = 14.sp,
                     placeholderVerticalAlign = PlaceholderVerticalAlign.Center
                 )
             ) {
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = SongbookColors.BurntOrange.copy(alpha = 0.14f),
-                    border = BorderStroke(0.6.dp, SongbookColors.BurntOrange.copy(alpha = 0.4f)),
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .clickable {
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
                             clipboardManager.setText(AnnotatedString(url))
-                            Toast.makeText(context, "已复制网页链接: $url", Toast.LENGTH_SHORT).show()
-                        }
+                            Toast.makeText(context, "已复制链接", Toast.LENGTH_SHORT).show()
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "复制",
-                            tint = SongbookColors.BurntOrange,
-                            modifier = Modifier.size(9.dp)
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text = "复制",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SongbookColors.BurntOrange
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(id = com.example.moodymusicforandroid.R.drawable.ic_copy),
+                        contentDescription = "复制链接",
+                        tint = SongbookColors.BurntOrange.copy(alpha = 0.75f),
+                        modifier = Modifier.size(12.dp)
+                    )
                 }
             }
         }
         map
     }
 
-    // 富文本带 LinkAnnotation.Url
+    // 富文本带超链接及后置复制图标
     val annotatedString = remember(content, matches) {
         buildAnnotatedString {
             var lastIndex = 0
@@ -509,10 +500,9 @@ private fun NoticeContent(
                     end = end
                 )
 
-                // 紧随其后的复制按钮
+                // 链接右侧紧随其后的复制小图标
                 append(" ")
-                appendInlineContent("copy_btn_$index", "[复制]")
-                append(" ")
+                appendInlineContent("copy_btn_$index", "[copy]")
 
                 lastIndex = range.last + 1
             }
@@ -522,107 +512,16 @@ private fun NoticeContent(
         }
     }
 
-    Column {
-        Text(
-            text = annotatedString,
-            inlineContent = inlineContentMap,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = SongbookColors.SoftCharcoal.copy(alpha = 0.85f),
-                lineHeight = 22.sp
-            ),
-            maxLines = if (isExpanded) Int.MAX_VALUE else 3,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        // 展开状态下展示便捷外链操作卡片
-        if (isExpanded) {
-            val uniqueUrls = remember(matches) { matches.map { it.value }.distinct() }
-            Spacer(modifier = Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                uniqueUrls.forEach { url ->
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = SongbookColors.PaperBackground.copy(alpha = 0.7f),
-                        border = BorderStroke(0.8.dp, SongbookColors.GhostBorder),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = "链接",
-                                    tint = SongbookColors.BurntOrange,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = url,
-                                    fontSize = 11.5.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = SongbookColors.BurntOrange,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = SongbookColors.BurntOrange.copy(alpha = 0.12f),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .clickable {
-                                            clipboardManager.setText(AnnotatedString(url))
-                                            Toast.makeText(context, "已复制网页链接: $url", Toast.LENGTH_SHORT).show()
-                                        }
-                                ) {
-                                    Text(
-                                        text = "复制链接",
-                                        color = SongbookColors.BurntOrange,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = SongbookColors.BurntOrange,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .clickable {
-                                            try {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                Toast.makeText(context, "无法打开浏览器", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                ) {
-                                    Text(
-                                        text = "打开",
-                                        color = Color.White,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    Text(
+        text = annotatedString,
+        inlineContent = inlineContentMap,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            color = SongbookColors.SoftCharcoal.copy(alpha = 0.85f),
+            lineHeight = 22.sp
+        ),
+        maxLines = if (isExpanded) Int.MAX_VALUE else 3,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 @Composable
