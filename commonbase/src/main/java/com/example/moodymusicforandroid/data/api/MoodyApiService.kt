@@ -446,6 +446,25 @@ interface MoodyApiService {
 
     @GET("api/user/playlists/memberships/{songId}")
     suspend fun getSongPlaylistMemberships(@Path("songId") songId: Long): BaseResponse<com.example.moodymusicforandroid.data.model.SongMembershipsData>
+
+    /**
+     * 云端一步式语音调度（音频文件直传）
+     * POST /api/voice/dispatch
+     */
+    @Multipart
+    @POST("api/voice/dispatch")
+    suspend fun dispatchVoiceAudio(
+        @Part file: okhttp3.MultipartBody.Part
+    ): BaseResponse<VoiceDispatchData>
+
+    /**
+     * 云端一步式语音调度（纯文本指令）
+     * POST /api/voice/dispatch
+     */
+    @POST("api/voice/dispatch")
+    suspend fun dispatchVoiceText(
+        @Body request: VoiceTextRequest
+    ): BaseResponse<VoiceDispatchData>
 }
 
 

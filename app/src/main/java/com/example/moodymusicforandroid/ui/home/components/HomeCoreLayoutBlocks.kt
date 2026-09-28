@@ -160,8 +160,11 @@ fun TodayRecommendScrollBlock(
             items(data.items, key = { it.id }) { item ->
                 val fallbackRes = remember(item.id, item.coverUrl) {
                     when {
-                        item.id.contains("bach") || item.coverUrl.contains("bach") -> R.drawable.album_bach_cello
+                        item.id.contains("rene") || item.coverUrl.contains("rene") -> R.drawable.album_rene_liu_live
+                        item.id.contains("wen") || item.coverUrl.contains("wen") -> R.drawable.album_wen_4versions
                         item.id.contains("jonathan") || item.coverUrl.contains("jonathan") -> R.drawable.album_jonathan_lee
+                        item.id.contains("flute") || item.coverUrl.contains("flute") -> R.drawable.album_guofeng_flute
+                        item.id.contains("bach") || item.coverUrl.contains("bach") -> R.drawable.album_bach_cello
                         item.id.contains("lofi") || item.coverUrl.contains("lofi") -> R.drawable.album_lofi_chill
                         item.id.contains("piano") || item.coverUrl.contains("piano") -> R.drawable.album_pop_piano
                         else -> R.drawable.album_vintage_vinyl
