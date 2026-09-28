@@ -105,6 +105,9 @@ data class SystemNotice(
     @SerializedName("author_name")
     val authorName: String = "音信官方",
 
+    @SerializedName("tag")
+    val tag: String = "官方通知",
+
     @SerializedName("is_pinned")
     val isPinned: Boolean = false,
 
@@ -151,6 +154,9 @@ data class CreateNoticeRequest(
 
     @SerializedName("content")
     val content: String,
+
+    @SerializedName("tag")
+    val tag: String = "官方通知",
 
     @SerializedName("is_pinned")
     val isPinned: Boolean = false

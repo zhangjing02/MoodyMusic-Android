@@ -21,6 +21,9 @@ class CommunityViewModel : ViewModel() {
     private val _notices = MutableStateFlow<List<SystemNotice>>(emptyList())
     val notices: StateFlow<List<SystemNotice>> = _notices.asStateFlow()
 
+    private val _isNoticeLoading = MutableStateFlow(true)
+    val isNoticeLoading: StateFlow<Boolean> = _isNoticeLoading.asStateFlow()
+
     private val _posts = MutableStateFlow<List<CommunityPost>>(emptyList())
     val posts: StateFlow<List<CommunityPost>> = _posts.asStateFlow()
 
@@ -39,30 +42,53 @@ class CommunityViewModel : ViewModel() {
     private val _toastMessage = MutableSharedFlow<String>()
     val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
 
+    companion object {
+        fun getTagWeight(tag: String): Int = when (tag) {
+            "置顶" -> 100
+            "版本信息" -> 80
+            "新资源预告" -> 60
+            "系统维护" -> 40
+            "官方通知" -> 20
+            else -> 10
+        }
+
+        fun sortNotices(list: List<SystemNotice>): List<SystemNotice> {
+            return list.sortedWith(
+                compareByDescending<SystemNotice> { it.isPinned }
+                    .thenByDescending { getTagWeight(it.tag) }
+                    .thenByDescending { it.id }
+            )
+        }
+    }
+
     // ==================== 公告相关 ====================
 
     fun fetchNotices() {
         viewModelScope.launch {
+            _isNoticeLoading.value = true
             try {
                 val res = MoodyApiProvider.apiService.getNotices()
                 if (res.isSuccess()) {
-                    _notices.value = res.data ?: emptyList()
+                    val rawList = res.data ?: emptyList()
+                    _notices.value = sortNotices(rawList)
                 }
             } catch (e: Exception) {
                 // 网络异常时不覆盖当前列表
+            } finally {
+                _isNoticeLoading.value = false
             }
         }
     }
 
-    fun createNotice(title: String, content: String, isPinned: Boolean, onSuccess: () -> Unit) {
+    fun createNotice(title: String, content: String, tag: String = "官方通知", isPinned: Boolean, onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {
                 val res = MoodyApiProvider.apiService.createNotice(
-                    CreateNoticeRequest(title = title, content = content, isPinned = isPinned)
+                    CreateNoticeRequest(title = title, content = content, tag = tag, isPinned = isPinned)
                 )
                 val noticeData = res.data
                 if (res.isSuccess() && noticeData != null) {
-                    _notices.value = listOf(noticeData) + _notices.value
+                    _notices.value = sortNotices(listOf(noticeData) + _notices.value)
                     _toastMessage.emit("公告发布成功")
                     onSuccess()
                 } else {
