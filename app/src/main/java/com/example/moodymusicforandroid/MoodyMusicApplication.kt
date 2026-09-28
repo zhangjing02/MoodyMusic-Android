@@ -65,8 +65,15 @@ class MoodyMusicApplication : Application(), ImageLoaderFactory {
         // 应用组合主题（字体 + 颜色）
         applyCombinedTheme()
 
-        // 异步预热默认字体与后台服务
+        // 初始化本地流媒体极速代理与磁盘缓存
+        com.example.moodymusicforandroid.ui.player.LocalMediaProxy.init(this)
+
+        // 异步预热默认字体、流媒体网关连接池与后台服务
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                com.example.moodymusicforandroid.ui.player.LocalMediaProxy.prewarmConnection()
+            } catch (_: Exception) {}
+
             try {
                 androidx.core.content.res.ResourcesCompat.getFont(this@MoodyMusicApplication, R.font.lxgw_wenkai_gb_regular)
             } catch (_: Exception) {}

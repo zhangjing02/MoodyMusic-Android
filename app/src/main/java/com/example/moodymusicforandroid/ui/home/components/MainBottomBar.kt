@@ -18,7 +18,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import kotlin.coroutines.cancellation.CancellationException
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -347,8 +348,11 @@ private fun DiscoverNavIcon(
                 // 彻底解耦短按单击与长按手势：
                 // 1. 若手势持续超过 220ms，判定为长按，消费手势，手指抬起时绝对不调用 onClick()（坚决不切页！）
                 // 2. 只有快速单击抬起（< 220ms）才触发 onClick() 导航到 RouteDiscover
+                // 3. 显式 down.consume() 阻止父容器和 OEM 系统框架（如 OPPO OplusViewExtractManager 识屏）手势抢占
+                // 4. 连续监听手指抬起，绝不使用会在手指微移/微出界时脆弱返回 null 的 waitForUpOrCancellation()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
                     var isLongPress = false
                     var voiceRecordingStarted = false
                     val longPressJob = coroutineScope.launch {
@@ -361,18 +365,29 @@ private fun DiscoverNavIcon(
                             currentOnVoiceDisabled()
                         }
                     }
-                    val up = waitForUpOrCancellation()
+
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            event.changes.forEach { it.consume() }
+                            if (event.changes.all { !it.pressed }) {
+                                break
+                            }
+                        }
+                    } catch (c: CancellationException) {
+                        longPressJob.cancel()
+                        if (isLongPress && currentIsVoiceEnabled && voiceRecordingStarted) {
+                            currentOnCancelVoice()
+                        }
+                        throw c
+                    }
+
                     longPressJob.cancel()
-                    if (up != null && isLongPress) {
-                        up.consume()
+                    if (isLongPress) {
                         if (currentIsVoiceEnabled && voiceRecordingStarted) {
                             currentOnFinishVoice()
                         }
-                    } else if (up == null && isLongPress) {
-                        if (currentIsVoiceEnabled && voiceRecordingStarted) {
-                            currentOnCancelVoice()
-                        }
-                    } else if (up != null && !isLongPress) {
+                    } else {
                         // 短按轻触：正常切页
                         currentOnClick()
                     }

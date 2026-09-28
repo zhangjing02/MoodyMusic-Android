@@ -87,11 +87,11 @@ class MusicPlayerService : Service() {
     private val retryHandler = Handler(Looper.getMainLooper())
     private val MAX_RETRY_COUNT = 2
 
-    // 媒体流准备看门狗 (动态自适应：常规歌曲基准 15s，长篇大作/整轨特辑 25s)
+    // 媒体流准备看门狗 (自适应数据流动感知：常规歌曲基准 35s，长篇大作/整轨特辑 60s)
     private val prepareTimeoutHandler = Handler(Looper.getMainLooper())
     private var prepareTimeoutRunnable: Runnable? = null
-    private val BASE_PREPARE_TIMEOUT_MS = 15000L
-    private val EXTENDED_PREPARE_TIMEOUT_MS = 25000L
+    private val BASE_PREPARE_TIMEOUT_MS = 35000L
+    private val EXTENDED_PREPARE_TIMEOUT_MS = 60000L
 
     private val notificationManager by lazy { getSystemService(NOTIFICATION_SERVICE) as NotificationManager }
 
@@ -139,6 +139,7 @@ class MusicPlayerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        LocalMediaProxy.init(applicationContext)
         createNotificationChannel()
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         mediaSession = MediaSessionCompat(this, "MoodyMusicSession").apply {
@@ -181,6 +182,8 @@ class MusicPlayerService : Service() {
                     playlist = newPlaylist
                     currentIndex = newIndex
                     retryCount = 0
+                    // 异步预热当前首曲连接
+                    newPlaylist.getOrNull(newIndex)?.audioUrl?.let { LocalMediaProxy.prewarmConnection(it) }
                     playCurrentSong()
                 } else {
                     resumePlayback()
@@ -274,9 +277,9 @@ class MusicPlayerService : Service() {
                 Log.i(TAG, "Playing song [${currentIndex + 1}/${playlist.size}]: ${item.songTitle}, url=$targetUrl (retryCount=$retryCount)")
                 setDataSource(targetUrl)
 
-                // 动态自适应准备看门狗 (Dynamic Watchdog Timeout)
-                // 1. 常规单曲基准保底 15 秒（在纯 IPv4 本地代理加速下，通常 1~3 秒即可秒开并立刻注销看门狗）
-                // 2. 长篇特辑/整轨大碟/交响乐/时长>600秒，放宽至 25 秒，杜绝毫秒级卡点误杀
+                // 动态自适应数据感知准备看门狗 (Dynamic Data-Flow Adaptive Watchdog)
+                // 1. 常规单曲基准保底 35 秒（自适应数据流动感知，绝不误杀正常下载）
+                // 2. 长篇特辑/整轨大碟/交响乐/时长>600秒，放宽至 60 秒
                 val isLargeOrLongTrack = item.audioUrl.contains("theme", ignoreCase = true) ||
                     item.audioUrl.contains("collection", ignoreCase = true) ||
                     item.audioUrl.contains("concerto", ignoreCase = true) ||
@@ -287,9 +290,31 @@ class MusicPlayerService : Service() {
                 val songNameForTimeout = item.songTitle
                 val indexForTimeout = currentIndex
 
-                val watchdog = Runnable {
-                    if (isPreparing && !isMediaPlayerPrepared && userWantsToPlay && currentIndex == indexForTimeout) {
-                        Log.w(TAG, "MediaPlayer prepareAsync watchdog timeout (${currentTimeoutMs}ms) for: $songNameForTimeout (retryCount=$retryCount)")
+                val watchdog = object : Runnable {
+                    var elapsedMs = 0L
+
+                    override fun run() {
+                        if (!isPreparing || isMediaPlayerPrepared || !userWantsToPlay || currentIndex != indexForTimeout) {
+                            return
+                        }
+                        elapsedMs += 3000L
+
+                        // 核心突破：数据流动感知。如果底层代理正在持续接收传输数据，说明链路正常，绝不误杀！
+                        val isActivelyTransferring = LocalMediaProxy.isActivelyTransferring(withinMs = 4000L)
+                        if (isActivelyTransferring && elapsedMs < 60000L) {
+                            Log.d(TAG, "Watchdog: $songNameForTimeout is actively downloading (${elapsedMs}ms elapsed, totalTransferred=${LocalMediaProxy.totalBytesTransferred}), extending watchdog...")
+                            prepareTimeoutHandler.postDelayed(this, 3000L)
+                            return
+                        }
+
+                        // 如果尚未到达基础超时且没有完全超时，继续周期轮询
+                        if (elapsedMs < currentTimeoutMs) {
+                            prepareTimeoutHandler.postDelayed(this, 3000L)
+                            return
+                        }
+
+                        // 真正死锁或上游彻底断流超过阈值，才触发超时容灾处理
+                        Log.w(TAG, "MediaPlayer prepareAsync watchdog stall timeout (${elapsedMs}ms) for: $songNameForTimeout (retryCount=$retryCount, transferring=$isActivelyTransferring)")
                         isPreparing = false
                         isMediaPlayerPrepared = false
                         try {
@@ -298,7 +323,7 @@ class MusicPlayerService : Service() {
                             Log.e(TAG, "Error resetting mediaPlayer on timeout", e)
                         }
 
-                        if (retryCount < 2) {
+                        if (retryCount < MAX_RETRY_COUNT) {
                             retryCount++
                             Log.i(TAG, "Timeout on attempt #$retryCount, retrying for $songNameForTimeout...")
                             Handler(Looper.getMainLooper()).post {
@@ -315,11 +340,12 @@ class MusicPlayerService : Service() {
                     }
                 }
                 prepareTimeoutRunnable = watchdog
-                prepareTimeoutHandler.postDelayed(watchdog, currentTimeoutMs)
+                prepareTimeoutHandler.postDelayed(watchdog, 3000L)
 
                 prepareAsync()
                 setOnPreparedListener {
                     prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
+                    prepareTimeoutRunnable = null
                     Log.i(TAG, "MediaPlayer prepared: ${item.songTitle}, userWantsToPlay=$userWantsToPlay")
                     retryCount = 0 // 播放成功，重置重试计数器
                     isMediaPlayerPrepared = true
@@ -338,12 +364,14 @@ class MusicPlayerService : Service() {
                 }
                 setOnCompletionListener {
                     prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
+                    prepareTimeoutRunnable = null
                     isMediaPlayerPrepared = false
                     isPreparing = false
                     onSongCompleted()
                 }
                 setOnErrorListener { _, what, extra ->
                     prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
+                    prepareTimeoutRunnable = null
                     Log.e(TAG, "MediaPlayer error: what=$what extra=$extra, retryCount=$retryCount")
                     isMediaPlayerPrepared = false
                     isPreparing = false
