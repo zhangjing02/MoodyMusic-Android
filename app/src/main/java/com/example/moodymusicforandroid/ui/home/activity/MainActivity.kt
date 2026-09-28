@@ -3,8 +3,10 @@ package com.example.moodymusicforandroid.ui.home.activity
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.setContent
@@ -88,6 +90,9 @@ class MainActivity : AppCompatActivity() {
 
     private val TAG = "MainActivity"
     private val viewModel: MainViewModel by viewModels()
+    private val playerViewModel: PlayerViewModel by viewModels()
+
+    private var showAudioPermissionRationale by mutableStateOf(false)
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -104,13 +109,23 @@ class MainActivity : AppCompatActivity() {
     ) { isGranted ->
         if (isGranted) {
             Toast.makeText(this, "麦克风权限已开启，长按即可语音点歌 🎙️", Toast.LENGTH_SHORT).show()
+            playerViewModel.setVoiceEnabled(true)
         } else {
-            Toast.makeText(this, "需要麦克风权限以支持语音点歌", Toast.LENGTH_SHORT).show()
+            showAudioPermissionRationale = true
         }
     }
 
     fun requestAudioPermission() {
-        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        val hasPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            playerViewModel.setVoiceEnabled(true)
+            Toast.makeText(this, "麦克风权限已开启，长按即可语音点歌 🎙️", Toast.LENGTH_SHORT).show()
+        } else {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     private fun requestNotificationPermission() {
@@ -158,6 +173,10 @@ class MainActivity : AppCompatActivity() {
                         },
                         onRequestAudioPermission = {
                             requestAudioPermission()
+                        },
+                        showAudioPermissionDialog = showAudioPermissionRationale,
+                        onDismissAudioPermissionDialog = {
+                            showAudioPermissionRationale = false
                         }
                     )
                 }
@@ -167,6 +186,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        val hasAudio = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasAudio && !playerViewModel.isVoiceEnabled.value) {
+            playerViewModel.setVoiceEnabled(true)
+        }
     }
 
 
@@ -196,7 +222,9 @@ fun MainScreen(
     onThemeClick: (ThemeManager.ThemeMode) -> Unit,
     onFontClick: (FontManager.FontStyle) -> Unit,
     onLogoutClick: () -> Unit,
-    onRequestAudioPermission: () -> Unit = {}
+    onRequestAudioPermission: () -> Unit = {},
+    showAudioPermissionDialog: Boolean = false,
+    onDismissAudioPermissionDialog: () -> Unit = {}
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
@@ -815,6 +843,62 @@ fun MainScreen(
                     showUpdateDialog = false
                     navigator.navigate(RouteVersion)
                 }
+            )
+        }
+
+        // 麦克风权限友好提示与去设置引导弹窗
+        if (showAudioPermissionDialog) {
+            AlertDialog(
+                onDismissRequest = onDismissAudioPermissionDialog,
+                title = {
+                    Text(
+                        text = "🎙️ 需要开启麦克风权限",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "音信需要使用麦克风以支持 AI 语音搜歌与智能点歌功能。\n\n当前麦克风权限已被系统关闭，请点击「前往设置」，在应用权限管理中手动开启麦克风权限。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onDismissAudioPermissionDialog()
+                            try {
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", context.packageName, null)
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = "前往设置",
+                            color = SongbookColors.BurntOrange,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismissAudioPermissionDialog) {
+                        Text(
+                            text = "取消",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
     }

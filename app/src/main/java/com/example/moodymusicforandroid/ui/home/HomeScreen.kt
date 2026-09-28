@@ -522,20 +522,25 @@ fun HomeScreen(
                         onAvatarClick = onAvatarClick,
                         onRoamingClick = onRoamingClick,
                         onToggleVoice = {
-                            val enabled = playerViewModel.toggleVoiceEnabled()
-                            if (enabled) {
+                            val currentlyEnabled = playerViewModel.isVoiceEnabled.value
+                            if (!currentlyEnabled) {
                                 val hasPermission = ContextCompat.checkSelfPermission(
                                     context,
                                     Manifest.permission.RECORD_AUDIO
                                 ) == PackageManager.PERMISSION_GRANTED
                                 if (!hasPermission) {
                                     onRequestAudioPermission()
+                                    false
+                                } else {
+                                    playerViewModel.setVoiceEnabled(true)
+                                    android.widget.Toast.makeText(context, "语音点歌已开启，长按底部「发现」即可说话 🎙️", android.widget.Toast.LENGTH_SHORT).show()
+                                    true
                                 }
-                                android.widget.Toast.makeText(context, "语音点歌已开启，长按底部「发现」即可说话", android.widget.Toast.LENGTH_SHORT).show()
                             } else {
+                                playerViewModel.setVoiceEnabled(false)
                                 android.widget.Toast.makeText(context, "语音点歌已关闭", android.widget.Toast.LENGTH_SHORT).show()
+                                false
                             }
-                            enabled
                         }
                     )
                 }
