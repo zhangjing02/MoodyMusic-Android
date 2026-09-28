@@ -5,13 +5,13 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -69,12 +69,25 @@ fun NoticeBoardScreen(
     onBackClick: () -> Unit
 ) {
     val rawNotices by viewModel.notices.collectAsState()
+    val isNoticeLoading by viewModel.isNoticeLoading.collectAsState()
     val notices = remember(rawNotices) { CommunityViewModel.sortNotices(rawNotices) }
     val userProfile by UserManager.userProfile.collectAsState()
     val isMasterOrAdmin = userProfile?.isAdmin() == true || userProfile?.isMaster() == true
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var noticeToDelete by remember { mutableStateOf<SystemNotice?>(null) }
+
+    // 刷新按钮持续旋转动画（加载中平滑旋转）
+    val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
+    val spinAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "spin_angle"
+    )
 
     LaunchedEffect(Unit) {
         viewModel.fetchNotices()
@@ -116,7 +129,8 @@ fun NoticeBoardScreen(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "刷新公告",
-                            tint = SongbookColors.SoftCharcoal
+                            tint = if (isNoticeLoading) SongbookColors.BurntOrange else SongbookColors.SoftCharcoal,
+                            modifier = Modifier.rotate(if (isNoticeLoading) spinAngle else 0f)
                         )
                     }
                     if (isMasterOrAdmin) {
@@ -136,7 +150,31 @@ fun NoticeBoardScreen(
         },
         containerColor = SongbookColors.PaperBackground
     ) { innerPadding ->
-        if (notices.isEmpty()) {
+        if (isNoticeLoading && notices.isEmpty()) {
+            // 首次进页面正在拉取数据时的 Loading 状态，避免闪现“暂无公告”
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    CircularProgressIndicator(
+                        color = SongbookColors.BurntOrange,
+                        strokeWidth = 2.5.dp,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Text(
+                        text = "正在获取音信公告...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SongbookColors.SoftCharcoal.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        } else if (notices.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -217,18 +255,18 @@ private fun NoticeCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(
-                animationSpec = spring(
-                    stiffness = Spring.StiffnessMediumLow,
-                    dampingRatio = Spring.DampingRatioNoBouncy
-                )
-            )
             .clickable { isExpanded = !isExpanded },
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, SongbookColors.GhostBorder),
         colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow)
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(
+            modifier = Modifier
+                .padding(18.dp)
+                .animateContentSize(
+                    animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)
+                )
+        ) {
             // 顶栏：标签胶囊 + 时间 + 删除/展开
             Row(
                 modifier = Modifier.fillMaxWidth(),

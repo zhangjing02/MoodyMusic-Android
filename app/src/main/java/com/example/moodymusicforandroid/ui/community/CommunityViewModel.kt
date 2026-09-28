@@ -21,6 +21,9 @@ class CommunityViewModel : ViewModel() {
     private val _notices = MutableStateFlow<List<SystemNotice>>(emptyList())
     val notices: StateFlow<List<SystemNotice>> = _notices.asStateFlow()
 
+    private val _isNoticeLoading = MutableStateFlow(true)
+    val isNoticeLoading: StateFlow<Boolean> = _isNoticeLoading.asStateFlow()
+
     private val _posts = MutableStateFlow<List<CommunityPost>>(emptyList())
     val posts: StateFlow<List<CommunityPost>> = _posts.asStateFlow()
 
@@ -62,6 +65,7 @@ class CommunityViewModel : ViewModel() {
 
     fun fetchNotices() {
         viewModelScope.launch {
+            _isNoticeLoading.value = true
             try {
                 val res = MoodyApiProvider.apiService.getNotices()
                 if (res.isSuccess()) {
@@ -70,6 +74,8 @@ class CommunityViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 // 网络异常时不覆盖当前列表
+            } finally {
+                _isNoticeLoading.value = false
             }
         }
     }
