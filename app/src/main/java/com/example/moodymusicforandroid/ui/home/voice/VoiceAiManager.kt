@@ -114,8 +114,13 @@ class VoiceAiManager(private val context: Context) {
 
     /**
      * 云端一步式纯文本调度（支持实时语音转录完成后的秒级直查或文本点歌）
+     * @param recognizedText 用户输入的文本指令
+     * @param onTranscribed 可选回调，解析成功后回传原始文本，用于 UI 标题实时回显（与 processVoiceAudio 行为对齐）
      */
-    suspend fun processTextQuery(recognizedText: String): Result<VoiceDispatchResult> = withContext(Dispatchers.IO) {
+    suspend fun processTextQuery(
+        recognizedText: String,
+        onTranscribed: (suspend (String) -> Unit)? = null
+    ): Result<VoiceDispatchResult> = withContext(Dispatchers.IO) {
         try {
             if (recognizedText.isBlank()) {
                 return@withContext Result.failure(VoiceProcessException(recognizedText, "请输入有效的音乐指令"))
@@ -129,6 +134,9 @@ class VoiceAiManager(private val context: Context) {
                 val errMessage = resp.message?.takeIf { it.isNotBlank() } ?: "未能识别匹配的音乐，请换个说法"
                 return@withContext Result.failure(VoiceProcessException(recognizedText, errMessage))
             }
+
+            // 与 processVoiceAudio 行为对齐：成功后立即回调 UI 回显原始指令
+            onTranscribed?.invoke(recognizedText)
 
             if (data.playlist.isEmpty()) {
                 return@withContext Result.failure(VoiceProcessException(recognizedText, "未在曲库中找到匹配的内容"))
@@ -173,10 +181,11 @@ class VoiceAiManager(private val context: Context) {
 }
 
 /**
- * 繁体转简体汉字映射器（客户端辅助工具）
+ * 繁体转简体汉字映射器（与云端 voice.ts t2sMap 保持完全同步）
  */
 object HanziConverter {
     private val t2sMap = mapOf(
+        // 基础常见字
         '倫' to '伦', '傑' to '杰', '華' to '华', '劉' to '刘', '德' to '德',
         '學' to '学', '友' to '友', '張' to '张', '麗' to '丽', '君' to '君',
         '詠' to '咏', '琪' to '琪', '葉' to '叶', '蒨' to '倩', '譚' to '谭',
@@ -190,7 +199,34 @@ object HanziConverter {
         '斷' to '断', '種' to '种', '類' to '类', '難' to '难', '優' to '优',
         '請' to '请', '播' to '播', '放' to '放', '歌' to '歌', '曲' to '曲',
         '專' to '专', '輯' to '辑', '孫' to '孙', '燕' to '燕', '姿' to '姿',
-        '想' to '想', '隨' to '随', '緒' to '绪'
+        '想' to '想', '隨' to '随', '緒' to '绪',
+        // 以下与 voice.ts 同步补全（原客户端缺失）
+        '態' to '态', '響' to '响', '應' to '应', '調' to '调', '轉' to '转',
+        '遙' to '遥', '願' to '愿', '義' to '义', '務' to '务', '標' to '标',
+        '遠' to '远', '選' to '选', '邊' to '边', '處' to '处', '風' to '风',
+        '頭' to '头', '門' to '门', '間' to '间', '題' to '题', '讓' to '让',
+        '識' to '识', '設' to '设', '緊' to '紧', '現' to '现', '規' to '规',
+        '視' to '视', '藝' to '艺', '價' to '价', '證' to '证', '獨' to '独',
+        '劇' to '剧', '歲' to '岁', '備' to '备', '齊' to '齐', '秦' to '秦',
+        '蘇' to '苏', '芮' to '芮', '姜' to '姜', '恆' to '恒',
+        '趙' to '赵', '黃' to '黄', '鄭' to '郑', '凱' to '凯',
+        '邰' to '邰', '啟' to '启', '賢' to '贤', '鴻' to '鸿', '許' to '许',
+        '靜' to '静', '曉' to '晓', '萬' to '万', '樺' to '桦',
+        '楊' to '杨', '嬅' to '嬅', '兒' to '儿', '謝' to '谢',
+        '霆' to '霆', '鋒' to '锋', '樂' to '乐',
+        '麥' to '麦', '浚' to '浚', '龍' to '龙', '鄧' to '邓',
+        '衛' to '卫', '蘭' to '兰', '吳' to '吴', '寶' to '宝', '儀' to '仪',
+        '廣' to '广', '羅' to '罗', '達' to '达', '濤' to '涛', '雲' to '云',
+        '輝' to '辉', '銘' to '铭', '溫' to '温', '鐘' to '钟', '鎮' to '镇',
+        '蕭' to '萧', '騰' to '腾', '謙' to '谦', '榮' to '荣',
+        '駒' to '驹', '強' to '强', '陰' to '阴', '陽' to '阳',
+        '單' to '单', '雙' to '双', '紅' to '红', '綠' to '绿', '藍' to '蓝',
+        '夢' to '梦', '話' to '话', '說' to '说', '傷' to '伤', '淚' to '泪',
+        '離' to '离', '歸' to '归', '別' to '别', '約' to '约', '驚' to '惊',
+        '嘆' to '叹', '號' to '号', '錯' to '错', '戀' to '恋', '團' to '团',
+        '隊' to '队', '熱' to '热', '飛' to '飞', '鳥' to '鸟', '歡' to '欢',
+        '見' to '见', '節' to '节', '跡' to '迹', '簡' to '简', '楓' to '枫',
+        '親' to '亲', '東' to '东'
     )
 
     fun toSimplified(text: String?): String {
