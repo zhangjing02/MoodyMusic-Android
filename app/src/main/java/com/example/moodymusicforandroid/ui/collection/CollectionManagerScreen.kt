@@ -33,6 +33,8 @@ import com.example.moodymusicforandroid.data.model.isInvalidName
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.components.SwipeToRevealDelete
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
+import androidx.compose.ui.res.painterResource
+import com.example.moodymusicforandroid.R
 
 /**
  * 我的收藏与资产全量管理页面
@@ -59,44 +61,18 @@ fun CollectionManagerScreen(
     // 删除确认弹窗
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    // 监听数据流
+    // 监听数据流（统一由 Room 数据库响应式驱动，离线/游客/登录态表现完全一致）
     val favoriteSongs by UserManager.favoriteSongsList.collectAsState()
-
-    // 专辑与歌手数据
-    var albumsList by remember { mutableStateOf<List<LibraryAlbumItem>>(emptyList()) }
-    var artistsList by remember { mutableStateOf<List<LibraryArtistItem>>(emptyList()) }
+    val albumsList by UserManager.favoriteAlbumsList.collectAsState()
+    val artistsList by UserManager.followedArtistsList.collectAsState()
 
     val isLoggedIn by UserManager.isLoggedIn.collectAsState()
 
-    // 从云端或缓存拉取全量 library 列表
+    // 若已登录，静默触发云端全量数据同步与 Room 本地镜像对齐
     LaunchedEffect(isLoggedIn) {
-        if (!isLoggedIn) {
-            albumsList = emptyList()
-            artistsList = emptyList()
-            isEditMode = false
-            return@LaunchedEffect
+        if (isLoggedIn) {
+            UserManager.syncFromServer()
         }
-        try {
-            val libRes = com.example.moodymusicforandroid.data.api.MoodyApiProvider.apiService.getUserLibrary()
-            val rawData = libRes.data
-            if (libRes.isSuccess() && rawData != null) {
-                var data: com.example.moodymusicforandroid.data.model.UserLibraryResponse = rawData
-                // 容错补全歌手名与头像（包括后端 JOIN 失败导致 name = "db_74" 等占位 ID 的情况）
-                val hasMissing = data.followedArtists.any { it.isInvalidName() || it.avatar.isNullOrBlank() }
-                if (hasMissing) {
-                    val skeleton = com.example.moodymusicforandroid.data.api.MoodyApiProvider.apiService.getArtists()
-                    val artistsList = skeleton.data?.artists ?: emptyList()
-                    if (artistsList.isNotEmpty()) {
-                        val enriched = data.followedArtists.map { item ->
-                            item.enrichedWith(artistsList)
-                        }
-                        data = data.copy(followedArtists = enriched)
-                    }
-                }
-                albumsList = data.favoriteAlbums
-                artistsList = data.followedArtists
-            }
-        } catch (_: Exception) {}
     }
 
     // 切换 Tab 时重置选态
@@ -288,7 +264,8 @@ fun CollectionManagerScreen(
             when (selectedTabIndex) {
                 0 -> {
                     if (favoriteSongs.isEmpty()) {
-                        EmptyCollectionPlaceholder(text = "还没有收藏的单曲")
+                        EmptyCollectionPlaceholder(text = "还没有收藏的单曲", iconType = "song")
+
                     } else {
                         LazyColumn(
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -319,7 +296,8 @@ fun CollectionManagerScreen(
                 }
                 1 -> {
                     if (albumsList.isEmpty()) {
-                        EmptyCollectionPlaceholder(text = "还没有收藏的专辑")
+                        EmptyCollectionPlaceholder(text = "还没有收藏的专辑", iconType = "album")
+
                     } else {
                         LazyColumn(
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -344,7 +322,6 @@ fun CollectionManagerScreen(
                                     },
                                     onSingleDelete = {
                                         UserManager.toggleFavoriteAlbum(album.albumId)
-                                        albumsList = albumsList.filterNot { it.albumId == album.albumId }
                                     }
                                 )
                             }
@@ -353,7 +330,8 @@ fun CollectionManagerScreen(
                 }
                 2 -> {
                     if (artistsList.isEmpty()) {
-                        EmptyCollectionPlaceholder(text = "还没有关注的歌手")
+                        EmptyCollectionPlaceholder(text = "还没有关注的歌手", iconType = "artist")
+
                     } else {
                         LazyColumn(
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -378,7 +356,6 @@ fun CollectionManagerScreen(
                                     },
                                     onSingleUnfollow = {
                                         UserManager.toggleFollowArtist(artist.artistId)
-                                        artistsList = artistsList.filterNot { it.artistId == artist.artistId }
                                     }
                                 )
                             }
@@ -417,13 +394,11 @@ fun CollectionManagerScreen(
                             1 -> {
                                 val ids = selectedAlbumIds.toSet()
                                 UserManager.batchRemoveFavoriteAlbums(ids)
-                                albumsList = albumsList.filterNot { it.albumId in ids }
                                 selectedAlbumIds.clear()
                             }
                             2 -> {
                                 val ids = selectedArtistIds.toSet()
                                 UserManager.batchRemoveFollowedArtists(ids)
-                                artistsList = artistsList.filterNot { it.artistId in ids }
                                 selectedArtistIds.clear()
                             }
                         }
@@ -700,8 +675,9 @@ private fun ArtistCollectionItemRow(
 }
 
 
+
 @Composable
-private fun EmptyCollectionPlaceholder(text: String) {
+private fun EmptyCollectionPlaceholder(text: String, iconType: String = "song") {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -709,12 +685,32 @@ private fun EmptyCollectionPlaceholder(text: String) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Default.Favorite,
-                contentDescription = null,
-                tint = SongbookColors.GhostBorder,
-                modifier = Modifier.size(48.dp)
-            )
+            when (iconType) {
+                "song" -> Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = null,
+                    tint = SongbookColors.GhostBorder,
+                    modifier = Modifier.size(48.dp)
+                )
+                "album" -> Icon(
+                    painter = painterResource(id = R.drawable.ic_library),
+                    contentDescription = null,
+                    tint = SongbookColors.GhostBorder,
+                    modifier = Modifier.size(48.dp)
+                )
+                "artist" -> Icon(
+                    painter = painterResource(id = R.drawable.ic_playlist),
+                    contentDescription = null,
+                    tint = SongbookColors.GhostBorder,
+                    modifier = Modifier.size(48.dp)
+                )
+                else -> Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = null,
+                    tint = SongbookColors.GhostBorder,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = text,
@@ -724,3 +720,4 @@ private fun EmptyCollectionPlaceholder(text: String) {
         }
     }
 }
+

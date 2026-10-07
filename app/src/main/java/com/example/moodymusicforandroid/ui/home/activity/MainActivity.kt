@@ -70,6 +70,7 @@ import com.example.moodymusicforandroid.common.update.PgyerUpdateManager
 import com.example.moodymusicforandroid.data.model.AppVersionData
 import com.example.moodymusicforandroid.ui.version.AppUpdateDialog
 import com.example.moodymusicforandroid.ui.version.VersionUpdateScreen
+import com.example.moodymusicforandroid.ui.player.CapsuleListeningMode
 import com.example.moodymusicforandroid.ui.player.NowPlayingScreen
 import com.example.moodymusicforandroid.ui.player.PlayQueueItem
 import com.example.moodymusicforandroid.ui.player.PlayerViewModel
@@ -309,6 +310,10 @@ fun MainScreen(
                         coroutineScope.launch { drawerState.close() }
                         android.widget.Toast.makeText(context, "风格喜好设置正在筹备中", android.widget.Toast.LENGTH_SHORT).show()
                     },
+                    onDownloadManagerClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        navigator.navigate(RouteDownloadManager)
+                    },
                     onSettingsClick = {
                         coroutineScope.launch { drawerState.close() }
                         navigator.navigate(RouteSettings)
@@ -338,15 +343,37 @@ fun MainScreen(
                             onMenuClick = { coroutineScope.launch { drawerState.open() } },
                             onAvatarClick = onAuthClick,
                             onRoamingClick = {
-                                if (playerViewModel.playState.value.isRoamingMode) {
+                                if (playerViewModel.playState.value.capsuleListeningMode == CapsuleListeningMode.ROAMING) {
                                     playerViewModel.stopRoamingMode(destroyPlayer = true)
                                     android.widget.Toast.makeText(context, "✨ 已退出随心漫游并关闭播放", android.widget.Toast.LENGTH_SHORT).show()
                                 } else {
                                     playerViewModel.startRoamingMode()
                                 }
                             },
-                            onRequestAudioPermission = onRequestAudioPermission,
-                            onVoiceSearchClick = onRequestAudioPermission,
+                            onPlayFavoriteSongs = {
+                                if (playerViewModel.playState.value.capsuleListeningMode == CapsuleListeningMode.FAVORITE_SONGS) {
+                                    playerViewModel.stop()
+                                    android.widget.Toast.makeText(context, "✨ 已退出并停止播放收藏单曲", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    playerViewModel.playFavoriteSongs()
+                                }
+                            },
+                            onPlayFavoriteAlbums = {
+                                if (playerViewModel.playState.value.capsuleListeningMode == CapsuleListeningMode.FAVORITE_ALBUMS) {
+                                    playerViewModel.stop()
+                                    android.widget.Toast.makeText(context, "✨ 已退出并停止播放收藏专辑", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    playerViewModel.playFavoriteAlbums()
+                                }
+                            },
+                            onPlayFollowedArtists = {
+                                if (playerViewModel.playState.value.capsuleListeningMode == CapsuleListeningMode.FOLLOWED_ARTISTS) {
+                                    playerViewModel.stop()
+                                    android.widget.Toast.makeText(context, "✨ 已退出并停止播放关注歌手", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    playerViewModel.playFollowedArtists()
+                                }
+                            },
                             onAlbumClick = { id, title ->
                                 if (id == "butterfly_lovers_album") {
                                     val isBottomPlayerVisible = playState.songTitle.isNotBlank()
@@ -420,6 +447,7 @@ fun MainScreen(
 
                     entry<RouteDiscover> {
                         DiscoverScreen(
+                            playerViewModel = playerViewModel,
                             onMenuClick = { coroutineScope.launch { drawerState.open() } },
                             onArtistClick = { id, name, avatar ->
                                 navigator.navigate(RouteArtistDetail(id, name, avatar))
@@ -429,6 +457,7 @@ fun MainScreen(
 
                     entry<RouteLibrary> {
                         LibraryScreen(
+                            playerViewModel = playerViewModel,
                             onSongClick = { song ->
                                 val path = song.filePath
                                 if (!path.isNullOrBlank()) {
@@ -576,8 +605,18 @@ fun MainScreen(
                     }
 
                     entry<RouteThemeDetail> { key ->
-                        val isThisThemePlaying = playState.isPlaying && playState.audioUrl == key.audioUrl
-                        val isThisThemeActive = playState.audioUrl == key.audioUrl && playState.songTitle.isNotBlank()
+                        val cleanKeyTitle = key.title.substringBefore("—").replace("《", "").replace("》", "").trim()
+                        val isTitleMatched = playState.songTitle.isNotBlank() && playState.songTitle.equals(cleanKeyTitle, ignoreCase = true)
+                        val resolvedKeyAudio = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl(key.audioUrl)
+                        val keyAudioName = key.audioUrl.substringAfterLast('/').substringBefore('?')
+                        val playAudioName = playState.audioUrl.substringAfterLast('/').substringBefore('?')
+                        val isUrlMatched = key.audioUrl.isNotBlank() && playState.audioUrl.isNotBlank() && (
+                            playState.audioUrl == key.audioUrl ||
+                            playState.audioUrl == resolvedKeyAudio ||
+                            (keyAudioName.isNotBlank() && keyAudioName == playAudioName)
+                        )
+                        val isThisThemeActive = if (key.audioUrl.isNotBlank()) isUrlMatched else isTitleMatched
+                        val isThisThemePlaying = playState.isPlaying && isThisThemeActive
                         val isMiniPlayerVisible = playState.songTitle.isNotBlank()
                         ThemeDetailScreen(
                             themeId = key.themeId,
@@ -602,7 +641,26 @@ fun MainScreen(
                                         songTitle = key.title.substringBefore("—").replace("《", "").replace("》", "").trim(),
                                         artistName = key.artistName,
                                         albumTitle = cleanAlbumTitle,
-                                        coverUrl = key.coverUrl
+                                        coverUrl = key.coverUrl,
+                                        initialSeekMs = 0
+                                    )
+                                }
+                            },
+                            onSeekTo = { posMs ->
+                                if (isThisThemeActive) {
+                                    playerViewModel.seekTo(posMs)
+                                    if (!isThisThemePlaying) {
+                                        playerViewModel.togglePlayPause()
+                                    }
+                                } else {
+                                    val cleanAlbumTitle = if (key.title.contains("—")) key.title.substringAfter("—").trim() else "今日胶片精选 · 慢调专栏"
+                                    playerViewModel.playSingleUrl(
+                                        audioUrl = key.audioUrl,
+                                        songTitle = key.title.substringBefore("—").replace("《", "").replace("》", "").trim(),
+                                        artistName = key.artistName,
+                                        albumTitle = cleanAlbumTitle,
+                                        coverUrl = key.coverUrl,
+                                        initialSeekMs = posMs
                                     )
                                 }
                             }
@@ -645,6 +703,13 @@ fun MainScreen(
                             viewModel = communityViewModel,
                             onBackClick = { navigator.goBack() },
                             onNavigateToAuth = onAuthClick
+                        )
+                    }
+
+                    entry<RouteDownloadManager> {
+                        com.example.moodymusicforandroid.ui.download.DownloadManagerScreen(
+                            playerViewModel = playerViewModel,
+                            onBackClick = { navigator.goBack() }
                         )
                     }
                 }
@@ -754,8 +819,15 @@ fun MainScreen(
                                 playerViewModel.cancelVoiceRecording()
                             },
                             onVoiceNeedOpenPrompt = {
-                                playerViewModel.promptVoiceNeedOpen()
-                                Toast.makeText(context, "语音功能未开启，请先在右上角开启", Toast.LENGTH_SHORT).show()
+                                val hasPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.RECORD_AUDIO
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (!hasPermission) {
+                                    onRequestAudioPermission()
+                                } else {
+                                    playerViewModel.startVoiceRecording()
+                                }
                             }
                         )
                     }

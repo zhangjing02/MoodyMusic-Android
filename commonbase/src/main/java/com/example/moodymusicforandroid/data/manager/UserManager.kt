@@ -11,6 +11,12 @@ import com.example.moodymusicforandroid.data.local.db.MoodyDatabase
 import com.example.moodymusicforandroid.data.local.db.createDefaultGuestUser
 import com.example.moodymusicforandroid.data.local.db.toEntity
 import com.example.moodymusicforandroid.data.local.db.toUser
+import com.example.moodymusicforandroid.data.local.db.FavoriteSongEntity
+import com.example.moodymusicforandroid.data.local.db.FavoriteAlbumEntity
+import com.example.moodymusicforandroid.data.local.db.FollowedArtistEntity
+import com.example.moodymusicforandroid.data.local.db.toFavoriteSong
+import com.example.moodymusicforandroid.data.local.db.toLibraryAlbumItem
+import com.example.moodymusicforandroid.data.local.db.toLibraryArtistItem
 import com.example.moodymusicforandroid.data.model.*
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -41,6 +47,14 @@ object UserManager {
     // Room DAO（在 init() 中懒初始化）
     private var db: MoodyDatabase? = null
     private val dao get() = db?.userProfileDao()
+    private val favoriteDao get() = db?.favoriteDao()
+
+    val currentUserId: Long
+        get() = if (_isLoggedIn.value) {
+            _userProfile.value?.userId ?: PreferencesManager.getUserId()?.toLongOrNull() ?: GUEST_USER_ID
+        } else {
+            GUEST_USER_ID
+        }
 
     // ==================== 全局响应式状态 (StateFlow) ====================
 
@@ -75,8 +89,14 @@ object UserManager {
     private val _favoriteAlbumIds = MutableStateFlow<Set<String>>(emptySet())
     val favoriteAlbumIds: StateFlow<Set<String>> = _favoriteAlbumIds.asStateFlow()
 
+    private val _favoriteAlbumsList = MutableStateFlow<List<LibraryAlbumItem>>(emptyList())
+    val favoriteAlbumsList: StateFlow<List<LibraryAlbumItem>> = _favoriteAlbumsList.asStateFlow()
+
     private val _followedArtistIds = MutableStateFlow<Set<String>>(emptySet())
     val followedArtistIds: StateFlow<Set<String>> = _followedArtistIds.asStateFlow()
+
+    private val _followedArtistsList = MutableStateFlow<List<LibraryArtistItem>>(emptyList())
+    val followedArtistsList: StateFlow<List<LibraryArtistItem>> = _followedArtistsList.asStateFlow()
 
     /**
      * 初始化，在 Application.onCreate() 中调用。
@@ -98,19 +118,8 @@ object UserManager {
         _themeMode.value = ThemeManager.getTheme(context).value
         _cassetteStyle.value = PreferencesManager.getString("cassette_style", DEFAULT_CASSETTE_STYLE) ?: DEFAULT_CASSETTE_STYLE
 
-        // 恢复本地缓存的已收藏歌曲列表
-        val cachedSongsJson = PreferencesManager.getString("KEY_CACHED_FAVORITE_SONGS")
-        if (!cachedSongsJson.isNullOrBlank()) {
-            try {
-                val type = object : TypeToken<List<FavoriteSong>>() {}.type
-                val list: List<FavoriteSong> = Gson().fromJson(cachedSongsJson, type)
-                _favoriteSongsList.value = list
-                _favoriteSongIds.value = list.map { it.songId }.toSet()
-            } catch (_: Exception) {}
-        }
-
         scope.launch {
-            if (loggedIn) {
+            val currentUid = if (loggedIn) {
                 // 从 Room 秒开恢复真实用户数据
                 val cachedEntity = dao?.getUserProfile()
                 if (cachedEntity != null && cachedEntity.userId != GUEST_USER_ID) {
@@ -122,9 +131,10 @@ object UserManager {
                     _fontScale.value = cachedUser.fontScale
                     _themeMode.value = cachedUser.themeMode
                     _cassetteStyle.value = cachedUser.getEffectiveCassetteStyle()
+                    cachedEntity.userId
+                } else {
+                    PreferencesManager.getUserId()?.toLongOrNull() ?: GUEST_USER_ID
                 }
-                // 静默从服务器拉取最新数据覆盖
-                syncFromServer()
             } else {
                 // 游客模式：从 Room 读取 GUEST_USER_ID 实体
                 val guestEntity = dao?.getUserProfileById(GUEST_USER_ID) ?: dao?.getUserProfile()
@@ -149,11 +159,40 @@ object UserManager {
                     _userProfile.value = defaultGuest
                     dao?.saveUserProfile(defaultGuest.toEntity())
                 }
-                _favoriteSongIds.value = emptySet()
-                _favoriteSongsList.value = emptyList()
-                _favoriteAlbumIds.value = emptySet()
-                _followedArtistIds.value = emptySet()
+                GUEST_USER_ID
             }
+
+            // 统一从 Room 加载当前生效用户的收藏资产（未登录游客为 GUEST_USER_ID 0L，已登录为实际 uid）
+            loadFavoritesFromRoom(currentUid)
+
+            if (loggedIn) {
+                // 静默从服务器拉取最新数据覆盖并写回 Room
+                syncFromServer()
+            }
+        }
+    }
+
+    /**
+     * 统一从 Room 加载指定用户的单曲、专辑、歌手资产至内存 StateFlow
+     */
+    private suspend fun loadFavoritesFromRoom(userId: Long) {
+        val fDao = favoriteDao ?: return
+        try {
+            val songs = fDao.getFavoriteSongs(userId).map { it.toFavoriteSong() }
+            _favoriteSongsList.value = songs
+            _favoriteSongIds.value = songs.map { it.songId }.toSet()
+
+            val albums = fDao.getFavoriteAlbums(userId).map { it.toLibraryAlbumItem() }
+            _favoriteAlbumsList.value = albums
+            _favoriteAlbumIds.value = albums.map { it.albumId }.toSet()
+
+            val artists = fDao.getFollowedArtists(userId).map { it.toLibraryArtistItem() }
+            _followedArtistsList.value = artists
+            _followedArtistIds.value = artists.map { it.artistId }.toSet()
+
+            Log.d(TAG, "Favorites loaded from Room for user $userId: ${songs.size} songs, ${albums.size} albums, ${artists.size} artists")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load favorites from Room for user $userId", e)
         }
     }
 
@@ -459,23 +498,34 @@ object UserManager {
                 Log.w(TAG, "Sync profile from server failed", e)
             }
 
-            // 2. 拉取音乐资产（收藏 ID 集合，用于心形图标状态判断）
+            // 2. 拉取音乐资产并持久化写入 Room
             try {
                 val libRes = MoodyApiProvider.apiService.getUserLibrary()
                 if (libRes.isSuccess() && libRes.data != null) {
                     val libData = libRes.data
-                    val serverSongIds = libData.favoriteSongIds.toSet()
-                    val albumIds = libData.favoriteAlbums.map { it.albumId }.toSet()
-                    val artistIds = libData.followedArtists.map { it.artistId }.toSet()
+                    val uid = currentUserId
 
-                    // 取并集，避免服务端尚未持久化单曲时冲掉本地乐观收藏
-                    val finalSongIds = if (serverSongIds.isNotEmpty()) serverSongIds + _favoriteSongIds.value else _favoriteSongIds.value
+                    // 将云端专辑与歌手持久化写入 Room
+                    val albumEntities = libData.favoriteAlbums.map { it.toEntity(uid) }
+                    val artistEntities = libData.followedArtists.map { it.toEntity(uid) }
+                    favoriteDao?.saveFavoriteAlbums(albumEntities)
+                    favoriteDao?.saveFollowedArtists(artistEntities)
 
-                    _favoriteSongIds.value = finalSongIds
-                    _favoriteAlbumIds.value = albumIds
-                    _followedArtistIds.value = artistIds
+                    // 拉取云端收藏歌曲详情列表并写入 Room
+                    try {
+                        val favRes = MoodyApiProvider.apiService.getFavorites(page = 1, limit = 100)
+                        if (favRes.isSuccess() && favRes.data != null) {
+                            val songEntities = favRes.data.favorites.map { it.toEntity(uid) }
+                            favoriteDao?.saveFavoriteSongs(songEntities)
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Sync favorite songs list failed", e)
+                    }
 
-                    Log.d(TAG, "Library synced: ${finalSongIds.size} songs, ${albumIds.size} albums, ${artistIds.size} artists")
+                    // 刷新本地内存列表
+                    loadFavoritesFromRoom(uid)
+
+                    Log.d(TAG, "Library synced & persisted to Room for user $uid")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Sync library from server failed", e)
@@ -502,7 +552,7 @@ object UserManager {
         _favoriteSongIds.value = if (willFavorite) currentSet + songId else currentSet - songId
         onResult?.invoke(willFavorite)
 
-        // 2. 立即乐观更新歌曲列表对象并写入本地缓存
+        // 2. 立即乐观更新歌曲列表对象
         val currentList = _favoriteSongsList.value
         val updatedList = if (willFavorite) {
             val newSong = FavoriteSong(
@@ -517,11 +567,26 @@ object UserManager {
             currentList.filterNot { it.songId == songId }
         }
         _favoriteSongsList.value = updatedList
-        try {
-            PreferencesManager.putString("KEY_CACHED_FAVORITE_SONGS", Gson().toJson(updatedList))
-        } catch (_: Exception) {}
 
-        // 3. 立即乐观更新 userProfile 中的 favoriteSongsCount 并写入 Room
+        // 3. 持久化写入 Room 数据库（无论游客还是登录用户，均由 Room 统一管理）
+        val uid = currentUserId
+        scope.launch {
+            if (willFavorite) {
+                val entity = FavoriteSongEntity(
+                    userId = uid,
+                    songId = songId,
+                    title = songTitle?.takeIf { it.isNotBlank() } ?: "未知单曲",
+                    artistName = artistName,
+                    coverUrl = coverUrl,
+                    filePath = audioUrl
+                )
+                favoriteDao?.saveFavoriteSong(entity)
+            } else {
+                favoriteDao?.deleteFavoriteSong(uid, songId)
+            }
+        }
+
+        // 4. 更新 profile 中的 favoriteSongsCount 并写入 Room
         val currentUser = _userProfile.value
         if (currentUser != null) {
             val delta = if (willFavorite) 1 else -1
@@ -533,7 +598,7 @@ object UserManager {
             }
         }
 
-        // 4. 同步至云端
+        // 5. 若已登录，同步至云端
         if (_isLoggedIn.value) {
             scope.launch {
                 try {
@@ -544,10 +609,17 @@ object UserManager {
                             // 校正本地状态
                             val corrected = if (serverFavorited) _favoriteSongIds.value + songId else _favoriteSongIds.value - songId
                             _favoriteSongIds.value = corrected
+                            if (serverFavorited) {
+                                favoriteDao?.saveFavoriteSong(
+                                    FavoriteSongEntity(userId = uid, songId = songId, title = songTitle ?: "未知单曲")
+                                )
+                            } else {
+                                favoriteDao?.deleteFavoriteSong(uid, songId)
+                            }
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "toggleFavoriteSong API error (kept local state)", e)
+                    Log.w(TAG, "toggleFavoriteSong API error (kept local Room state)", e)
                 }
             }
         }
@@ -570,21 +642,55 @@ object UserManager {
         _favoriteAlbumIds.value = if (willFavorite) currentSet + albumId else currentSet - albumId
         onResult?.invoke(willFavorite)
 
+        val currentList = _favoriteAlbumsList.value
+        val updatedList = if (willFavorite) {
+            val newAlbum = LibraryAlbumItem(
+                albumId = albumId,
+                title = title,
+                cover = cover,
+                artistId = artistId
+            )
+            listOf(newAlbum) + currentList.filterNot { it.albumId == albumId }
+        } else {
+            currentList.filterNot { it.albumId == albumId }
+        }
+        _favoriteAlbumsList.value = updatedList
+
+        // 持久化写入 Room 数据库
+        val uid = currentUserId
+        scope.launch {
+            if (willFavorite) {
+                val entity = FavoriteAlbumEntity(
+                    userId = uid,
+                    albumId = albumId,
+                    title = title,
+                    cover = cover,
+                    artistId = artistId
+                )
+                favoriteDao?.saveFavoriteAlbum(entity)
+            } else {
+                favoriteDao?.deleteFavoriteAlbum(uid, albumId)
+            }
+        }
+
+        // 更新 profile 计数
+        val currentUser = _userProfile.value
+        if (currentUser != null) {
+            val delta = if (willFavorite) 1 else -1
+            val newCount = (currentUser.favoriteAlbumsCount + delta).coerceAtLeast(0)
+            val updated = currentUser.copy(favoriteAlbumsCount = newCount)
+            _userProfile.value = updated
+            scope.launch {
+                dao?.saveUserProfile(updated.toEntity())
+            }
+        }
+
         if (_isLoggedIn.value) {
             scope.launch {
                 try {
                     MoodyApiProvider.apiService.toggleFavoriteAlbum(mapOf("album_id" to albumId))
-                    // 更新 profile 计数
-                    val currentUser = _userProfile.value
-                    if (currentUser != null) {
-                        val delta = if (willFavorite) 1 else -1
-                        val newCount = (currentUser.favoriteAlbumsCount + delta).coerceAtLeast(0)
-                        val updated = currentUser.copy(favoriteAlbumsCount = newCount)
-                        _userProfile.value = updated
-                        dao?.saveUserProfile(updated.toEntity())
-                    }
                 } catch (e: Exception) {
-                    Log.w(TAG, "toggleFavoriteAlbum API error", e)
+                    Log.w(TAG, "toggleFavoriteAlbum API error (kept local Room state)", e)
                 }
             }
         }
@@ -606,21 +712,53 @@ object UserManager {
         _followedArtistIds.value = if (willFollow) currentSet + artistId else currentSet - artistId
         onResult?.invoke(willFollow)
 
+        val currentList = _followedArtistsList.value
+        val updatedList = if (willFollow) {
+            val newArtist = LibraryArtistItem(
+                artistId = artistId,
+                name = name,
+                avatar = avatar
+            )
+            listOf(newArtist) + currentList.filterNot { it.artistId == artistId }
+        } else {
+            currentList.filterNot { it.artistId == artistId }
+        }
+        _followedArtistsList.value = updatedList
+
+        // 持久化写入 Room 数据库
+        val uid = currentUserId
+        scope.launch {
+            if (willFollow) {
+                val entity = FollowedArtistEntity(
+                    userId = uid,
+                    artistId = artistId,
+                    name = name ?: "未知歌手",
+                    avatar = avatar
+                )
+                favoriteDao?.saveFollowedArtist(entity)
+            } else {
+                favoriteDao?.deleteFollowedArtist(uid, artistId)
+            }
+        }
+
+        // 更新 profile 计数
+        val currentUser = _userProfile.value
+        if (currentUser != null) {
+            val delta = if (willFollow) 1 else -1
+            val newCount = (currentUser.followedArtistsCount + delta).coerceAtLeast(0)
+            val updated = currentUser.copy(followedArtistsCount = newCount)
+            _userProfile.value = updated
+            scope.launch {
+                dao?.saveUserProfile(updated.toEntity())
+            }
+        }
+
         if (_isLoggedIn.value) {
             scope.launch {
                 try {
                     MoodyApiProvider.apiService.toggleFollowArtist(mapOf("artist_id" to artistId))
-                    // 更新 profile 计数
-                    val currentUser = _userProfile.value
-                    if (currentUser != null) {
-                        val delta = if (willFollow) 1 else -1
-                        val newCount = (currentUser.followedArtistsCount + delta).coerceAtLeast(0)
-                        val updated = currentUser.copy(followedArtistsCount = newCount)
-                        _userProfile.value = updated
-                        dao?.saveUserProfile(updated.toEntity())
-                    }
                 } catch (e: Exception) {
-                    Log.w(TAG, "toggleFollowArtist API error", e)
+                    Log.w(TAG, "toggleFollowArtist API error (kept local Room state)", e)
                 }
             }
         }
@@ -636,9 +774,11 @@ object UserManager {
         val currentList = _favoriteSongsList.value
         val updatedList = currentList.filterNot { it.songId in songIds }
         _favoriteSongsList.value = updatedList
-        try {
-            PreferencesManager.putString("KEY_CACHED_FAVORITE_SONGS", Gson().toJson(updatedList))
-        } catch (_: Exception) {}
+
+        val uid = currentUserId
+        scope.launch {
+            favoriteDao?.deleteFavoriteSongs(uid, songIds.toList())
+        }
 
         val currentUser = _userProfile.value
         if (currentUser != null) {
@@ -668,6 +808,15 @@ object UserManager {
         val currentSet = _favoriteAlbumIds.value
         _favoriteAlbumIds.value = currentSet - albumIds
 
+        val currentList = _favoriteAlbumsList.value
+        val updatedList = currentList.filterNot { it.albumId in albumIds }
+        _favoriteAlbumsList.value = updatedList
+
+        val uid = currentUserId
+        scope.launch {
+            favoriteDao?.deleteFavoriteAlbums(uid, albumIds.toList())
+        }
+
         val currentUser = _userProfile.value
         if (currentUser != null) {
             val newCount = (currentUser.favoriteAlbumsCount - albumIds.size).coerceAtLeast(0)
@@ -695,6 +844,15 @@ object UserManager {
         if (artistIds.isEmpty()) return
         val currentSet = _followedArtistIds.value
         _followedArtistIds.value = currentSet - artistIds
+
+        val currentList = _followedArtistsList.value
+        val updatedList = currentList.filterNot { it.artistId in artistIds }
+        _followedArtistsList.value = updatedList
+
+        val uid = currentUserId
+        scope.launch {
+            favoriteDao?.deleteFollowedArtists(uid, artistIds.toList())
+        }
 
         val currentUser = _userProfile.value
         if (currentUser != null) {
@@ -754,17 +912,21 @@ object UserManager {
         PreferencesManager.saveFontScale(fullUser.fontScale)
         PreferencesManager.putString("cassette_style", fullUser.getEffectiveCassetteStyle())
 
-        // 异步写入 Room（先删除游客记录，保存真实用户资料）
+        val newUserId = user.userId
         scope.launch {
+            // 1. 无缝合并：将游客期间在 Room 积累的收藏与关注合并给新登录用户
+            favoriteDao?.mergeGuestAssetsToUser(GUEST_USER_ID, newUserId)
+            // 2. 清除游客资料，保存新用户资料
             dao?.deleteGuestProfile()
             dao?.saveUserProfile(fullUser.toEntity(token, refreshToken))
+            // 3. 从 Room 读取该用户资产
+            loadFavoritesFromRoom(newUserId)
+            // 4. 立即触发云端全量数据同步与对齐
+            syncFromServer()
         }
 
         EventBusManager.post(EventType.USER_LOGIN, "登录成功", fullUser)
         EventBusManager.post(EventType.AUTH_LOGIN_SUCCESS, "登录成功", fullUser)
-
-        // 立即触发云端全量数据同步
-        syncFromServer()
     }
 
     /**
@@ -776,6 +938,9 @@ object UserManager {
         val currentTheme = _themeMode.value
         val currentCassette = _cassetteStyle.value
         val currentPlay = _playMode.value
+
+        _isLoggedIn.value = false
+        PreferencesManager.clearUserInfo()
 
         scope.launch {
             dao?.clearUserProfile()
@@ -789,17 +954,9 @@ object UserManager {
             )
             dao?.saveUserProfile(guestUser.toEntity())
             _userProfile.value = guestUser
+            // 重新从 Room 加载游客资产（0L）
+            loadFavoritesFromRoom(GUEST_USER_ID)
         }
-        PreferencesManager.clearUserInfo()
-
-        _isLoggedIn.value = false
-        _favoriteSongIds.value = emptySet()
-        _favoriteSongsList.value = emptyList()
-        _favoriteAlbumIds.value = emptySet()
-        _followedArtistIds.value = emptySet()
-        try {
-            PreferencesManager.putString("KEY_CACHED_FAVORITE_SONGS", null)
-        } catch (_: Exception) {}
 
         EventBusManager.post(EventType.USER_LOGOUT, "退出登录")
     }

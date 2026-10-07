@@ -54,6 +54,8 @@ fun AddToPlaylistSheet(
     duration: Int = 0,
     currentQueue: List<PlayQueueItem> = emptyList(),
     onAddToCurrentQueue: (() -> AddToQueueResult)? = null,
+    allowDownload: Boolean = true,
+    onDownloadClick: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     if (!visible) return
@@ -255,6 +257,58 @@ fun AddToPlaylistSheet(
 
                     // 右侧：若已收录在当前待播队列中，显示一个优雅极简的对钩
                     if (isInQueue) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = SongbookColors.BurntOrange,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            // ── 单曲离线下载操作行 (受服务端 allowDownload 动态控制) ──
+            if (allowDownload && onDownloadClick != null && filePath.isNotBlank()) {
+                val isDownloaded = remember(filePath, songId) {
+                    com.example.moodymusicforandroid.data.manager.OfflineDownloadManager.isDownloaded(
+                        filePath = filePath,
+                        songId = songId,
+                        title = songTitle,
+                        albumTitle = albumTitle
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            if (isDownloaded) {
+                                Toast.makeText(context, "「${songTitle.ifBlank { "该歌曲" }}」已在本地离线曲库中", Toast.LENGTH_SHORT).show()
+                            } else {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onDownloadClick()
+                                onDismiss()
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    com.example.moodymusicforandroid.ui.album.AlbumDownloadIcon(
+                        tint = if (isDownloaded) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp)
+                    )
+
+                    Text(
+                        text = if (isDownloaded) "已下载到本地" else "下载到本地",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (isDownloaded) {
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = null,

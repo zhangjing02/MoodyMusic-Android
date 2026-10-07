@@ -14,8 +14,10 @@ data class BaseResponse<T>(
     override val message: String?,
 
     @SerializedName("data")
-    override val data: T?
+    override val data: T?,
 
+    @SerializedName(value = "allow_download", alternate = ["allowDownload", "download_enabled", "downloadEnabled"])
+    val allowDownload: Boolean? = null
 ) : ApiResponse<T> {
 
     companion object {

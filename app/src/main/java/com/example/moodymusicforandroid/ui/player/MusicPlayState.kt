@@ -32,6 +32,17 @@ enum class PlayMode {
 }
 
 /**
+ * 首页右上角胶囊快捷听歌模式
+ */
+enum class CapsuleListeningMode : Serializable {
+    NONE,               // 默认未激活特定听歌模式（顶栏显示用户头像）
+    ROAMING,            // 随心漫游
+    FAVORITE_SONGS,     // 播放收藏歌曲
+    FAVORITE_ALBUMS,    // 播放收藏专辑
+    FOLLOWED_ARTISTS    // 播放关注歌手
+}
+
+/**
  * 全局播放状态数据类，通过 EventBus 广播，供 PlayerViewModel 和 UI 层消费
  */
 data class MusicPlayState(
@@ -48,6 +59,7 @@ data class MusicPlayState(
     val playMode: PlayMode = PlayMode.SEQUENTIAL,
     val isRoamingMode: Boolean = false,
     val isRoamingLoading: Boolean = false,
+    val capsuleListeningMode: CapsuleListeningMode = CapsuleListeningMode.NONE,
     val queue: List<PlayQueueItem> = emptyList()
 )
 

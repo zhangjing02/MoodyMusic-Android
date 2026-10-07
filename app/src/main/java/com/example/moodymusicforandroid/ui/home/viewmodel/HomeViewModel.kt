@@ -162,16 +162,40 @@ class HomeViewModel : BaseViewModel() {
                     subtitle = "TODAY'S VINYL SELECTION",
                     items = listOf(
                         TodayRecommendItem(
+                            id = "jacky_cheung_classic_tour_theme",
+                            title = "《經典之旅》",
+                            artist = "張學友",
+                            year = "2018",
+                            subtitle = "39首神級現場 · 台北站",
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/jacky_cheung_classic_tour_cover.jpg",
+                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/jacky_cheung_classic_tour_taipei.m4a",
+                            isTheme = true,
+                            themeId = "jacky_cheung_classic_tour_theme",
+                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/jacky_cheung_classic_tour_theme.json"
+                        ),
+                        TodayRecommendItem(
+                            id = "pub_heroes_theme",
+                            title = "《PUB英雄會》",
+                            artist = "動力火車 · 迪克牛仔",
+                            year = "1996",
+                            subtitle = "十大名團點唱神作 · 原汁原味",
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/pub_heroes_cover_v1.jpg",
+                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/pub_heroes_1996_theme.mp3",
+                            isTheme = true,
+                            themeId = "pub_heroes_theme",
+                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/pub_heroes_theme_v1.json"
+                        ),
+                        TodayRecommendItem(
                             id = "rene_liu_live_theme",
                             title = "《後來》現場精選",
                             artist = "劉若英",
                             year = "2002-2024",
                             subtitle = "一口氣聽完7首神級Live",
-                            coverUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("covers/albums/rene_liu_live_cover_v1.jpg"),
-                            audioUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("music/theme/rene_liu_live_128k.mp3"),
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/rene_liu_live_cover_v1.jpg",
+                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/rene_liu_live_128k.mp3",
                             isTheme = true,
                             themeId = "rene_liu_live_theme",
-                            storyUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("themes/rene_liu_live_theme_v1.json")
+                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/rene_liu_live_theme_v1.json"
                         ),
                         TodayRecommendItem(
                             id = "wen_4versions_theme",
@@ -179,11 +203,11 @@ class HomeViewModel : BaseViewModel() {
                             artist = "林憶蓮 · 李宗盛",
                             year = "1994-2014",
                             subtitle = "一曲唱盡四種人生 · 經典對比",
-                            coverUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("covers/albums/wen_sandy_cover_v2.jpg"),
-                            audioUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("music/theme/wen_4versions_128k.mp3"),
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/wen_sandy_cover_v2.jpg",
+                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/wen_4versions_128k.mp3",
                             isTheme = true,
                             themeId = "wen_4versions_theme",
-                            storyUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("themes/wen_4versions_theme_v2.json")
+                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/wen_4versions_theme_v2.json"
                         ),
                         TodayRecommendItem(
                             id = "jonathan_lee_theme",
@@ -191,11 +215,11 @@ class HomeViewModel : BaseViewModel() {
                             artist = "李宗盛",
                             year = "2007",
                             subtitle = "30首歲月金曲 · 寫盡悲歡離合",
-                            coverUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("covers/albums/album_jonathan_lee.jpg"),
-                            audioUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("music/theme/jonathan_lee_30.m4a"),
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/album_jonathan_lee.jpg",
+                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/jonathan_lee_30.m4a",
                             isTheme = true,
                             themeId = "jonathan_lee_theme",
-                            storyUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("themes/jonathan_lee_theme.json")
+                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/jonathan_lee_theme.json"
                         ),
                         TodayRecommendItem(
                             id = "guofeng_flute_theme_v3",
@@ -203,11 +227,11 @@ class HomeViewModel : BaseViewModel() {
                             artist = "書領了嗎 · 竹笛",
                             year = "2026",
                             subtitle = "竹笛清響，夢回青城煙雨",
-                            coverUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("covers/albums/guofeng_flute_collection_cover_v3.jpg"),
-                            audioUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("music/theme/guofeng_flute_collection_v2.mp3"),
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/guofeng_flute_collection_cover_v3.jpg",
+                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/guofeng_flute_collection_v2.mp3",
                             isTheme = true,
                             themeId = "guofeng_flute_theme_v3",
-                            storyUrl = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("themes/guofeng_flute_theme_v3.json")
+                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/guofeng_flute_theme_v3.json"
                         )
                     )
                 )
@@ -246,8 +270,8 @@ class HomeViewModel : BaseViewModel() {
                             subtitle = "导师盲选 · 为梦想转身",
                             badge = "现场盲选",
                             coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/variety/voice_of_china.jpg",
-                            actionType = "playlist",
-                            actionTarget = "voice_of_china"
+                            actionType = "artist",
+                            actionTarget = "133"
                         ),
                         VarietyShowItem(
                             id = "variety_i_am_singer",
@@ -255,8 +279,8 @@ class HomeViewModel : BaseViewModel() {
                             subtitle = "殿堂唱将 · 极致交响Live",
                             badge = "殿堂竞演",
                             coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/variety/i_am_singer.jpg",
-                            actionType = "playlist",
-                            actionTarget = "i_am_singer"
+                            actionType = "artist",
+                            actionTarget = "134"
                         ),
                         VarietyShowItem(
                             id = "variety_masked_singer",
@@ -264,8 +288,8 @@ class HomeViewModel : BaseViewModel() {
                             subtitle = "面具之下 · 纯粹原声共鸣",
                             badge = "悬念声场",
                             coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/variety/masked_singer.jpg",
-                            actionType = "playlist",
-                            actionTarget = "masked_singer"
+                            actionType = "artist",
+                            actionTarget = "135"
                         ),
                         VarietyShowItem(
                             id = "variety_big_band",
@@ -273,8 +297,17 @@ class HomeViewModel : BaseViewModel() {
                             subtitle = "燥热现场 · 独立原创摇滚",
                             badge = "滚烫现场",
                             coverUrl = "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/variety/big_band.jpg",
-                            actionType = "playlist",
-                            actionTarget = "big_band"
+                            actionType = "artist",
+                            actionTarget = "178"
+                        ),
+                        VarietyShowItem(
+                            id = "variety_our_songs",
+                            title = "我们的歌",
+                            subtitle = "跨代合唱 · 岁月金曲新编",
+                            badge = "潮音重构",
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/variety/our_songs.jpg",
+                            actionType = "artist",
+                            actionTarget = "191"
                         )
                     )
                 )

@@ -1,8 +1,5 @@
 package com.example.moodymusicforandroid.ui.home
 
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -50,6 +47,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -75,7 +73,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -115,6 +112,7 @@ import com.example.moodymusicforandroid.data.model.toTodayRecommendScroll
 import com.example.moodymusicforandroid.data.model.toTopRecommendBanner
 import com.example.moodymusicforandroid.data.model.toTrackList
 import com.example.moodymusicforandroid.data.model.toVarietyShowGrid
+import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.components.SongbookPullToRefreshLayout
 import com.example.moodymusicforandroid.ui.home.components.ArchiveCardBlock
@@ -132,6 +130,7 @@ import com.example.moodymusicforandroid.ui.home.components.TrackListItemCard
 import com.example.moodymusicforandroid.ui.home.components.VarietyShowGridBlock
 import com.example.moodymusicforandroid.ui.home.viewmodel.HomeViewModel
 import com.example.moodymusicforandroid.ui.home.voice.TopBarTitleState
+import com.example.moodymusicforandroid.ui.player.CapsuleListeningMode
 import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import kotlinx.coroutines.delay
@@ -152,17 +151,16 @@ fun HomeScreen(
     onMenuClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onRoamingClick: () -> Unit = {},
-    onVoiceSearchClick: () -> Unit = {},
-    onRequestAudioPermission: () -> Unit = {},
+    onPlayFavoriteSongs: () -> Unit = {},
+    onPlayFavoriteAlbums: () -> Unit = {},
+    onPlayFollowedArtists: () -> Unit = {},
     onAlbumClick: (String, String) -> Unit = { _, _ -> },
     onArtistClick: (artistId: String, artistName: String, avatarUrl: String?) -> Unit = { _, _, _ -> },
     onArticleClick: (String) -> Unit = {},
     onThemeClick: (themeId: String, title: String, audioUrl: String, coverUrl: String, artistName: String, storyUrl: String?) -> Unit = { _, _, _, _, _, _ -> }
 ) {
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val topBarTitleState by playerViewModel.topBarTitleState.collectAsState()
-    val isVoiceEnabled by playerViewModel.isVoiceEnabled.collectAsState()
 
     val feedItems by viewModel.homeFeedItems.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -209,6 +207,12 @@ fun HomeScreen(
             .background(warmGradient)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // 将音乐综艺板块 (VARIETY_SHOW_GRID) 沉底展示在首页最下方
+            val orderedFeedItems = remember(feedItems) {
+                val (variety, others) = feedItems.partition { it.type == HomeBlockType.VARIETY_SHOW_GRID }
+                others + variety
+            }
+
             // 1. 主列表：第一项自然排列在 TopBar 下方
             LazyColumn(
                 state = listState,
@@ -221,13 +225,22 @@ fun HomeScreen(
                 )
             ) {
                 // 动态切片流 (Block-Based SDUI Items)
-                feedItems.forEach { block ->
+                orderedFeedItems.forEach { block ->
                     when (block.type) {
                         HomeBlockType.TOP_RECOMMEND_BANNER -> {
                             item(key = block.id, contentType = block.type) {
                                 val banner = block.parsedData as? TopRecommendBannerData ?: block.toTopRecommendBanner()
+                            val cleanBannerTitle = banner.title.substringBefore("—").replace("《", "").replace("》", "").trim()
+                            val isBannerPlaying = playState.isPlaying && (
+                                (playState.songTitle.isNotBlank() && (playState.songTitle.contains(cleanBannerTitle) || cleanBannerTitle.contains(playState.songTitle))) ||
+                                (!banner.audioUrl.isNullOrBlank() && (
+                                    banner.audioUrl.substringAfterLast('/').substringBefore('?').isNotBlank() &&
+                                    banner.audioUrl.substringAfterLast('/').substringBefore('?') == playState.audioUrl.substringAfterLast('/').substringBefore('?')
+                                ))
+                            )
                             TopRecommendBannerBlock(
                                 data = banner,
+                                isPlaying = isBannerPlaying,
                                 onClick = { item ->
                                     if (item.actionType == "theme" || item.actionTarget.contains("theme")) {
                                         val fullTitle = if (item.subtitle.isNullOrBlank()) item.title else "${item.title} — ${item.subtitle}"
@@ -308,7 +321,14 @@ fun HomeScreen(
                             val varietyData = block.parsedData as? VarietyShowGridData ?: block.toVarietyShowGrid()
                             VarietyShowGridBlock(
                                 data = varietyData,
-                                onItemClick = { item -> onAlbumClick(item.actionTarget, item.title) }
+                                onItemClick = { item ->
+                                    // 依据服务端 SDUI 动作类型与目标自然跳转，无需客户端硬编码判断
+                                    if (item.actionType == "album") {
+                                        onAlbumClick(item.actionTarget, item.title)
+                                    } else {
+                                        onArtistClick(item.actionTarget, item.title, item.coverUrl)
+                                    }
+                                }
                             )
                             Spacer(modifier = Modifier.height(28.dp))
                         }
@@ -515,33 +535,13 @@ fun HomeScreen(
                         .padding(horizontal = 20.dp)
                 ) {
                     SocietyWeeklyTopBar(
-                        isRoamingMode = playState.isRoamingMode,
-                        isVoiceEnabled = isVoiceEnabled,
+                        capsuleListeningMode = playState.capsuleListeningMode,
                         titleState = topBarTitleState,
                         onMenuClick = onMenuClick,
-                        onAvatarClick = onAvatarClick,
                         onRoamingClick = onRoamingClick,
-                        onToggleVoice = {
-                            val currentlyEnabled = playerViewModel.isVoiceEnabled.value
-                            if (!currentlyEnabled) {
-                                val hasPermission = ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.RECORD_AUDIO
-                                ) == PackageManager.PERMISSION_GRANTED
-                                if (!hasPermission) {
-                                    onRequestAudioPermission()
-                                    false
-                                } else {
-                                    playerViewModel.setVoiceEnabled(true)
-                                    android.widget.Toast.makeText(context, "语音点歌已开启，长按底部「发现」即可说话 🎙️", android.widget.Toast.LENGTH_SHORT).show()
-                                    true
-                                }
-                            } else {
-                                playerViewModel.setVoiceEnabled(false)
-                                android.widget.Toast.makeText(context, "语音点歌已关闭", android.widget.Toast.LENGTH_SHORT).show()
-                                false
-                            }
-                        }
+                        onPlayFavoriteSongs = onPlayFavoriteSongs,
+                        onPlayFavoriteAlbums = onPlayFavoriteAlbums,
+                        onPlayFollowedArtists = onPlayFollowedArtists
                     )
                 }
                 // 底部细分割线，同样跟随 topBarAlpha 淡入淡出
@@ -582,17 +582,17 @@ private val RainbowHaloColors = listOf(
 
 @Composable
 private fun SocietyWeeklyTopBar(
-    isRoamingMode: Boolean = false,
-    isVoiceEnabled: Boolean = false,
+    capsuleListeningMode: CapsuleListeningMode = CapsuleListeningMode.NONE,
     titleState: TopBarTitleState = TopBarTitleState.Default,
     onMenuClick: () -> Unit,
-    onAvatarClick: () -> Unit,
     onRoamingClick: () -> Unit = {},
-    onToggleVoice: () -> Boolean = { false }
+    onPlayFavoriteSongs: () -> Unit = {},
+    onPlayFavoriteAlbums: () -> Unit = {},
+    onPlayFollowedArtists: () -> Unit = {}
 ) {
-    val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
+    val userProfile by UserManager.userProfile.collectAsState()
+    val isLoggedIn by UserManager.isLoggedIn.collectAsState()
 
     var showAvatarMenu by remember { mutableStateOf(false) }
     var isMenuExpanded by remember { mutableStateOf(false) }
@@ -605,7 +605,9 @@ private fun SocietyWeeklyTopBar(
         }
     }
 
-    // 漫游模式下头像彩虹流光溢彩若隐若现动效 (Ethereal Iridescent Rainbow Sweep Halo - 低调纤细珠光版)
+    val isRoamingActive = capsuleListeningMode == CapsuleListeningMode.ROAMING
+
+    // 随机漫游模式激活下头像彩虹流光溢彩若隐若现动效 (Ethereal Iridescent Rainbow Sweep Halo - 低调纤细珠光版)
     val haloInfiniteTransition = rememberInfiniteTransition(label = "rainbow_halo_anim")
     // 1. 流光旋转动效：360° 无限平滑流转 (4.5s 缓慢优雅流转)
     val haloRotation by haloInfiniteTransition.animateFloat(
@@ -637,9 +639,9 @@ private fun SocietyWeeklyTopBar(
         ),
         label = "halo_glow_scale"
     )
-    // 4. 漫游开关平滑渐变
+    // 4. 随机漫游模式激活开关平滑渐变（仅限 ROAMING 漫游模式生效）
     val haloVisibility by animateFloatAsState(
-        targetValue = if (isRoamingMode) 1f else 0f,
+        targetValue = if (isRoamingActive) 1f else 0f,
         animationSpec = tween(400, easing = FastOutSlowInEasing),
         label = "halo_visibility"
     )
@@ -746,11 +748,11 @@ private fun SocietyWeeklyTopBar(
             }
         }
 
-        // 头像与折叠胶囊菜单容器
+        // 右侧胶囊菜单触发器（未激活特定模式或漫游模式时显示用户头像；激活其他听歌模式时显示对应模式的高亮图标）
         Box(
             contentAlignment = Alignment.TopEnd
         ) {
-            // 头像按钮（与左侧 Menu 按钮尺寸完全对称 36dp，低调优雅）
+            // 触发按钮（36dp 纯净触控区域，与左侧 Menu 按钮对称，无外围多余圆底背景）
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -765,64 +767,100 @@ private fun SocietyWeeklyTopBar(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                // 1. 头像主体（32dp 精准居中）
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .then(
-                            if (haloVisibility <= 0.01f) {
-                                Modifier.border(
-                                    width = 0.8.dp,
-                                    color = MenuBorderColor.copy(alpha = 0.6f),
-                                    shape = CircleShape
+                when (capsuleListeningMode) {
+                    CapsuleListeningMode.NONE,
+                    CapsuleListeningMode.ROAMING -> {
+                        // 1. 头像主体（32dp 精准居中，优先使用用户头像或项目默认头像 user_avatar_default）
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .then(
+                                    if (haloVisibility <= 0.01f) {
+                                        Modifier.border(
+                                            width = 0.8.dp,
+                                            color = MenuBorderColor.copy(alpha = 0.6f),
+                                            shape = CircleShape
+                                        )
+                                    } else Modifier
                                 )
-                            } else Modifier
-                        )
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                ) {
-                    SongbookImage(
-                        model = "/storage/avatars/user_avatar_default.jpg",
-                        contentDescription = "User Avatar",
-                        fallbackRes = R.drawable.user_avatar_default,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-
-                // 2. 紧紧贴合头像外沿的低调彩虹流光环 (与 32dp 头像零空隙严密贴合)
-                if (haloVisibility > 0.01f) {
-                    Canvas(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .graphicsLayer {
-                                rotationZ = haloRotation
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        ) {
+                            val avatarModel = if (isLoggedIn && !userProfile?.avatarUrl.isNullOrBlank()) {
+                                userProfile?.avatarUrl
+                            } else {
+                                R.drawable.user_avatar_default
                             }
-                    ) {
-                        val canvasCenter = this.center
-                        // 紧贴 32dp 头像外周边缘（半径严格对齐头像边界，无任何空隙）
-                        val radius = (size.minDimension / 2f)
-                        val sweepBrush = Brush.sweepGradient(RainbowHaloColors, canvasCenter)
+                            SongbookImage(
+                                model = avatarModel,
+                                contentDescription = "用户头像",
+                                fallbackRes = R.drawable.user_avatar_default,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
 
-                        // 柔和微晕层 (Subtle Feather Glow - 2.0dp, 极低半透明微漫反射)
-                        drawCircle(
-                            brush = sweepBrush,
-                            radius = radius * haloGlowScale,
-                            style = Stroke(width = 2.0.dp.toPx()),
-                            alpha = haloAlpha * 0.15f * haloVisibility
+                        // 2. 漫游模式专属彩虹流光环 (紧贴 32dp 头像外周边缘流转呼吸，仅在漫游激活时呈现)
+                        if (haloVisibility > 0.01f) {
+                            Canvas(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .graphicsLayer { rotationZ = haloRotation }
+                            ) {
+                                val canvasCenter = this.center
+                                val radius = size.minDimension / 2f
+                                val sweepBrush = Brush.sweepGradient(RainbowHaloColors, canvasCenter)
+
+                                // 柔和微晕层 (Subtle Feather Glow - 2.0dp, 极低半透明微漫反射)
+                                drawCircle(
+                                    brush = sweepBrush,
+                                    radius = radius * haloGlowScale,
+                                    style = Stroke(width = 2.0.dp.toPx()),
+                                    alpha = (0.25f + haloAlpha * 0.25f) * haloVisibility
+                                )
+                                // 实体高光层 (Crisp Core Arc - 1.2dp, 细腻珠宝细光)
+                                drawCircle(
+                                    brush = sweepBrush,
+                                    radius = radius,
+                                    style = Stroke(width = 1.2.dp.toPx()),
+                                    alpha = (0.50f + haloAlpha * 0.35f) * haloVisibility
+                                )
+                            }
+                        }
+                    }
+
+                    CapsuleListeningMode.FAVORITE_SONGS -> {
+                        // 播放收藏歌曲：火漆焦橙色纯净图标直出，不加圆底背景
+                        Icon(
+                            painter = painterResource(R.drawable.ic_headset_fav_song),
+                            contentDescription = "播放收藏歌曲",
+                            tint = RoamActiveOrange,
+                            modifier = Modifier.size(24.dp)
                         )
+                    }
 
-                        // 核心紧贴彩虹环 (Tight Prismatic Ring - 1.3dp, 零空隙咬合包裹头像)
-                        drawCircle(
-                            brush = sweepBrush,
-                            radius = radius,
-                            style = Stroke(width = 1.3.dp.toPx()),
-                            alpha = (0.50f + haloAlpha * 0.35f) * haloVisibility
+                    CapsuleListeningMode.FAVORITE_ALBUMS -> {
+                        // 播放收藏专辑：火漆焦橙色纯净图标直出，不加圆底背景
+                        Icon(
+                            painter = painterResource(R.drawable.ic_headset_fav_album),
+                            contentDescription = "播放收藏专辑",
+                            tint = RoamActiveOrange,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    CapsuleListeningMode.FOLLOWED_ARTISTS -> {
+                        // 播放关注歌手：火漆焦橙色纯净图标直出，不加圆底背景
+                        Icon(
+                            painter = painterResource(R.drawable.ic_headset_fav_artist),
+                            contentDescription = "播放关注歌手",
+                            tint = RoamActiveOrange,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
             }
 
-            // 折叠卡片垂直展开胶囊 (Vertical Action Capsule - 严格垂直居中对齐上方头像)
+            // 折叠胶囊菜单弹出层
             if (showAvatarMenu) {
                 Popup(
                     alignment = Alignment.TopCenter,
@@ -832,20 +870,22 @@ private fun SocietyWeeklyTopBar(
                 ) {
                     CapsuleActionMenu(
                         isExpanded = isMenuExpanded,
-                        isRoamingMode = isRoamingMode,
-                        isVoiceEnabled = isVoiceEnabled,
+                        currentMode = capsuleListeningMode,
                         onRoamingClick = {
                             dismissMenu()
                             onRoamingClick()
                         },
-                        onAvatarClick = {
+                        onPlayFavoriteSongs = {
                             dismissMenu()
-                            onAvatarClick()
+                            onPlayFavoriteSongs()
                         },
-                        onToggleVoice = {
-                            val res = onToggleVoice()
+                        onPlayFavoriteAlbums = {
                             dismissMenu()
-                            res
+                            onPlayFavoriteAlbums()
+                        },
+                        onPlayFollowedArtists = {
+                            dismissMenu()
+                            onPlayFollowedArtists()
                         },
                         onDismissRequest = { dismissMenu() }
                     )
@@ -857,18 +897,27 @@ private fun SocietyWeeklyTopBar(
 
 /**
  * 顶部折叠卡片展开胶囊组件 (Vertical Action Capsule - 杂志纸质卡片风)
+ *
+ * 四个听歌模式：
+ *   1. 随机漫游 (ic_roam_dice)
+ *   2. 播放收藏歌曲 (ic_headset_fav_song)
+ *   3. 播放收藏专辑 (ic_headset_fav_album)
+ *   4. 播放关注歌手 (ic_headset_fav_artist)
+ *
+ * 状态逻辑：
+ *   - 未选中时：置灰显示 (IconMutedGray)，无底色无边框
+ *   - 选中时：火漆焦橙高亮 (RoamActiveOrange) + 浅杏暖色底托 (RoamActivePillBg) + 边框 + 细腻微呼吸
  */
 @Composable
 private fun CapsuleActionMenu(
     isExpanded: Boolean,
-    isRoamingMode: Boolean,
-    isVoiceEnabled: Boolean,
+    currentMode: CapsuleListeningMode,
     onRoamingClick: () -> Unit,
-    onAvatarClick: () -> Unit,
-    onToggleVoice: () -> Boolean,
+    onPlayFavoriteSongs: () -> Unit,
+    onPlayFavoriteAlbums: () -> Unit,
+    onPlayFollowedArtists: () -> Unit,
     onDismissRequest: () -> Unit
 ) {
-    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
     androidx.compose.animation.AnimatedVisibility(
@@ -887,92 +936,94 @@ private fun CapsuleActionMenu(
     ) {
         Surface(
             modifier = Modifier
-                .width(40.dp)
+                .width(48.dp)
                 .shadow(
                     elevation = 8.dp,
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     spotColor = Color(0x334A2810),
                     ambientColor = Color(0x1F5C3318)
                 ),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             color = MenuPaperBg.copy(alpha = 0.98f),
             border = BorderStroke(1.dp, MenuBorderColor)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 7.dp),
+                    .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // ── 1. 随机漫游图标 ──
-                RoamActionButton(
-                    isRoamingMode = isRoamingMode,
+                // ── 1. 随心漫游 ──
+                CapsuleMenuItem(
+                    iconRes = R.drawable.ic_roam_dice,
+                    contentDescription = "随心漫游",
+                    isSelected = (currentMode == CapsuleListeningMode.ROAMING),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onRoamingClick()
                     }
                 )
 
-                // 细微纸质分割线
-                Box(
-                    modifier = Modifier
-                        .width(18.dp)
-                        .height(0.6.dp)
-                        .background(Color(0xFFE8DFD3))
-                )
+                // 纸质分割线
+                Box(modifier = Modifier.width(20.dp).height(0.6.dp).background(Color(0xFFE8DFD3)))
 
-                // ── 2. 语音功能总开关图标（点击切换开启/关闭） ──
-                VoiceToggleSwitchButton(
-                    isEnabled = isVoiceEnabled,
+                // ── 2. 播放收藏歌曲（一箭穿心 💘） ──
+                CapsuleMenuItem(
+                    iconRes = R.drawable.ic_headset_fav_song,
+                    contentDescription = "播放收藏歌曲",
+                    isSelected = (currentMode == CapsuleListeningMode.FAVORITE_SONGS),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onToggleVoice()
+                        onPlayFavoriteSongs()
                     }
                 )
 
-                // 细微纸质分割线
-                Box(
-                    modifier = Modifier
-                        .width(18.dp)
-                        .height(0.6.dp)
-                        .background(Color(0xFFE8DFD3))
+                // 纸质分割线
+                Box(modifier = Modifier.width(20.dp).height(0.6.dp).background(Color(0xFFE8DFD3)))
+
+                // ── 3. 播放收藏专辑（黑胶唱片 + 播放三角 ▶） ──
+                CapsuleMenuItem(
+                    iconRes = R.drawable.ic_headset_fav_album,
+                    contentDescription = "播放收藏专辑",
+                    isSelected = (currentMode == CapsuleListeningMode.FAVORITE_ALBUMS),
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onPlayFavoriteAlbums()
+                    }
                 )
 
-                // ── 3. 个人中心/账户图标 ──
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            onDismissRequest()
-                            onAvatarClick()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_user_profile),
-                        contentDescription = "User Profile",
-                        tint = IconIdleCharcoal,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
+                // 纸质分割线
+                Box(modifier = Modifier.width(20.dp).height(0.6.dp).background(Color(0xFFE8DFD3)))
+
+                // ── 4. 播放关注歌手（复古爵士立麦 🎙️ + 星芒） ──
+                CapsuleMenuItem(
+                    iconRes = R.drawable.ic_headset_fav_artist,
+                    contentDescription = "播放关注歌手",
+                    isSelected = (currentMode == CapsuleListeningMode.FOLLOWED_ARTISTS),
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onPlayFollowedArtists()
+                    }
+                )
             }
         }
     }
 }
 
 /**
- * 漫游模式按钮：
- * - 漫游激活时：火漆焦橙色高亮 + 浅杏橙暖色圆底背景 + 细腻微呼吸
- * - 未激活时：置灰石板铅印色（无底色）
+ * 胶囊菜单单项：
+ * - 激活/选中状态：火漆焦橙色高亮 + 浅杏橙暖色圆底背景 + 细腻微呼吸
+ * - 未激活/未选中状态：置灰石板铅印色 (IconMutedGray)，无底色无边框
  */
 @Composable
-private fun RoamActionButton(
-    isRoamingMode: Boolean,
+private fun CapsuleMenuItem(
+    iconRes: Int,
+    contentDescription: String,
+    isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "roam_active_pulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "capsule_item_pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1.0f,
         targetValue = 1.06f,
@@ -980,7 +1031,7 @@ private fun RoamActionButton(
             animation = tween(900, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "roam_pulse_scale"
+        label = "item_pulse_scale"
     )
 
     Box(
@@ -988,7 +1039,7 @@ private fun RoamActionButton(
             .size(36.dp)
             .clip(CircleShape)
             .then(
-                if (isRoamingMode) {
+                if (isSelected) {
                     Modifier
                         .background(RoamActivePillBg)
                         .border(0.8.dp, Color(0xFFECCEB6), CircleShape)
@@ -1000,68 +1051,13 @@ private fun RoamActionButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter = painterResource(R.drawable.ic_roam_dice),
-            contentDescription = "随心漫游",
-            tint = if (isRoamingMode) RoamActiveOrange else IconMutedGray,
+            painter = painterResource(iconRes),
+            contentDescription = contentDescription,
+            tint = if (isSelected) RoamActiveOrange else IconMutedGray,
             modifier = Modifier
                 .size(24.dp)
                 .then(
-                    if (isRoamingMode) {
-                        Modifier.graphicsLayer {
-                            scaleX = pulseScale
-                            scaleY = pulseScale
-                        }
-                    } else Modifier
-                )
-        )
-    }
-}
-
-/**
- * 语音功能总开关按钮：
- * - 开启状态：经典火漆焦橙色高亮 + 浅杏橙暖色圆底背景 + 极细微微光呼吸
- * - 关闭状态：置灰石板铅印色（无底色），低调安静
- */
-@Composable
-private fun VoiceToggleSwitchButton(
-    isEnabled: Boolean,
-    onClick: () -> Unit
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "voice_toggle_pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "voice_toggle_scale"
-    )
-
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .then(
-                if (isEnabled) {
-                    Modifier
-                        .background(RoamActivePillBg)
-                        .border(0.8.dp, Color(0xFFECCEB6), CircleShape)
-                } else {
-                    Modifier
-                }
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_mic_voice),
-            contentDescription = if (isEnabled) "语音功能已开启" else "语音功能已关闭",
-            tint = if (isEnabled) RoamActiveOrange else IconMutedGray,
-            modifier = Modifier
-                .size(20.dp)
-                .then(
-                    if (isEnabled) {
+                    if (isSelected) {
                         Modifier.graphicsLayer {
                             scaleX = pulseScale
                             scaleY = pulseScale

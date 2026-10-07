@@ -201,7 +201,7 @@ fun NowPlayingScreen(
 
         isLyricsLoading = true
         scope.launch(Dispatchers.IO) {
-            val loaded = fetchLyricsChain(playState.lrcPath, title, artist)
+            val loaded = fetchLyricsChain(playState.lrcPath, title, artist, playState.audioUrl)
             withContext(Dispatchers.Main) {
                 lyricsLines = loaded
                 isLyricsLoading = false
@@ -242,6 +242,9 @@ fun NowPlayingScreen(
             .fillMaxSize()
             .background(Color(0xFF0A0A0C))
             .background(backgroundBrush)
+            .pointerInput(Unit) {
+                detectTapGestures { }
+            }
     ) {
         Column(
             modifier = Modifier
@@ -1145,8 +1148,23 @@ data class LrcLine(val timeSec: Double, val text: String)
 private suspend fun fetchLyricsChain(
     lrcPath: String?,
     songTitle: String,
-    artistName: String
+    artistName: String,
+    mediaUri: String? = null
 ): List<LrcLine> {
+    // 0. 本地已下载离线歌词优先读取 (Offline-First, 零网络请求)
+    try {
+        val downloaded = com.example.moodymusicforandroid.data.manager.OfflineDownloadManager.findDownloadedEntity(
+            filePath = mediaUri ?: lrcPath,
+            title = songTitle
+        )
+        val localLrcFile = downloaded?.localLrcPath?.let { java.io.File(it) }
+        if (localLrcFile != null && localLrcFile.exists() && localLrcFile.length() > 0) {
+            val text = localLrcFile.readText(Charsets.UTF_8)
+            val parsed = parseLrcText(text)
+            if (parsed.isNotEmpty()) return parsed
+        }
+    } catch (_: Exception) {}
+
     // 1. 优先尝试从云存储直连加载
     if (!lrcPath.isNullOrBlank()) {
         val rawUrl = AppConfig.resolveStorageUrl(lrcPath)

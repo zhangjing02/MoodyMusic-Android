@@ -54,6 +54,7 @@ class MusicPlayerService : Service() {
         const val ACTION_REMOVE_INDEX = "com.example.moodymusicforandroid.ACTION_REMOVE_INDEX"
         const val ACTION_CLEAR_QUEUE = "com.example.moodymusicforandroid.ACTION_CLEAR_QUEUE"
         const val ACTION_ADD_TO_QUEUE = "com.example.moodymusicforandroid.ACTION_ADD_TO_QUEUE"
+        const val ACTION_ADD_ALL_TO_QUEUE = "com.example.moodymusicforandroid.ACTION_ADD_ALL_TO_QUEUE"
 
         const val EXTRA_PLAYLIST = "extra_playlist"
         const val EXTRA_INDEX = "extra_index"
@@ -82,6 +83,8 @@ class MusicPlayerService : Service() {
     private var isMediaPlayerPrepared: Boolean = false // 只有为 true 时才允许调用 duration/position
     @Volatile
     private var userWantsToPlay: Boolean = true // 用户意图是否保持播放
+    @Volatile
+    private var pendingSeekPositionMs: Int = 0 // 起播/切歌预设跳转位置（乐章时间轴/断点续播）
 
     private var retryCount: Int = 0
     private val retryHandler = Handler(Looper.getMainLooper())
@@ -178,14 +181,28 @@ class MusicPlayerService : Service() {
                 @Suppress("UNCHECKED_CAST")
                 val newPlaylist = intent.getSerializableExtra(EXTRA_PLAYLIST) as? ArrayList<PlayQueueItem>
                 val newIndex = intent.getIntExtra(EXTRA_INDEX, 0)
+                val initialSeekMs = intent.getIntExtra(EXTRA_SEEK_POSITION, 0)
                 if (newPlaylist != null) {
-                    playlist = newPlaylist
-                    currentIndex = newIndex
-                    retryCount = 0
-                    // 异步预热当前首曲连接
-                    newPlaylist.getOrNull(newIndex)?.audioUrl?.let { LocalMediaProxy.prewarmConnection(it) }
-                    playCurrentSong()
+                    val currentItem = playlist.getOrNull(currentIndex)
+                    val incomingItem = newPlaylist.getOrNull(newIndex)
+                    val isAlreadyPlayingThis = (currentItem != null && incomingItem != null &&
+                        currentItem.audioUrl == incomingItem.audioUrl &&
+                        (isPreparing || isMediaPlayerPrepared))
+                    if (!isAlreadyPlayingThis) {
+                        playlist = newPlaylist
+                        currentIndex = newIndex
+                        pendingSeekPositionMs = initialSeekMs
+                        retryCount = 0
+                        // 异步预热当前首曲连接
+                        newPlaylist.getOrNull(newIndex)?.audioUrl?.let { LocalMediaProxy.prewarmConnection(it) }
+                        playCurrentSong()
+                    } else if (initialSeekMs > 0) {
+                        seekTo(initialSeekMs)
+                    }
                 } else {
+                    if (initialSeekMs > 0) {
+                        seekTo(initialSeekMs)
+                    }
                     resumePlayback()
                 }
             }
@@ -216,18 +233,69 @@ class MusicPlayerService : Service() {
                 val item = intent.getSerializableExtra(EXTRA_QUEUE_ITEM) as? PlayQueueItem
                 if (item != null) addToQueue(item)
             }
+            ACTION_ADD_ALL_TO_QUEUE -> {
+                @Suppress("UNCHECKED_CAST")
+                val items = intent.getSerializableExtra(EXTRA_PLAYLIST) as? ArrayList<PlayQueueItem>
+                if (!items.isNullOrEmpty()) {
+                    addAllToQueue(items)
+                }
+            }
         }
         return START_STICKY
     }
+
+    private var hasPrewarmedNextSong = false // A-B2: 标记当前歌曲是否已对下一首发起过连接预热
 
     private val progressHandler = Handler(Looper.getMainLooper())
     private val progressRunnable = object : Runnable {
         override fun run() {
             if (isPlaying()) {
                 broadcastPlayState(isPlaying = true)
+                checkAndPrewarmNextSong()
                 progressHandler.postDelayed(this, 1000)
             }
         }
+    }
+
+    /**
+     * A-B2 核心修复: 预测性下一首连接预热
+     * 当当前歌曲播放剩余时间小于 25 秒时，根据播放模式计算下一首待播歌曲，
+     * 提前在后台发起 DNS 解析与 TLS 握手热身，彻底消除切歌瞬间网络冷启动卡顿。
+     */
+    private fun checkAndPrewarmNextSong() {
+        if (hasPrewarmedNextSong || !isMediaPlayerPrepared || playlist.size <= 1) return
+        if (currentPlayMode == PlayMode.SINGLE_LOOP) return
+
+        val player = mediaPlayer ?: return
+        try {
+            val duration = player.duration
+            val currentPos = player.currentPosition
+            if (duration > 0 && currentPos > 0) {
+                val remainingMs = duration - currentPos
+                if (remainingMs in 1..25_000) {
+                    val nextIdx = when (currentPlayMode) {
+                        PlayMode.SEQUENTIAL -> {
+                            if (currentIndex >= playlist.size - 1) return
+                            currentIndex + 1
+                        }
+                        PlayMode.LIST_LOOP -> (currentIndex + 1) % playlist.size
+                        PlayMode.SHUFFLE -> {
+                            val candidates = playlist.indices.filter { it != currentIndex }
+                            if (candidates.isEmpty()) return
+                            candidates.random()
+                        }
+                        else -> (currentIndex + 1) % playlist.size
+                    }
+                    val nextItem = playlist.getOrNull(nextIdx)
+                    if (nextItem != null && nextItem.audioUrl.isNotBlank()) {
+                        hasPrewarmedNextSong = true
+                        val playableUrl = getPlayableAudioUrl(nextItem.audioUrl)
+                        Log.i(TAG, "[Prewarm] 🚀 触发下一首连接预热: \"${nextItem.songTitle}\" (剩余 ${remainingMs / 1000}s)")
+                        LocalMediaProxy.prewarmConnection(playableUrl)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     private fun getPlayableAudioUrl(rawUrl: String): String {
@@ -237,6 +305,7 @@ class MusicPlayerService : Service() {
 
     private fun playCurrentSong() {
         if (playlist.isEmpty() || currentIndex !in playlist.indices) return
+        hasPrewarmedNextSong = false // 重置下一首预热标记
         val item = playlist[currentIndex]
 
         if (item.audioUrl.isBlank()) {
@@ -346,10 +415,19 @@ class MusicPlayerService : Service() {
                 setOnPreparedListener {
                     prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
                     prepareTimeoutRunnable = null
-                    Log.i(TAG, "MediaPlayer prepared: ${item.songTitle}, userWantsToPlay=$userWantsToPlay")
+                    Log.i(TAG, "MediaPlayer prepared: ${item.songTitle}, userWantsToPlay=$userWantsToPlay, pendingSeek=$pendingSeekPositionMs")
                     retryCount = 0 // 播放成功，重置重试计数器
                     isMediaPlayerPrepared = true
                     isPreparing = false
+                    if (pendingSeekPositionMs > 0) {
+                        val seekTarget = pendingSeekPositionMs
+                        pendingSeekPositionMs = 0
+                        try {
+                            mediaPlayer?.seekTo(seekTarget)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "initial seek failed: ${e.message}", e)
+                        }
+                    }
                     if (userWantsToPlay) {
                         start()
                         progressHandler.removeCallbacks(progressRunnable)
@@ -652,15 +730,63 @@ class MusicPlayerService : Service() {
         }
     }
 
+    /**
+     * 批量追加多首曲目到播放队列末尾（流式滑窗分批预加载，单次广播）
+     */
+    fun addAllToQueue(items: List<PlayQueueItem>): Int {
+        if (items.isEmpty()) return 0
+        var addedCount = 0
+        val wasEmpty = playlist.isEmpty()
+        val existingUrls = playlist.map { it.audioUrl }.toHashSet()
+        for (item in items) {
+            if (item.audioUrl.isNotBlank() && existingUrls.add(item.audioUrl)) {
+                playlist.add(item)
+                addedCount++
+            }
+        }
+        if (addedCount > 0) {
+            if (wasEmpty) {
+                currentIndex = 0
+                retryCount = 0
+                playCurrentSong()
+            } else {
+                broadcastPlayState(isPlaying = isPlaying())
+            }
+        }
+        return addedCount
+    }
+
+    fun playPlaylist(newPlaylist: List<PlayQueueItem>, newIndex: Int = 0, initialSeekMs: Int = 0) {
+        if (newPlaylist.isEmpty()) return
+        val currentItem = playlist.getOrNull(currentIndex)
+        val incomingItem = newPlaylist.getOrNull(newIndex)
+        val isAlreadyPlayingThis = (currentItem != null && incomingItem != null &&
+            currentItem.audioUrl == incomingItem.audioUrl &&
+            (isPreparing || isMediaPlayerPrepared))
+        if (!isAlreadyPlayingThis) {
+            playlist = ArrayList(newPlaylist)
+            currentIndex = newIndex.coerceIn(0, playlist.size - 1)
+            pendingSeekPositionMs = initialSeekMs
+            retryCount = 0
+            newPlaylist.getOrNull(currentIndex)?.audioUrl?.let { LocalMediaProxy.prewarmConnection(it) }
+            playCurrentSong()
+        } else if (initialSeekMs > 0) {
+            seekTo(initialSeekMs)
+        }
+    }
+
     fun seekTo(posMs: Int) {
         if (isMediaPlayerPrepared) {
             try {
                 mediaPlayer?.seekTo(posMs)
-                broadcastPlayState(isPlaying = isPlaying())
+                broadcastPlayState(isPlaying = isPlaying(), overridePosition = posMs)
                 updatePlaybackState()
             } catch (e: Exception) {
                 Log.e(TAG, "seekTo failed: ${e.message}", e)
             }
+        } else if (isPreparing) {
+            pendingSeekPositionMs = posMs
+            broadcastPlayState(isPlaying = isPlaying(), overridePosition = posMs)
         }
     }
 
@@ -721,7 +847,7 @@ class MusicPlayerService : Service() {
         )
     }
 
-    private fun broadcastPlayState(isPlaying: Boolean) {
+    private fun broadcastPlayState(isPlaying: Boolean, overridePosition: Int? = null) {
         val item = playlist.getOrNull(currentIndex)
         val state = MusicPlayState(
             songTitle = item?.songTitle ?: "",
@@ -734,7 +860,7 @@ class MusicPlayerService : Service() {
             duration = if (isMediaPlayerPrepared) {
                 try { mediaPlayer?.duration?.takeIf { it > 0 } ?: 0 } catch (_: Exception) { 0 }
             } else 0,
-            position = if (isMediaPlayerPrepared) {
+            position = overridePosition ?: if (isMediaPlayerPrepared) {
                 try { mediaPlayer?.currentPosition?.takeIf { it > 0 } ?: 0 } catch (_: Exception) { 0 }
             } else 0,
             playlistIndex = currentIndex,

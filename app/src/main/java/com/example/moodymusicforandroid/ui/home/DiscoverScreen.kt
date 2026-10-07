@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -58,6 +59,8 @@ import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.common.utils.PinyinUtils
 import com.example.moodymusicforandroid.ui.home.components.ArtistDirectoryItem
 import com.example.moodymusicforandroid.ui.home.viewmodel.DiscoverViewModel
+import com.example.moodymusicforandroid.ui.home.voice.TopBarTitleState
+import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -67,6 +70,7 @@ import kotlinx.coroutines.launch
 fun DiscoverScreen(
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = viewModel(),
+    playerViewModel: PlayerViewModel = viewModel(),
     onMenuClick: () -> Unit = {},
     onArtistClick: (artistId: String, artistName: String, avatarUrl: String?) -> Unit = { _, _, _ -> }
 ) {
@@ -76,6 +80,7 @@ fun DiscoverScreen(
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val topBarTitleState by playerViewModel.topBarTitleState.collectAsState()
 
     // 监听 ViewModel 中的数据与刷新状态
     // null = 尚未加载成功（初始/错误态） → 展示本地兜底数据
@@ -145,21 +150,24 @@ fun DiscoverScreen(
     // 合并后端数据与本地数据，使用 PinyinUtils 将汉字准确映射为标准拼音首字母 ('A'..'Z', '#')
     // artistsFromVm == null → 网络尚未就绪/请求失败 → 展示兜底
     // artistsFromVm != null → 已拿到后端真实响应 → 直接展示（哪怕是空列表）
+    // 过滤音乐综艺名录（基于数据库分类标签 category == "音乐综艺"），发现页专注呈现纯歌手列表
     val allArtists = remember(artistsFromVm) {
         val vmList = artistsFromVm
         if (vmList != null) {
-            vmList.map { vmArtist ->
-                val pinyinInitial = PinyinUtils.getPinyinInitial(vmArtist.name)
-                DirectoryArtist(
-                    id = vmArtist.id,
-                    name = vmArtist.name,
-                    initial = pinyinInitial,
-                    genre = vmArtist.category ?: "华语",
-                    albumCount = vmArtist.albumCount,
-                    avatarUrl = vmArtist.avatar,
-                    fallbackRes = R.drawable.artist_abigail_chen
-                )
-            }
+            vmList
+                .filterNot { it.category == "音乐综艺" || it.category == "综艺" }
+                .map { vmArtist ->
+                    val pinyinInitial = PinyinUtils.getPinyinInitial(vmArtist.name)
+                    DirectoryArtist(
+                        id = vmArtist.id,
+                        name = vmArtist.name,
+                        initial = pinyinInitial,
+                        genre = vmArtist.category ?: "华语",
+                        albumCount = vmArtist.albumCount,
+                        avatarUrl = vmArtist.avatar,
+                        fallbackRes = R.drawable.artist_abigail_chen
+                    )
+                }
         } else {
             defaultArtists
         }
@@ -451,13 +459,86 @@ fun DiscoverScreen(
                         )
                     }
 
-                    Text(
-                        text = "歌手",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontStyle = FontStyle.Italic,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedContent(
+                            targetState = topBarTitleState,
+                            transitionSpec = {
+                                (fadeIn(tween(220)) + slideInVertically(tween(220)) { -it / 2 })
+                                    .togetherWith(fadeOut(tween(160)) + slideOutVertically(tween(160)) { it / 2 })
+                            },
+                            label = "discover_topbar_title_anim"
+                        ) { state ->
+                            when (state) {
+                                TopBarTitleState.Default -> {
+                                    Text(
+                                        text = "歌手",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontStyle = FontStyle.Italic,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                TopBarTitleState.Listening -> {
+                                    Text(
+                                        text = "🎙️ 正在倾听...",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFC85208),
+                                        maxLines = 1
+                                    )
+                                }
+                                is TopBarTitleState.Searching -> {
+                                    val displayText = if (state.queryText.isNullOrBlank()) {
+                                        "⏳ 正在识别您的语音..."
+                                    } else {
+                                        "⏳ 寻找「${state.queryText}」..."
+                                    }
+                                    Text(
+                                        text = displayText,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF5A524A),
+                                        maxLines = 1,
+                                        modifier = Modifier.basicMarquee(
+                                            iterations = Int.MAX_VALUE,
+                                            initialDelayMillis = 400
+                                        )
+                                    )
+                                }
+                                is TopBarTitleState.Success -> {
+                                    Text(
+                                        text = "🎵 ${state.message}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFC85208),
+                                        maxLines = 1,
+                                        modifier = Modifier.basicMarquee(
+                                            iterations = Int.MAX_VALUE,
+                                            initialDelayMillis = 400
+                                        )
+                                    )
+                                }
+                                is TopBarTitleState.Error -> {
+                                    Text(
+                                        text = "🔍 ${state.message}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFB53B2A),
+                                        maxLines = 1,
+                                        modifier = Modifier.basicMarquee(
+                                            iterations = Int.MAX_VALUE,
+                                            initialDelayMillis = 400
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.size(36.dp))
                 }

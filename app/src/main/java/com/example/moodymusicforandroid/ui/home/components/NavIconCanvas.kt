@@ -22,6 +22,10 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.graphicsLayer
+import com.example.moodymusicforandroid.R
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -408,3 +412,99 @@ fun LibraryIconCanvas(
         drawCircle(color = tint, radius = sw * 0.55f, center = Offset(tipX, tipY))
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 耳机系列图标：HeadphonesHeartCanvas / HeadphonesVinylCanvas / HeadphonesArtistCanvas
+// 均与漫游图标（ic_roam_dice）共享完全一致的耳机轮廓与动态设计语言。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 收藏歌曲图标：耳机轮廓 + 内嵌爱心（与漫游图标完全同宗同源）
+ */
+@Composable
+fun HeadphonesHeartCanvas(
+    modifier: Modifier = Modifier,
+    tint: Color,
+    isSelected: Boolean = false
+) {
+    val heartScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.15f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "heart_scale"
+    )
+
+    Icon(
+        painter = painterResource(R.drawable.ic_headset_fav_song),
+        contentDescription = "收藏歌曲",
+        tint = tint,
+        modifier = modifier.graphicsLayer {
+            scaleX = heartScale
+            scaleY = heartScale
+        }
+    )
+}
+
+/**
+ * 收藏专辑图标：耳机轮廓 + 内嵌黑胶唱片（与漫游图标完全同宗同源）
+ */
+@Composable
+fun HeadphonesVinylCanvas(
+    modifier: Modifier = Modifier,
+    tint: Color,
+    isSelected: Boolean = false
+) {
+    val vinylRotation = remember { Animatable(0f) }
+
+    LaunchedEffect(isSelected) {
+        if (isSelected) {
+            vinylRotation.snapTo(0f)
+            vinylRotation.animateTo(
+                targetValue = 360f,
+                animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing)
+            )
+        } else {
+            vinylRotation.snapTo(0f)
+        }
+    }
+
+    Icon(
+        painter = painterResource(R.drawable.ic_headset_fav_album),
+        contentDescription = "收藏专辑",
+        tint = tint,
+        modifier = modifier.graphicsLayer {
+            rotationZ = vinylRotation.value
+        }
+    )
+}
+
+/**
+ * 关注歌手图标：耳机轮廓 + 内嵌歌手人像（与漫游图标完全同宗同源）
+ */
+@Composable
+fun HeadphonesArtistCanvas(
+    modifier: Modifier = Modifier,
+    tint: Color,
+    isSelected: Boolean = false
+) {
+    val floatOffset by animateFloatAsState(
+        targetValue = if (isSelected) -4f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "artist_float"
+    )
+
+    Icon(
+        painter = painterResource(R.drawable.ic_headset_fav_artist),
+        contentDescription = "关注歌手",
+        tint = tint,
+        modifier = modifier.graphicsLayer {
+            translationY = floatOffset
+        }
+    )
+}
+

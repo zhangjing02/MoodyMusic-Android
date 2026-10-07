@@ -1,6 +1,17 @@
 package com.example.moodymusicforandroid.ui.home
 
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +30,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +48,8 @@ import com.example.moodymusicforandroid.ui.home.components.FavoriteSongsSection
 import com.example.moodymusicforandroid.ui.home.components.FollowedArtistsSection
 import com.example.moodymusicforandroid.ui.home.components.PlaylistsSection
 import com.example.moodymusicforandroid.ui.home.viewmodel.LibraryViewModel
+import com.example.moodymusicforandroid.ui.home.voice.TopBarTitleState
+import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
 /**
@@ -46,6 +60,7 @@ import com.example.moodymusicforandroid.ui.theme.SongbookColors
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel = viewModel(),
+    playerViewModel: PlayerViewModel = viewModel(),
     onSongClick: (FavoriteSong) -> Unit = {},
     onAlbumClick: (String, String) -> Unit = { _, _ -> },
     onArtistClick: (artistId: String, artistName: String, avatarUrl: String?) -> Unit = { _, _, _ -> },
@@ -63,6 +78,15 @@ fun LibraryScreen(
     val pullToRefreshState = rememberPullToRefreshState()
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
 
+    // 统一订阅 Room 本地收藏 StateFlow（未登录和登录态单一事实源）
+    val roomSongs by UserManager.favoriteSongsList.collectAsState()
+    val roomAlbums by UserManager.favoriteAlbumsList.collectAsState()
+    val roomArtists by UserManager.followedArtistsList.collectAsState()
+
+    // 监听语音状态，用于在音信页顶部展示浮动标题条
+    val topBarTitleState by playerViewModel.topBarTitleState.collectAsState()
+    val isVoiceTitleVisible = topBarTitleState != TopBarTitleState.Default
+
     // 进入页面时加载数据
     LaunchedEffect(Unit) {
         viewModel.loadData()
@@ -70,101 +94,224 @@ fun LibraryScreen(
     }
 
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    // 语音浮动标题条高度：44.dp（与首页/发现页 TopBar 内容高度对齐）
+    val voiceTitleBarHeight = 44.dp
+    // 有语音标题时，LazyColumn 顶部 padding 多出一个标题条高度；用动画平滑过渡，避免内容跳位
+    val listTopPaddingExtra by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isVoiceTitleVisible) voiceTitleBarHeight else 0.dp,
+        animationSpec = tween(durationMillis = 280),
+        label = "library_list_top_padding_anim"
+    )
+    val listTopPadding = statusBarTop + listTopPaddingExtra + 6.dp
 
-    SongbookPullToRefreshLayout(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            viewModel.loadData()
-            PlaylistManager.refreshPlaylists()
-        },
-        state = pullToRefreshState,
-        headerTopPadding = statusBarTop,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(
-                top = statusBarTop + 6.dp,
-                bottom = 140.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        SongbookPullToRefreshLayout(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                viewModel.loadData()
+                PlaylistManager.refreshPlaylists()
+            },
+            state = pullToRefreshState,
+            headerTopPadding = statusBarTop,
+            modifier = Modifier.fillMaxSize()
         ) {
-            // 用户资料卡片（已登录显示资料名片，未登录显示访客名片）
-            item {
-                if (isUserLoggedIn && userProfile != null) {
-                    val localSongsCount = UserManager.favoriteSongsList.collectAsState().value.size
-                    val safeUser = if (userProfile!!.favoriteSongsCount < localSongsCount) {
-                        userProfile!!.copy(favoriteSongsCount = localSongsCount)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(
+                    top = listTopPadding,
+                    bottom = 140.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // 用户资料卡片（已登录显示资料名片，未登录显示访客名片）
+                item {
+                    if (isUserLoggedIn && userProfile != null) {
+                        val localSongsCount = roomSongs.size
+                        val safeUser = if (userProfile!!.favoriteSongsCount < localSongsCount) {
+                            userProfile!!.copy(favoriteSongsCount = localSongsCount)
+                        } else {
+                            userProfile!!
+                        }
+                        UserProfileHeaderCard(user = safeUser)
                     } else {
-                        userProfile!!
+                        GuestProfileHeaderCard(
+                            guestSongsCount = roomSongs.size,
+                            guestAlbumsCount = roomAlbums.size,
+                            guestArtistsCount = roomArtists.size,
+                            onAuthClick = onAuthClick
+                        )
                     }
-                    UserProfileHeaderCard(user = safeUser)
-                } else {
-                    GuestProfileHeaderCard(onAuthClick = onAuthClick)
+                }
+
+                // 我的私藏磁带区 (自建播放列表)
+                item {
+                    PlaylistsSection(
+                        playlists = playlists,
+                        onPlaylistClick = onPlaylistClick,
+                        onPlayPlaylistClick = onPlayPlaylistClick,
+                        onCreateNewClick = { showCreatePlaylistDialog = true }
+                    )
+                }
+
+                // 收藏歌曲区
+                item {
+                    val effectiveSongs = if (isUserLoggedIn && !favoriteSongs.isNullOrEmpty()) {
+                        favoriteSongs!!
+                    } else {
+                        roomSongs
+                    }
+                    val effectiveCount = maxOf(userProfile?.favoriteSongsCount ?: 0, effectiveSongs.size)
+                    FavoriteSongsSection(
+                        songs = effectiveSongs,
+                        songCount = effectiveCount,
+                        onSongClick = onSongClick,
+                        onViewAllClick = { onOpenCollectionManager(0) }
+                    )
+                }
+
+                // 收藏专辑区
+                item {
+                    val effectiveAlbums = if (isUserLoggedIn) {
+                        userLibrary?.favoriteAlbums?.takeIf { it.isNotEmpty() } ?: roomAlbums
+                    } else {
+                        roomAlbums
+                    }
+                    FavoriteAlbumsSection(
+                        albums = effectiveAlbums,
+                        onAlbumClick = onAlbumClick,
+                        onViewAllClick = { onOpenCollectionManager(1) }
+                    )
+                }
+
+                // 关注歌手区
+                item {
+                    val effectiveArtists = if (isUserLoggedIn) {
+                        userLibrary?.followedArtists?.takeIf { it.isNotEmpty() } ?: roomArtists
+                    } else {
+                        roomArtists
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FollowedArtistsSection(
+                        artists = effectiveArtists,
+                        onArtistClick = onArtistClick,
+                        onBrowseAllClick = { onOpenCollectionManager(2) }
+                    )
                 }
             }
 
-            // 我的私藏磁带区 (自建播放列表)
-            item {
-                PlaylistsSection(
-                    playlists = playlists,
-                    onPlaylistClick = onPlaylistClick,
-                    onPlayPlaylistClick = onPlayPlaylistClick,
-                    onCreateNewClick = { showCreatePlaylistDialog = true }
-                )
-            }
-
-            // 收藏歌曲区
-            item {
-                val localSongs by UserManager.favoriteSongsList.collectAsState()
-                val effectiveSongs = if (!isUserLoggedIn) {
-                    emptyList()
-                } else if (!favoriteSongs.isNullOrEmpty()) {
-                    favoriteSongs!!
-                } else {
-                    localSongs
-                }
-                val effectiveCount = if (!isUserLoggedIn) 0 else maxOf(userProfile?.favoriteSongsCount ?: 0, effectiveSongs.size)
-                FavoriteSongsSection(
-                    songs = effectiveSongs,
-                    songCount = effectiveCount,
-                    onSongClick = onSongClick,
-                    onViewAllClick = { onOpenCollectionManager(0) }
-                )
-            }
-
-            // 收藏专辑区
-            item {
-                val effectiveAlbums = if (isUserLoggedIn) userLibrary?.favoriteAlbums ?: emptyList() else emptyList()
-                FavoriteAlbumsSection(
-                    albums = effectiveAlbums,
-                    onAlbumClick = onAlbumClick,
-                    onViewAllClick = { onOpenCollectionManager(1) }
-                )
-            }
-
-            // 关注歌手区
-            item {
-                val effectiveArtists = if (isUserLoggedIn) userLibrary?.followedArtists ?: emptyList() else emptyList()
-                Spacer(modifier = Modifier.height(8.dp))
-                FollowedArtistsSection(
-                    artists = effectiveArtists,
-                    onArtistClick = onArtistClick,
-                    onBrowseAllClick = { onOpenCollectionManager(2) }
+            if (showCreatePlaylistDialog) {
+                CreatePlaylistQuickDialog(
+                    onDismiss = { showCreatePlaylistDialog = false },
+                    onConfirm = { name, color ->
+                        PlaylistManager.createPlaylist(name = name, themeColor = color)
+                        showCreatePlaylistDialog = false
+                    }
                 )
             }
         }
 
-        if (showCreatePlaylistDialog) {
-            CreatePlaylistQuickDialog(
-                onDismiss = { showCreatePlaylistDialog = false },
-                onConfirm = { name, color ->
-                    PlaylistManager.createPlaylist(name = name, themeColor = color)
-                    showCreatePlaylistDialog = false
+        // ── 语音状态浮动标题条（非 Default 时从顶部滑入，恢复后顺滑收起）──
+        // 音信页本身没有固定 TopBar，因此用 AnimatedVisibility + AnimatedContent 组合：
+        // 非 Default 状态 → 标题条出现在状态栏正下方；回到 Default → 顺滑上移收起。
+        AnimatedVisibility(
+            visible = isVoiceTitleVisible,
+            enter = fadeIn(tween(220)) + expandVertically(tween(280), expandFrom = Alignment.Top),
+            exit = fadeOut(tween(200)) + shrinkVertically(tween(260), shrinkTowards = Alignment.Top),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                    .padding(top = statusBarTop)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(voiceTitleBarHeight)
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AnimatedContent(
+                        targetState = topBarTitleState,
+                        transitionSpec = {
+                            (fadeIn(tween(220)) + slideInVertically(tween(220)) { -it / 2 })
+                                .togetherWith(fadeOut(tween(160)) + slideOutVertically(tween(160)) { it / 2 })
+                        },
+                        label = "library_voice_title_anim"
+                    ) { state ->
+                        when (state) {
+                            TopBarTitleState.Default -> {
+                                // 不会真正渲染（AnimatedVisibility 外层已隐藏），此处占位
+                                Spacer(modifier = Modifier.height(1.dp))
+                            }
+                            TopBarTitleState.Listening -> {
+                                Text(
+                                    text = "🎙️ 正在倾听...",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFC85208),
+                                    maxLines = 1
+                                )
+                            }
+                            is TopBarTitleState.Searching -> {
+                                val displayText = if (state.queryText.isNullOrBlank()) {
+                                    "⏳ 正在识别您的语音..."
+                                } else {
+                                    "⏳ 寻找「${state.queryText}」..."
+                                }
+                                Text(
+                                    text = displayText,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF5A524A),
+                                    maxLines = 1,
+                                    modifier = Modifier.basicMarquee(
+                                        iterations = Int.MAX_VALUE,
+                                        initialDelayMillis = 400
+                                    )
+                                )
+                            }
+                            is TopBarTitleState.Success -> {
+                                Text(
+                                    text = "🎵 ${state.message}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFC85208),
+                                    maxLines = 1,
+                                    modifier = Modifier.basicMarquee(
+                                        iterations = Int.MAX_VALUE,
+                                        initialDelayMillis = 400
+                                    )
+                                )
+                            }
+                            is TopBarTitleState.Error -> {
+                                Text(
+                                    text = "🔍 ${state.message}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFB53B2A),
+                                    maxLines = 1,
+                                    modifier = Modifier.basicMarquee(
+                                        iterations = Int.MAX_VALUE,
+                                        initialDelayMillis = 400
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
-            )
+                // 底部细分割线
+                HorizontalDivider(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    thickness = 0.5.dp
+                )
+            }
         }
     }
 }
@@ -282,6 +429,9 @@ private fun UserStatItem(count: Int, label: String) {
 @Composable
 private fun GuestProfileHeaderCard(
     onAuthClick: () -> Unit,
+    guestSongsCount: Int = 0,
+    guestAlbumsCount: Int = 0,
+    guestArtistsCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -349,27 +499,27 @@ private fun GuestProfileHeaderCard(
             HorizontalDivider(color = SongbookColors.GhostBorder, thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 统计数据（访客状态展示3项）
+            // 统计数据（访客状态展示3项，真实绑定本地 Room 数据）
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                UserStatItem(count = 0, label = "收藏单曲")
+                UserStatItem(count = guestSongsCount, label = "收藏单曲")
                 Box(
                     modifier = Modifier
                         .height(24.dp)
                         .width(1.dp)
                         .background(SongbookColors.GhostBorder)
                 )
-                UserStatItem(count = 0, label = "收藏专辑")
+                UserStatItem(count = guestAlbumsCount, label = "收藏专辑")
                 Box(
                     modifier = Modifier
                         .height(24.dp)
                         .width(1.dp)
                         .background(SongbookColors.GhostBorder)
                 )
-                UserStatItem(count = 0, label = "关注歌手")
+                UserStatItem(count = guestArtistsCount, label = "关注歌手")
             }
         }
     }
