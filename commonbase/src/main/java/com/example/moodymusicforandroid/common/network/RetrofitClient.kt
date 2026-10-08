@@ -18,6 +18,9 @@ import okhttp3.Route
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import okhttp3.ResponseBody.Companion.toResponseBody
+import com.example.moodymusicforandroid.common.crypto.ApiCryptoManager
+import com.google.gson.JsonParser
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
@@ -138,6 +141,7 @@ object RetrofitClient {
     private val refreshHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .dns(ipv4PreferredDns)
+            .addInterceptor(cryptoInterceptor)
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
@@ -270,10 +274,84 @@ object RetrofitClient {
         response ?: throw java.io.IOException("Network request failed after multi-gateway retries")
     }
 
+    /**
+     * 全局 API 报文信封加解密拦截器 (Envelope Encryption Interceptor)
+     * 对齐 Cloudflare Worker 服务端与 Web 端混合信封加密体系
+     */
+    private val cryptoInterceptor = Interceptor { chain ->
+        val originalRequest = chain.request()
+        val path = originalRequest.url.encodedPath
+
+        // 1. 白名单端点跳过加解密 (公钥端点、媒体流代理端点、预检端点)
+        if (path.contains("/api/crypto/public-key") ||
+            path.contains("/api/media/stream") ||
+            originalRequest.method.equals("OPTIONS", ignoreCase = true)
+        ) {
+            return@Interceptor chain.proceed(originalRequest)
+        }
+
+        // 2. 动态生成 32 字节 AES 会话密钥并由 RSA-OAEP 加密
+        val aesKey = ApiCryptoManager.generateAesKey()
+        val encryptedKeyHeader = ApiCryptoManager.encryptAesKeyWithRsa(aesKey)
+
+        val requestBuilder = originalRequest.newBuilder()
+            .header("x-encrypted-key", encryptedKeyHeader)
+            .header("x-client-crypto", "true")
+
+        // 3. 处理请求体加密 (POST / PUT / PATCH)
+        val originalBody = originalRequest.body
+        if (originalBody != null &&
+            (originalRequest.method.equals("POST", ignoreCase = true) ||
+             originalRequest.method.equals("PUT", ignoreCase = true) ||
+             originalRequest.method.equals("PATCH", ignoreCase = true))
+        ) {
+            val buffer = okio.Buffer()
+            originalBody.writeTo(buffer)
+            val bodyString = buffer.readUtf8()
+            if (bodyString.isNotBlank()) {
+                val encrypted = ApiCryptoManager.encryptPayload(bodyString, aesKey)
+                val jsonBody = defaultGson.toJson(mapOf(
+                    "payload" to encrypted.payload,
+                    "iv" to encrypted.iv
+                ))
+                val newBody = jsonBody.toRequestBody("application/json".toMediaTypeOrNull())
+                requestBuilder
+                    .header("x-encrypted-iv", encrypted.iv)
+                    .method(originalRequest.method, newBody)
+            }
+        }
+
+        // 4. 执行网络请求
+        val response = chain.proceed(requestBuilder.build())
+
+        // 5. 响应解密
+        val body = response.body
+        if (response.isSuccessful && body != null) {
+            val bodyString = body.string()
+            try {
+                val jsonObject = JsonParser.parseString(bodyString).asJsonObject
+                if (jsonObject.has("encrypted") && jsonObject.get("encrypted").asBoolean) {
+                    val payload = jsonObject.get("payload").asString
+                    val iv = jsonObject.get("iv").asString
+                    val decryptedJson = ApiCryptoManager.decryptPayload(payload, iv, aesKey)
+                    val newResponseBody = decryptedJson.toResponseBody("application/json".toMediaTypeOrNull())
+                    return@Interceptor response.newBuilder().body(newResponseBody).build()
+                }
+            } catch (_: Exception) {
+                // 若不是标准加密结构，原样恢复 ResponseBody
+            }
+            val restoredBody = bodyString.toResponseBody("application/json".toMediaTypeOrNull())
+            return@Interceptor response.newBuilder().body(restoredBody).build()
+        }
+
+        response
+    }
+
     private val okHttpClient = OkHttpClient.Builder()
         .dns(ipv4PreferredDns)
         .addInterceptor(headerInterceptor)
         .addInterceptor(retryInterceptor)
+        .addInterceptor(cryptoInterceptor)
         .addInterceptor(loggingInterceptor)
         .authenticator(tokenAuthenticator)
         .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
