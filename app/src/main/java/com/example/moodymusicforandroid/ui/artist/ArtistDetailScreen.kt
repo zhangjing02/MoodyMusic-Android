@@ -119,7 +119,7 @@ fun ArtistDetailScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = SongbookColors.BurntOrange
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -140,7 +140,7 @@ fun ArtistDetailScreen(
                         Text(
                             text = if (isSticky) displayName else "艺术家",
                             style = MaterialTheme.typography.titleLarge,
-                            color = SongbookColors.BurntOrange,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -269,7 +269,7 @@ fun ArtistDetailScreen(
                 Text(
                     text = displayName,
                     style = MaterialTheme.typography.displayMedium,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
@@ -331,7 +331,7 @@ fun ArtistDetailScreen(
                             },
                             shape = RoundedCornerShape(4.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isFollowing) SongbookColors.MutedOlive else SongbookColors.BurntOrange,
+                                containerColor = if (isFollowing) SongbookColors.MutedOlive else MaterialTheme.colorScheme.primary,
                                 contentColor = Color.White
                             ),
                             modifier = Modifier.weight(1f),
@@ -382,7 +382,7 @@ fun ArtistDetailScreen(
                                 Text(
                                     text = tabName,
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = if (isSelected) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                                     modifier = Modifier.clickable { selectedTab = index }
                                 )
@@ -402,7 +402,7 @@ fun ArtistDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = SongbookColors.BurntOrange)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

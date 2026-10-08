@@ -50,7 +50,6 @@ import com.example.moodymusicforandroid.common.config.AppConfig
 import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.ui.components.SwipeToRevealDelete
 import com.example.moodymusicforandroid.ui.playlist.AddToPlaylistSheet
-import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -369,6 +368,7 @@ fun NowPlayingScreen(
                 positionMs = playState.position,
                 durationMs = playState.duration,
                 onSeekTo = onSeekTo,
+                activeColor = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
@@ -462,7 +462,7 @@ fun NowPlayingScreen(
                     Icon(
                         painter = painterResource(R.drawable.ic_playlist),
                         contentDescription = "播放列表",
-                        tint = if (showQueueSheet) SongbookColors.BurntOrangeLight else Color.White.copy(alpha = 0.70f),
+                        tint = if (showQueueSheet) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.70f),
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -542,11 +542,13 @@ private fun CassetteTapeIntegratedView(
             )
     ) {
         // 1. 磁带外壳、顶部梯形磁头区与动态走带视窗绘制 (Canvas)
+        val primaryAccentColor = MaterialTheme.colorScheme.primary
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawAccurateVintageCassette(
                 reelAngle = reelAngle,
                 progressRatio = progressRatio,
-                albumTitle = albumTitle
+                albumTitle = albumTitle,
+                accentColor = primaryAccentColor
             )
         }
 
@@ -635,7 +637,8 @@ private fun CassetteTapeIntegratedView(
 private fun DrawScope.drawAccurateVintageCassette(
     reelAngle: Float,
     progressRatio: Float,
-    albumTitle: String
+    albumTitle: String,
+    accentColor: Color = Color(0xFFC85A32)
 ) {
     val w = size.width
     val h = size.height
@@ -745,12 +748,12 @@ private fun DrawScope.drawAccurateVintageCassette(
         style = Stroke(width = 0.8.dp.toPx())
     )
 
-    // 贴纸上方复古赛车条纹 (焦橙色 + 深棕双条)
+    // 贴纸上方复古赛车条纹 (主强调色 + 深棕双条)
     val stripeY = stickerTop + h * 0.02f
     val stripeH1 = h * 0.028f
     val stripeH2 = h * 0.010f
     drawRect(
-        color = SongbookColors.BurntOrange.copy(alpha = 0.90f),
+        color = accentColor.copy(alpha = 0.90f),
         topLeft = Offset(stickerMarginH, stripeY),
         size = Size(stickerW, stripeH1)
     )
@@ -976,7 +979,7 @@ private fun DelicateHairlineProgressBar(
                     center = Offset(thumbX, cy + 0.5.dp.toPx())
                 )
                 drawCircle(
-                    color = Color.White,
+                    color = activeColor,
                     radius = thumbR,
                     center = Offset(thumbX, cy)
                 )
@@ -1389,12 +1392,12 @@ private fun PlayQueueBottomSheet(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(SongbookColors.BurntOrange.copy(alpha = 0.18f))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
                                     text = "✨ 随心漫游中",
-                                    color = SongbookColors.BurntOrangeLight,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -1444,7 +1447,7 @@ private fun PlayQueueBottomSheet(
                             Icon(
                                 painter = painterResource(modeIcon),
                                 contentDescription = playMode.label,
-                                tint = SongbookColors.BurntOrangeLight,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(19.dp)
                             )
                             Spacer(modifier = Modifier.width(7.dp))
@@ -1528,7 +1531,7 @@ private fun PlayQueueBottomSheet(
                                     if (isRoamingLoading) {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(13.dp),
-                                            color = SongbookColors.BurntOrangeLight.copy(alpha = 0.85f),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
                                             strokeWidth = 1.6.dp
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
@@ -1541,10 +1544,10 @@ private fun PlayQueueBottomSheet(
                                         Surface(
                                             onClick = onLoadMoreRoaming,
                                             shape = RoundedCornerShape(16.dp),
-                                            color = SongbookColors.BurntOrange.copy(alpha = 0.14f),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
                                             border = androidx.compose.foundation.BorderStroke(
                                                 0.8.dp,
-                                                SongbookColors.BurntOrangeLight.copy(alpha = 0.40f)
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
                                             )
                                         ) {
                                             Row(
@@ -1555,7 +1558,7 @@ private fun PlayQueueBottomSheet(
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
                                                     text = "点击探索更多 (再添 5 首)",
-                                                    color = SongbookColors.BurntOrangeLight,
+                                                    color = MaterialTheme.colorScheme.primary,
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Medium
                                                 )
@@ -1605,7 +1608,7 @@ private fun PlayQueueRowItem(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val titleColor = if (isCurrent) SongbookColors.BurntOrangeLight else Color.White.copy(alpha = 0.88f)
+    val titleColor = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.88f)
 
     SwipeToRevealDelete(
         onDelete = onRemove,
@@ -1686,6 +1689,7 @@ private fun PlayingEqualizerBars(
         label = "h3"
     )
 
+    val barColor = MaterialTheme.colorScheme.primary
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -1698,21 +1702,21 @@ private fun PlayingEqualizerBars(
                 .width(barWidth)
                 .height(if (isPlaying) (maxH * h1).coerceAtLeast(3.dp) else 4.dp)
                 .clip(RoundedCornerShape(1.dp))
-                .background(SongbookColors.BurntOrangeLight)
+                .background(barColor)
         )
         Box(
             modifier = Modifier
                 .width(barWidth)
                 .height(if (isPlaying) (maxH * h2).coerceAtLeast(3.dp) else 10.dp)
                 .clip(RoundedCornerShape(1.dp))
-                .background(SongbookColors.BurntOrangeLight)
+                .background(barColor)
         )
         Box(
             modifier = Modifier
                 .width(barWidth)
                 .height(if (isPlaying) (maxH * h3).coerceAtLeast(3.dp) else 7.dp)
                 .clip(RoundedCornerShape(1.dp))
-                .background(SongbookColors.BurntOrangeLight)
+                .background(barColor)
         )
     }
 }

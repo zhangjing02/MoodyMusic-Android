@@ -1,4 +1,4 @@
-﻿package com.example.moodymusicforandroid.ui.version
+package com.example.moodymusicforandroid.ui.version
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -73,7 +73,7 @@ fun AppUpdateDialog(
                         .fillMaxWidth()
                         .height(38.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(
                         text = "立即升级",

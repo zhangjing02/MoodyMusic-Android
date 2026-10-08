@@ -326,13 +326,13 @@ fun DiscoverScreen(
                             val isSelected = selectedGenre == genre
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = if (isSelected) SongbookColors.BurntOrange else MaterialTheme.colorScheme.surfaceContainerLow,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow,
                                 modifier = Modifier.clickable { selectedGenre = genre }
                             ) {
                                 Text(
                                     text = genre,
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                                 )
@@ -383,7 +383,7 @@ fun DiscoverScreen(
                             Text(
                                 text = initial,
                                 style = MaterialTheme.typography.titleLarge,
-                                color = SongbookColors.BurntOrange,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -447,7 +447,7 @@ fun DiscoverScreen(
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Menu",
-                            tint = SongbookColors.BurntOrange
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
 
@@ -650,11 +650,11 @@ private fun AlphabetIndexBar(
                             arrowWidthPx = with(density) { 8.dp.toPx() },
                             arrowHeightPx = with(density) { 14.dp.toPx() }
                         ),
-                        ambientColor = SongbookColors.BurntOrange.copy(alpha = 0.35f),
-                        spotColor = SongbookColors.BurntOrange.copy(alpha = 0.45f)
+                        ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                        spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
                     )
                     .background(
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         shape = SpeechBubbleShape(
                             cornerRadiusPx = with(density) { 12.dp.toPx() },
                             arrowWidthPx = with(density) { 8.dp.toPx() },
@@ -686,12 +686,12 @@ private fun AlphabetIndexBar(
                 .width(touchStripWidth)
                 .fillMaxHeight()
                 .background(
-                    color = if (isDragging) SongbookColors.BurntOrange.copy(alpha = 0.10f) else Color.Transparent,
+                    color = if (isDragging) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent,
                     shape = RoundedCornerShape(14.dp)
                 )
                 .border(
                     width = if (isDragging) 1.dp else 0.dp,
-                    color = if (isDragging) SongbookColors.BurntOrange.copy(alpha = 0.20f) else Color.Transparent,
+                    color = if (isDragging) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Color.Transparent,
                     shape = RoundedCornerShape(14.dp)
                 )
                 .onGloballyPositioned { coordinates ->
@@ -764,7 +764,7 @@ private fun AlphabetIndexBar(
                                 modifier = Modifier
                                     .size(14.dp)
                                     .clip(CircleShape)
-                                    .background(SongbookColors.BurntOrange)
+                                    .background(MaterialTheme.colorScheme.primary)
                             )
                         }
 
@@ -776,9 +776,9 @@ private fun AlphabetIndexBar(
                             fontWeight = if (isSelectedInDrag || (isCurrentActive && hasArtists)) FontWeight.Bold
                                          else if (hasArtists) FontWeight.Medium
                                          else FontWeight.Normal,
-                            color = if (isSelectedInDrag) SongbookColors.BurntOrange
+                            color = if (isSelectedInDrag) MaterialTheme.colorScheme.primary
                                     else if (isCurrentActive && hasArtists) Color.White
-                                    else if (hasArtists) SongbookColors.BurntOrange
+                                    else if (hasArtists) MaterialTheme.colorScheme.primary
                                     else SongbookColors.Outline.copy(alpha = 0.28f),
                             style = TextStyle(
                                 platformStyle = PlatformTextStyle(includeFontPadding = false)

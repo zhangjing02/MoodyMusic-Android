@@ -884,7 +884,7 @@ fun MainScreen(
                     ) {
                         Text(
                             text = "前往设置",
-                            color = SongbookColors.BurntOrange,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                         )
                     }

@@ -1,4 +1,4 @@
-﻿package com.example.moodymusicforandroid.ui.home.components
+package com.example.moodymusicforandroid.ui.home.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -15,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.example.moodymusicforandroid.R
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +51,12 @@ fun PlaylistsSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_playlist),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
                 Text(
                     text = "音乐手札",
                     style = MaterialTheme.typography.titleLarge,
@@ -59,7 +67,7 @@ fun PlaylistsSection(
                     Text(
                         text = "${playlists.size}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.Outline,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
@@ -70,7 +78,7 @@ fun PlaylistsSection(
                 Text(
                     text = "＋ 新建",
                     style = MaterialTheme.typography.labelSmall,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
@@ -117,8 +125,8 @@ private fun PlaylistTextCard(
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-        border = BorderStroke(1.dp, SongbookColors.GhostBorder)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
     ) {
         Row(
             modifier = Modifier
@@ -151,7 +159,7 @@ private fun PlaylistTextCard(
                 Text(
                     text = "${playlist.songCount} 首",
                     style = MaterialTheme.typography.labelSmall,
-                    color = SongbookColors.Outline,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )
             }
@@ -171,8 +179,8 @@ private fun EmptyPlaylistsCard(onCreateClick: () -> Unit) {
             .clip(RoundedCornerShape(12.dp))
             .clickable { onCreateClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow.copy(alpha = 0.5f)),
-        border = BorderStroke(1.dp, SongbookColors.GhostBorderActive)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -182,7 +190,7 @@ private fun EmptyPlaylistsCard(onCreateClick: () -> Unit) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
-                tint = SongbookColors.BurntOrange,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
@@ -190,7 +198,7 @@ private fun EmptyPlaylistsCard(onCreateClick: () -> Unit) {
                 text = "新建",
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.Medium,
-                color = SongbookColors.Outline
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

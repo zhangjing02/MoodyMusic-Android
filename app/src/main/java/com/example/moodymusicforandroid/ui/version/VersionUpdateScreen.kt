@@ -186,14 +186,14 @@ fun VersionUpdateScreen(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(SongbookColors.BurntOrange.copy(alpha = 0.1f)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "♪",
                     fontSize = 36.sp,
                     fontWeight = FontWeight.Bold,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontFamily = FontFamily.Serif
                 )
             }
@@ -242,7 +242,7 @@ fun VersionUpdateScreen(
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(18.dp),
                                     strokeWidth = 2.dp,
-                                    color = SongbookColors.BurntOrange
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
@@ -310,7 +310,7 @@ fun VersionUpdateScreen(
                                             .fillMaxWidth()
                                             .height(5.dp)
                                             .clip(RoundedCornerShape(3.dp)),
-                                        color = SongbookColors.BurntOrange,
+                                        color = MaterialTheme.colorScheme.primary,
                                         trackColor = SongbookColors.GhostBorder
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
@@ -358,7 +358,7 @@ fun VersionUpdateScreen(
                                             .fillMaxWidth()
                                             .height(40.dp),
                                         shape = RoundedCornerShape(8.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
                                         Text(
                                             text = if (isDownloading) "正在下载更新包..." else "立即更新",

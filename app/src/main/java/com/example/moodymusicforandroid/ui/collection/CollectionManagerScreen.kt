@@ -155,7 +155,7 @@ fun CollectionManagerScreen(
                         }) {
                             Text(
                                 text = if (isEditMode) "完成" else "编辑",
-                                color = SongbookColors.BurntOrange,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -229,7 +229,7 @@ fun CollectionManagerScreen(
                             },
                             enabled = currentSelectedCount > 0,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = SongbookColors.BurntOrange,
+                                containerColor = MaterialTheme.colorScheme.primary,
                                 disabledContainerColor = SongbookColors.GhostBorder
                             ),
                             shape = RoundedCornerShape(8.dp),
@@ -238,7 +238,7 @@ fun CollectionManagerScreen(
                             val actionText = if (selectedTabIndex == 2) "取消关注" else "取消收藏"
                             Text(
                                 text = "$actionText ($currentSelectedCount)",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -261,7 +261,7 @@ fun CollectionManagerScreen(
                 indicator = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
                         modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         height = 3.dp
                     )
                 },
@@ -278,7 +278,7 @@ fun CollectionManagerScreen(
                                 text = title,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedTabIndex == index) SongbookColors.BurntOrange else SongbookColors.Outline
+                                color = if (selectedTabIndex == index) MaterialTheme.colorScheme.primary else SongbookColors.Outline
                             )
                         }
                     )
@@ -429,9 +429,9 @@ fun CollectionManagerScreen(
                         }
                         isEditMode = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("确定", color = Color.White)
+                    Text("确定", color = MaterialTheme.colorScheme.onPrimary)
                 }
             },
             dismissButton = {
@@ -465,8 +465,8 @@ private fun SongCollectionItemRow(
                     checked = isSelected,
                     onCheckedChange = { onItemClick() },
                     colors = CheckboxDefaults.colors(
-                        checkedColor = SongbookColors.BurntOrange,
-                        checkmarkColor = Color.White
+                        checkedColor = MaterialTheme.colorScheme.primary,
+                        checkmarkColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     modifier = Modifier.padding(end = 8.dp)
                 )
@@ -505,10 +505,10 @@ private fun SongCollectionItemRow(
     if (isEditMode) {
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
             border = BorderStroke(
                 1.dp,
-                if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
+                if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.GhostBorder.copy(alpha = 0.5f)
             ),
             modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
         ) { RowContent(showCheckbox = true) }
@@ -554,8 +554,8 @@ private fun AlbumCollectionItemRow(
                     checked = isSelected,
                     onCheckedChange = { onItemClick() },
                     colors = CheckboxDefaults.colors(
-                        checkedColor = SongbookColors.BurntOrange,
-                        checkmarkColor = Color.White
+                        checkedColor = MaterialTheme.colorScheme.primary,
+                        checkmarkColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     modifier = Modifier.padding(end = 8.dp)
                 )
@@ -589,10 +589,10 @@ private fun AlbumCollectionItemRow(
     if (isEditMode) {
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
             border = BorderStroke(
                 1.dp,
-                if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
+                if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.GhostBorder.copy(alpha = 0.5f)
             ),
             modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
         ) { RowContent() }
@@ -638,8 +638,8 @@ private fun ArtistCollectionItemRow(
                     checked = isSelected,
                     onCheckedChange = { onItemClick() },
                     colors = CheckboxDefaults.colors(
-                        checkedColor = SongbookColors.BurntOrange,
-                        checkmarkColor = Color.White
+                        checkedColor = MaterialTheme.colorScheme.primary,
+                        checkmarkColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     modifier = Modifier.padding(end = 8.dp)
                 )
@@ -673,10 +673,10 @@ private fun ArtistCollectionItemRow(
     if (isEditMode) {
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = if (isSelected) SongbookColors.MutedOlive.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
             border = BorderStroke(
                 1.dp,
-                if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder.copy(alpha = 0.5f)
+                if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.GhostBorder.copy(alpha = 0.5f)
             ),
             modifier = Modifier.fillMaxWidth().clickable { onItemClick() }
         ) { RowContent() }
@@ -709,13 +709,21 @@ private fun EmptyCollectionPlaceholder(text: String) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Default.Favorite,
-                contentDescription = null,
-                tint = SongbookColors.GhostBorder,
-                modifier = Modifier.size(48.dp)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,

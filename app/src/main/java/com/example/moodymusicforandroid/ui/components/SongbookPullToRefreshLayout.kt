@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -300,7 +301,7 @@ private fun SongbookRevealHeaderContent(
                 if (refreshing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         strokeWidth = 1.8.dp
                     )
                 } else {
@@ -321,14 +322,14 @@ private fun SongbookRevealHeaderContent(
             Text(
                 text = statusTitle,
                 style = MaterialTheme.typography.labelMedium,
-                color = SongbookColors.SoftCharcoal,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 12.5.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = lastUpdatedText,
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.SoftCharcoal.copy(alpha = 0.45f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 fontSize = 10.5.sp
             )
         }
@@ -341,7 +342,8 @@ private fun SongbookRevealHeaderContent(
 @Composable
 private fun MinimalistHairlineArrow(
     rotation: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    arrowColor: Color = MaterialTheme.colorScheme.primary
 ) {
     Canvas(
         modifier = modifier
@@ -353,21 +355,21 @@ private fun MinimalistHairlineArrow(
         val stroke = 1.6.dp.toPx()
 
         drawLine(
-            color = SongbookColors.BurntOrange,
+            color = arrowColor,
             start = Offset(w / 2f, 1.dp.toPx()),
             end = Offset(w / 2f, h - 2.dp.toPx()),
             strokeWidth = stroke,
             cap = StrokeCap.Round
         )
         drawLine(
-            color = SongbookColors.BurntOrange,
+            color = arrowColor,
             start = Offset(2.5.dp.toPx(), h - 6.5.dp.toPx()),
             end = Offset(w / 2f, h - 2.dp.toPx()),
             strokeWidth = stroke,
             cap = StrokeCap.Round
         )
         drawLine(
-            color = SongbookColors.BurntOrange,
+            color = arrowColor,
             start = Offset(w - 2.5.dp.toPx(), h - 6.5.dp.toPx()),
             end = Offset(w / 2f, h - 2.dp.toPx()),
             strokeWidth = stroke,

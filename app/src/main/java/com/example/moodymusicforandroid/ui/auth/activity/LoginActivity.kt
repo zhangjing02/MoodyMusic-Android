@@ -301,10 +301,10 @@ private fun LoginScreenContent(
                                 shape = RoundedCornerShape(14.dp),
                                 border = BorderStroke(
                                     width = 1.dp,
-                                    color = if (countdown == 0 && viewModel.isEmailValid(email)) SongbookColors.BurntOrange else SongbookColors.OutlineVariant
+                                    color = if (countdown == 0 && viewModel.isEmailValid(email)) MaterialTheme.colorScheme.primary else SongbookColors.OutlineVariant
                                 ),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = SongbookColors.BurntOrange,
+                                    contentColor = MaterialTheme.colorScheme.primary,
                                     disabledContentColor = SongbookColors.Outline
                                 ),
                                 contentPadding = PaddingValues(horizontal = 14.dp)
@@ -312,7 +312,7 @@ private fun LoginScreenContent(
                                 if (isSendingCode) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
-                                        color = SongbookColors.BurntOrange,
+                                        color = MaterialTheme.colorScheme.primary,
                                         strokeWidth = 2.dp
                                     )
                                 } else if (countdown > 0) {
@@ -382,7 +382,7 @@ private fun LoginScreenContent(
                                             id = if (passwordVisible) R.drawable.ic_eye_visible else R.drawable.ic_eye_invisible
                                         ),
                                         contentDescription = if (passwordVisible) "隐藏密码" else "显示密码",
-                                        tint = if (passwordVisible) SongbookColors.BurntOrange else SongbookColors.Outline,
+                                        tint = if (passwordVisible) MaterialTheme.colorScheme.primary else SongbookColors.Outline,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -407,7 +407,7 @@ private fun LoginScreenContent(
                             Text(
                                 text = "忘记密码？",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = SongbookColors.BurntOrange,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier
                                     .clickable { showResetPasswordDialog = true }
@@ -490,10 +490,10 @@ private fun LoginScreenContent(
                                 shape = RoundedCornerShape(14.dp),
                                 border = BorderStroke(
                                     width = 1.dp,
-                                    color = if (countdown == 0 && viewModel.isEmailValid(email)) SongbookColors.BurntOrange else SongbookColors.OutlineVariant
+                                    color = if (countdown == 0 && viewModel.isEmailValid(email)) MaterialTheme.colorScheme.primary else SongbookColors.OutlineVariant
                                 ),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = SongbookColors.BurntOrange,
+                                    contentColor = MaterialTheme.colorScheme.primary,
                                     disabledContentColor = SongbookColors.Outline
                                 ),
                                 contentPadding = PaddingValues(horizontal = 14.dp)
@@ -501,7 +501,7 @@ private fun LoginScreenContent(
                                 if (isSendingCode) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
-                                        color = SongbookColors.BurntOrange,
+                                        color = MaterialTheme.colorScheme.primary,
                                         strokeWidth = 2.dp
                                     )
                                 } else if (countdown > 0) {
@@ -546,7 +546,7 @@ private fun LoginScreenContent(
                                             id = if (registerPasswordVisible) R.drawable.ic_eye_visible else R.drawable.ic_eye_invisible
                                         ),
                                         contentDescription = if (registerPasswordVisible) "隐藏密码" else "显示密码",
-                                        tint = if (registerPasswordVisible) SongbookColors.BurntOrange else SongbookColors.Outline,
+                                        tint = if (registerPasswordVisible) MaterialTheme.colorScheme.primary else SongbookColors.Outline,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -584,7 +584,7 @@ private fun LoginScreenContent(
                                             id = if (registerConfirmPasswordVisible) R.drawable.ic_eye_visible else R.drawable.ic_eye_invisible
                                         ),
                                         contentDescription = if (registerConfirmPasswordVisible) "隐藏密码" else "显示密码",
-                                        tint = if (registerConfirmPasswordVisible) SongbookColors.BurntOrange else SongbookColors.Outline,
+                                        tint = if (registerConfirmPasswordVisible) MaterialTheme.colorScheme.primary else SongbookColors.Outline,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -627,8 +627,8 @@ private fun LoginScreenContent(
                         .height(52.dp),
                     shape = RoundedCornerShape(26.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SongbookColors.BurntOrange,
-                        disabledContainerColor = SongbookColors.BurntOrange.copy(alpha = 0.4f),
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                         contentColor = Color.White
                     )
                 ) {
@@ -687,6 +687,7 @@ private fun LoginScreenContent(
  */
 @Composable
 private fun VinylBrandBadge() {
+    val accentColor = MaterialTheme.colorScheme.primary
     Box(
         modifier = Modifier
             .size(72.dp)
@@ -697,7 +698,6 @@ private fun VinylBrandBadge() {
         Canvas(modifier = Modifier.size(62.dp)) {
             val center = Offset(size.width / 2, size.height / 2)
             val strokeColor = SongbookColors.OutlineVariant.copy(alpha = 0.4f)
-            val accentColor = SongbookColors.BurntOrange
 
             // 黑胶同心环
             drawCircle(color = strokeColor, radius = size.width * 0.45f, center = center, style = Stroke(width = 1f))
@@ -745,7 +745,7 @@ private fun TabSegmentedControl(
                     text = title,
                     fontSize = 12.5.sp,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isSelected) SongbookColors.BurntOrange else SongbookColors.Outline
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.Outline
                 )
             }
         }
@@ -784,9 +784,9 @@ private fun CustomInputField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = SongbookColors.SurfaceLowest,
             unfocusedContainerColor = SongbookColors.SurfaceLow,
-            focusedBorderColor = SongbookColors.BurntOrange,
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = SongbookColors.GhostBorder,
-            focusedLabelColor = SongbookColors.BurntOrange,
+            focusedLabelColor = MaterialTheme.colorScheme.primary,
             unfocusedLabelColor = SongbookColors.Outline
         )
     )
@@ -901,11 +901,11 @@ private fun ResetPasswordDialog(
                         enabled = countdown == 0 && !isSendingCode && viewModel.isEmailValid(email),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.height(54.dp).padding(top = 4.dp),
-                        border = BorderStroke(1.dp, if (countdown == 0 && viewModel.isEmailValid(email)) SongbookColors.BurntOrange else SongbookColors.OutlineVariant),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SongbookColors.BurntOrange)
+                        border = BorderStroke(1.dp, if (countdown == 0 && viewModel.isEmailValid(email)) MaterialTheme.colorScheme.primary else SongbookColors.OutlineVariant),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     ) {
                         if (isSendingCode) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = SongbookColors.BurntOrange, strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
                         } else if (countdown > 0) {
                             Text("${countdown}s", fontSize = 12.sp)
                         } else {
@@ -939,7 +939,7 @@ private fun ResetPasswordDialog(
                                     id = if (newPasswordVisible) R.drawable.ic_eye_visible else R.drawable.ic_eye_invisible
                                 ),
                                 contentDescription = if (newPasswordVisible) "隐藏密码" else "显示密码",
-                                tint = if (newPasswordVisible) SongbookColors.BurntOrange else SongbookColors.Outline,
+                                tint = if (newPasswordVisible) MaterialTheme.colorScheme.primary else SongbookColors.Outline,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -973,7 +973,7 @@ private fun ResetPasswordDialog(
                                     id = if (confirmPasswordVisible) R.drawable.ic_eye_visible else R.drawable.ic_eye_invisible
                                 ),
                                 contentDescription = if (confirmPasswordVisible) "隐藏密码" else "显示密码",
-                                tint = if (confirmPasswordVisible) SongbookColors.BurntOrange else SongbookColors.Outline,
+                                tint = if (confirmPasswordVisible) MaterialTheme.colorScheme.primary else SongbookColors.Outline,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -988,7 +988,7 @@ private fun ResetPasswordDialog(
                     onClick = { viewModel.resetPassword(email, code, newPassword, confirmPassword) },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(24.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange, contentColor = Color.White)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White)
                 ) {
                     Text("确认重置密码", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
@@ -1002,10 +1002,11 @@ private fun ResetPasswordDialog(
  */
 @Composable
 private fun LoginBackgroundDecorative() {
+    val glowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.03f)
     Canvas(modifier = Modifier.fillMaxSize()) {
         val topRadius = size.width * 0.7f
         drawCircle(
-            color = SongbookColors.BurntOrange.copy(alpha = 0.03f),
+            color = glowColor,
             radius = topRadius,
             center = Offset(size.width * 0.85f, -size.width * 0.1f)
         )

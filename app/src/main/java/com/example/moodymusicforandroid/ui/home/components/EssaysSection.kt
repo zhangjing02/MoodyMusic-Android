@@ -93,8 +93,8 @@ fun EssayItem(
     essay: EssayItemData,
     onClick: () -> Unit
 ) {
-    val timelineColor = EssayTimelineColor
-    val dotColor = SongbookColors.BurntOrange
+    val timelineColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    val dotColor = MaterialTheme.colorScheme.primary
 
     Row(
         modifier = Modifier
@@ -164,13 +164,13 @@ fun EssayItem(
                 Text(
                     text = "阅读全文",
                     style = MaterialTheme.typography.labelMedium,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "Read article",
-                    tint = SongbookColors.BurntOrange,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(14.dp)
                 )
             }

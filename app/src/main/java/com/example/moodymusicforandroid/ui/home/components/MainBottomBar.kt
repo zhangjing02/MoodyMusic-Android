@@ -96,7 +96,6 @@ fun MainBottomBar(
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
         cornerRadius = 20.dp,
         elevation = 12.dp,
-        overlayColor = Color(0x6EF8F9FA), // 苹果级液态磨砂玻璃：清透珠光淡灰，高通透度（约43%不透明度，能清晰透显底层图像轮廓与色彩）
         borderColor = Color.Transparent,  // 彻底移除边缘杂线
         borderWidth = 0.dp
     ) {
@@ -261,9 +260,9 @@ private fun DiscoverNavIcon(
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
 
-    // 颜色变化：录音中变为火漆焦橙色；选中为主色；未选中为微透明 onSurface
+    // 颜色变化：录音中使用主强调色；选中为主色；未选中为微透明 onSurface
     val targetTint = when {
-        isVoiceListening -> SongbookColors.BurntOrange
+        isVoiceListening -> MaterialTheme.colorScheme.primary
         isSelected -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
     }
@@ -337,12 +336,14 @@ private fun DiscoverNavIcon(
     val currentOnVoiceDisabled by rememberUpdatedState(onVoiceDisabled)
     val currentOnClick by rememberUpdatedState(onClick)
 
+    val primaryColor = MaterialTheme.colorScheme.primary
+
     Box(
         modifier = Modifier
             .size(56.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(
-                if (isVoiceListening) Color(0xFFF7E6D7) else Color.Transparent
+                if (isVoiceListening) primaryColor.copy(alpha = 0.10f) else Color.Transparent
             )
             .pointerInput(Unit) {
                 // 彻底解耦短按单击与长按手势：
@@ -400,12 +401,12 @@ private fun DiscoverNavIcon(
             Canvas(modifier = Modifier.size(56.dp)) {
                 // 外部扩散声波
                 drawCircle(
-                    color = SongbookColors.BurntOrange.copy(alpha = rippleAlpha),
+                    color = primaryColor.copy(alpha = rippleAlpha),
                     radius = rippleRadius.dp.toPx()
                 )
                 // 内部核心温暖底托
                 drawCircle(
-                    color = SongbookColors.BurntOrange.copy(alpha = 0.18f),
+                    color = primaryColor.copy(alpha = 0.18f),
                     radius = 18.dp.toPx()
                 )
             }

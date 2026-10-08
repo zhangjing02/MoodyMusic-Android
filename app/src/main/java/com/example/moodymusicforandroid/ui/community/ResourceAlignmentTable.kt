@@ -83,7 +83,7 @@ fun ResourceAlignmentTable(
                             Text(
                                 text = subTypeSpecTag,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = SongbookColors.BurntOrange,
+                                color = MaterialTheme.colorScheme.primary,
                                 letterSpacing = 1.5.sp,
                                 fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Bold
@@ -102,7 +102,7 @@ fun ResourceAlignmentTable(
                 // 状态指示徽章
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (isCompleted) Color(0xFFE8F5E9) else SongbookColors.BurntOrange.copy(alpha = 0.12f)
+                    color = if (isCompleted) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
@@ -125,7 +125,7 @@ fun ResourceAlignmentTable(
                         } else {
                             Text(
                                 text = "待补齐核验",
-                                color = SongbookColors.BurntOrange,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.SemiBold
                             )

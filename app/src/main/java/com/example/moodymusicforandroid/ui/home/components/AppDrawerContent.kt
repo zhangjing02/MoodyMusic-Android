@@ -29,7 +29,9 @@ import com.example.moodymusicforandroid.ui.theme.SongbookColors
 /**
  * 侧滑抽屉内容组件 (The Modern Songbook 现代颂歌风格)
  *
- * 重新规划布局：
+ * 改造：品牌色 / 按钮色全部改用 MaterialTheme.colorScheme.primary，
+ * 支持黑/白主题与强调色动态切换。
+ *
  * 1. 顶部账户资料卡片与登录/退出快捷入口
  * 2. 手札互动（留言板、风格喜好 - 预留功能）
  * 3. 系统与设置（设置、版本展示与在线更新、关于音信）
@@ -50,10 +52,17 @@ fun AppDrawerContent(
     onVersionClick: () -> Unit = {},
     onAboutClick: () -> Unit = {}
 ) {
+    // 主题色（跟随全局 MaterialTheme，支持深/浅色 + 强调色切换）
+    val primary       = MaterialTheme.colorScheme.primary
+    val surface       = MaterialTheme.colorScheme.surface
+    val onSurface     = MaterialTheme.colorScheme.onSurface
+    val surfaceLow    = MaterialTheme.colorScheme.surfaceContainerLow
+    val ghostBorder   = SongbookColors.GhostBorder
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SongbookColors.PaperBackground)
+            .background(surface)
             .verticalScroll(rememberScrollState())
     ) {
         // ── 1. 抽屉顶栏 (标题 + 关闭按钮) ──────────────────────────
@@ -68,7 +77,7 @@ fun AppDrawerContent(
                 Text(
                     text = "THE MODERN SONGBOOK",
                     style = MaterialTheme.typography.labelSmall,
-                    color = SongbookColors.BurntOrange,
+                    color = primary,
                     letterSpacing = 2.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 9.sp
@@ -78,7 +87,7 @@ fun AppDrawerContent(
                     style = MaterialTheme.typography.titleLarge,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
-                    color = SongbookColors.SoftCharcoal
+                    color = onSurface
                 )
             }
             IconButton(
@@ -88,7 +97,7 @@ fun AppDrawerContent(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "关闭抽屉",
-                    tint = SongbookColors.SoftCharcoal.copy(alpha = 0.7f),
+                    tint = onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -101,8 +110,8 @@ fun AppDrawerContent(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .clickable { if (!isLoggedIn) onAuthClick() },
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-            border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
+            colors = CardDefaults.cardColors(containerColor = surfaceLow),
+            border = androidx.compose.foundation.BorderStroke(1.dp, ghostBorder)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
@@ -113,7 +122,7 @@ fun AppDrawerContent(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(SongbookColors.GhostBorderActive),
+                            .background(primary.copy(alpha = 0.13f)),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isLoggedIn) {
@@ -127,7 +136,7 @@ fun AppDrawerContent(
                             Icon(
                                 imageVector = Icons.Default.Person,
                                 contentDescription = "访客",
-                                tint = SongbookColors.BurntOrange,
+                                tint = primary,
                                 modifier = Modifier.size(26.dp)
                             )
                         }
@@ -140,13 +149,13 @@ fun AppDrawerContent(
                             text = if (isLoggedIn) userName else "访客未登录",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = SongbookColors.SoftCharcoal
+                            color = onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (isLoggedIn) "原声手札已开启" else "登录同步收藏、关注与动态",
                             style = MaterialTheme.typography.bodySmall,
-                            color = SongbookColors.SoftCharcoal.copy(alpha = 0.6f),
+                            color = onSurface.copy(alpha = 0.6f),
                             fontSize = 11.5.sp
                         )
                     }
@@ -162,8 +171,8 @@ fun AppDrawerContent(
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SongbookColors.BurntOrange,
-                            contentColor = Color.White
+                            containerColor = primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
                         Text(
@@ -201,7 +210,7 @@ fun AppDrawerContent(
             Text(
                 text = "读者回响",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.BurntOrange,
+                color = primary,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
                 fontSize = 11.5.sp
@@ -210,7 +219,7 @@ fun AppDrawerContent(
             Text(
                 text = "· ECHO & VOICES",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.BurntOrange.copy(alpha = 0.45f),
+                color = primary.copy(alpha = 0.45f),
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 1.sp,
                 fontSize = 9.sp
@@ -222,37 +231,46 @@ fun AppDrawerContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-            border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
+            colors = CardDefaults.cardColors(containerColor = surfaceLow),
+            border = androidx.compose.foundation.BorderStroke(1.dp, ghostBorder)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 DrawerMenuItem(
                     title = "公告栏",
                     badge = "公告",
+                    primary = primary,
+                    onSurface = onSurface,
+                    ghostBorder = ghostBorder,
                     onClick = onNoticeBoardClick
                 )
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     thickness = 0.5.dp,
-                    color = SongbookColors.GhostBorder.copy(alpha = 0.6f)
+                    color = ghostBorder.copy(alpha = 0.6f)
                 )
 
                 DrawerMenuItem(
                     title = "留言板",
                     badge = null,
+                    primary = primary,
+                    onSurface = onSurface,
+                    ghostBorder = ghostBorder,
                     onClick = onMessageBoardClick
                 )
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     thickness = 0.5.dp,
-                    color = SongbookColors.GhostBorder.copy(alpha = 0.6f)
+                    color = ghostBorder.copy(alpha = 0.6f)
                 )
 
                 DrawerMenuItem(
                     title = "风格喜好",
                     badge = "待开放",
+                    primary = primary,
+                    onSurface = onSurface,
+                    ghostBorder = ghostBorder,
                     onClick = onStylePreferenceClick
                 )
             }
@@ -266,7 +284,7 @@ fun AppDrawerContent(
             Text(
                 text = "系统与设置",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.BurntOrange,
+                color = primary,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
                 fontSize = 11.5.sp
@@ -275,7 +293,7 @@ fun AppDrawerContent(
             Text(
                 text = "· PREFERENCES",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.BurntOrange.copy(alpha = 0.45f),
+                color = primary.copy(alpha = 0.45f),
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 1.sp,
                 fontSize = 9.sp
@@ -287,36 +305,45 @@ fun AppDrawerContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-            border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
+            colors = CardDefaults.cardColors(containerColor = surfaceLow),
+            border = androidx.compose.foundation.BorderStroke(1.dp, ghostBorder)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 DrawerMenuItem(
                     title = "设置",
+                    primary = primary,
+                    onSurface = onSurface,
+                    ghostBorder = ghostBorder,
                     onClick = onSettingsClick
                 )
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     thickness = 0.5.dp,
-                    color = SongbookColors.GhostBorder.copy(alpha = 0.6f)
+                    color = ghostBorder.copy(alpha = 0.6f)
                 )
 
                 DrawerMenuItem(
                     title = "版本更新",
                     trailingText = "v$currentVersionName",
                     showRedDot = hasUpdate,
+                    primary = primary,
+                    onSurface = onSurface,
+                    ghostBorder = ghostBorder,
                     onClick = onVersionClick
                 )
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     thickness = 0.5.dp,
-                    color = SongbookColors.GhostBorder.copy(alpha = 0.6f)
+                    color = ghostBorder.copy(alpha = 0.6f)
                 )
 
                 DrawerMenuItem(
                     title = "关于音信",
+                    primary = primary,
+                    onSurface = onSurface,
+                    ghostBorder = ghostBorder,
                     onClick = onAboutClick
                 )
             }
@@ -335,14 +362,14 @@ fun AppDrawerContent(
             Text(
                 text = "音信 · TunePost v$currentVersionName",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.SoftCharcoal.copy(alpha = 0.4f),
+                color = onSurface.copy(alpha = 0.4f),
                 fontSize = 11.sp
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "The Modern Songbook © 2026",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.SoftCharcoal.copy(alpha = 0.3f),
+                color = onSurface.copy(alpha = 0.3f),
                 fontSize = 10.sp
             )
         }
@@ -355,6 +382,9 @@ private fun DrawerMenuItem(
     badge: String? = null,
     showRedDot: Boolean = false,
     trailingText: String? = null,
+    primary: Color,
+    onSurface: Color,
+    ghostBorder: Color,
     onClick: () -> Unit
 ) {
     Row(
@@ -371,7 +401,7 @@ private fun DrawerMenuItem(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = SongbookColors.SoftCharcoal,
+                color = onSurface,
                 fontSize = 14.5.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1
@@ -391,7 +421,7 @@ private fun DrawerMenuItem(
             Text(
                 text = trailingText,
                 style = MaterialTheme.typography.bodySmall,
-                color = SongbookColors.SoftCharcoal.copy(alpha = 0.45f),
+                color = onSurface.copy(alpha = 0.45f),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(end = 6.dp)
             )
@@ -400,11 +430,11 @@ private fun DrawerMenuItem(
         if (badge != null) {
             Surface(
                 shape = RoundedCornerShape(100.dp),
-                color = if (badge == "NEW") SongbookColors.BurntOrange else SongbookColors.BurntOrange.copy(alpha = 0.08f)
+                color = if (badge == "NEW") primary else primary.copy(alpha = 0.08f)
             ) {
                 Text(
                     text = badge,
-                    color = if (badge == "NEW") Color.White else SongbookColors.BurntOrange,
+                    color = if (badge == "NEW") Color.White else primary,
                     fontSize = 10.5.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -416,9 +446,8 @@ private fun DrawerMenuItem(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = SongbookColors.SoftCharcoal.copy(alpha = 0.25f),
+            tint = onSurface.copy(alpha = 0.25f),
             modifier = Modifier.size(16.dp)
         )
     }
 }
-

@@ -99,7 +99,7 @@ fun MessageBoardScreen(
                         Text(
                             text = if (isEditingMode) "WRITING MEMOIR" else "COMMUNITY & VOICES",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SongbookColors.BurntOrange,
+                            color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 2.sp,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.SemiBold
@@ -146,7 +146,7 @@ fun MessageBoardScreen(
                             isEditingMode = true
                         }
                     },
-                    containerColor = SongbookColors.BurntOrange,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -206,7 +206,7 @@ fun MessageBoardScreen(
                     items(categories) { (catKey, catName) ->
                         val isSelected = selectedCategory == catKey
                         val bgCol by animateColorAsState(
-                            targetValue = if (isSelected) SongbookColors.BurntOrange else SongbookColors.SurfaceLow,
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.SurfaceLow,
                             animationSpec = tween(200),
                             label = "pill_bg"
                         )
@@ -253,7 +253,7 @@ fun MessageBoardScreen(
                                 Icon(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
-                                    tint = SongbookColors.BurntOrange,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(48.dp)
                                 )
                                 Spacer(modifier = Modifier.height(14.dp))
@@ -276,7 +276,7 @@ fun MessageBoardScreen(
                                 Button(
                                     onClick = onNavigateToAuth,
                                     shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(42.dp)
@@ -295,7 +295,7 @@ fun MessageBoardScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
-                            color = SongbookColors.BurntOrange,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(32.dp),
                             strokeWidth = 2.5.dp
                         )
@@ -319,7 +319,7 @@ fun MessageBoardScreen(
                             Text(
                                 text = "快来点击右下方书写信笺，成为第一个留下回响的人吧",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = SongbookColors.BurntOrange.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                             )
                         }
                     }
@@ -410,12 +410,12 @@ private fun CommunityPostCard(
                     // 板块小标签
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = SongbookColors.BurntOrange.copy(alpha = 0.1f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                         modifier = Modifier.padding(end = 8.dp)
                     ) {
                         Text(
                             text = post.getCategoryDisplayName(),
-                            color = SongbookColors.BurntOrange,
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
@@ -575,14 +575,14 @@ private fun CommunityPostCard(
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "讨论评论",
-                        tint = SongbookColors.BurntOrange.copy(alpha = 0.7f),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (post.commentCount > 0) "${post.commentCount} 条讨论" else "参与讨论",
                         style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 11.5.sp
                     )
@@ -667,8 +667,8 @@ private fun MessageBoardEditorView(
         // ── 1. 顶部提示卡片（显示当前所在板块，信息清晰，不可更改） ──────────
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = SongbookColors.BurntOrange.copy(alpha = 0.08f),
-            border = BorderStroke(1.dp, SongbookColors.BurntOrange.copy(alpha = 0.2f)),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -685,7 +685,7 @@ private fun MessageBoardEditorView(
                         text = if (isResourceMode) "资源补齐精准对齐清单" else "读者信笺书写室",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = SongbookColors.BurntOrange
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = if (isResourceMode)
@@ -700,13 +700,13 @@ private fun MessageBoardEditorView(
                 // 当前板块标签（只读）
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = SongbookColors.BurntOrange.copy(alpha = 0.15f)
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 ) {
                     Text(
                         text = catDisplayName,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -719,7 +719,7 @@ private fun MessageBoardEditorView(
                 Text(
                     text = "补齐类目 / RESOURCE TYPE",
                     style = MaterialTheme.typography.labelSmall,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
@@ -729,8 +729,8 @@ private fun MessageBoardEditorView(
                         val isSubSel = selectedSub == subKey
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (isSubSel) SongbookColors.BurntOrange.copy(alpha = 0.15f) else SongbookColors.SurfaceLow,
-                            border = BorderStroke(1.dp, if (isSubSel) SongbookColors.BurntOrange else SongbookColors.GhostBorder),
+                            color = if (isSubSel) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else SongbookColors.SurfaceLow,
+                            border = BorderStroke(1.dp, if (isSubSel) MaterialTheme.colorScheme.primary else SongbookColors.GhostBorder),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable { selectedSub = subKey }
@@ -742,7 +742,7 @@ private fun MessageBoardEditorView(
                                 Text(text = subIcon, fontSize = 13.sp, modifier = Modifier.padding(end = 4.dp))
                                 Text(
                                     text = subLabel,
-                                    color = if (isSubSel) SongbookColors.BurntOrange else SongbookColors.SoftCharcoal,
+                                    color = if (isSubSel) MaterialTheme.colorScheme.primary else SongbookColors.SoftCharcoal,
                                     fontSize = 12.sp,
                                     fontWeight = if (isSubSel) FontWeight.Bold else FontWeight.Medium
                                 )
@@ -1127,7 +1127,7 @@ private fun MessageBoardEditorView(
                 },
                 enabled = canSubmit,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 modifier = Modifier
                     .weight(1.5f)
                     .height(44.dp)

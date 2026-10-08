@@ -143,7 +143,7 @@ fun TodayRecommendScrollBlock(
                     Text(
                         text = data.subtitle,
                         style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.2.sp,
                         fontWeight = FontWeight.SemiBold
                     )

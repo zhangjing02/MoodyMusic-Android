@@ -108,8 +108,9 @@ fun AlbumDetailScreen(
         }
     }
 
+    val primaryColor = MaterialTheme.colorScheme.primary
     val iconTintColor by animateColorAsState(
-        targetValue = if (isStickyTitleVisible) SongbookColors.BurntOrange else Color.White,
+        targetValue = if (isStickyTitleVisible) primaryColor else Color.White,
         animationSpec = tween(durationMillis = 200),
         label = "AlbumIconTintColor"
     )
@@ -170,7 +171,7 @@ fun AlbumDetailScreen(
                         Text(
                             text = if (isSticky) albumTitle else "专辑",
                             style = MaterialTheme.typography.titleMedium,
-                            color = if (isSticky) SongbookColors.BurntOrange else Color.White,
+                            color = if (isSticky) primaryColor else Color.White,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -242,7 +243,7 @@ fun AlbumDetailScreen(
                     Text(
                         text = albumTitle,
                         style = MaterialTheme.typography.displayMedium,
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(10.dp))
@@ -275,8 +276,8 @@ fun AlbumDetailScreen(
                             },
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = SongbookColors.BurntOrange,
-                                contentColor = Color.White
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
                             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
                             modifier = Modifier.weight(1f),
@@ -302,19 +303,19 @@ fun AlbumDetailScreen(
                             },
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = if (isAlbumFavorited) SongbookColors.MutedOlive.copy(alpha = 0.15f) else Color.Transparent,
-                                contentColor = if (isAlbumFavorited) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurface
+                                containerColor = if (isAlbumFavorited) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+                                contentColor = if (isAlbumFavorited) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             ),
                             border = BorderStroke(
                                 1.dp,
-                                if (isAlbumFavorited) SongbookColors.BurntOrange else SongbookColors.GhostBorder
+                                if (isAlbumFavorited) MaterialTheme.colorScheme.primary else SongbookColors.GhostBorder
                             ),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
                         ) {
                             Icon(
                                 imageVector = if (isAlbumFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                 contentDescription = if (isAlbumFavorited) "已收藏专辑" else "收藏专辑",
-                                tint = if (isAlbumFavorited) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = if (isAlbumFavorited) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -363,7 +364,7 @@ fun AlbumDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = SongbookColors.BurntOrange)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -456,7 +457,7 @@ private fun TrackRowItem(
     onClick: () -> Unit,
     onMoreClick: () -> Unit = {}
 ) {
-    val activeColor = SongbookColors.BurntOrange
+    val activeColor = MaterialTheme.colorScheme.primary
     val inactiveColor = MaterialTheme.colorScheme.onSurface
 
     Row(

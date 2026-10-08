@@ -135,3 +135,88 @@ data class ExtendedColors(
 )
 
 val LocalExtendedColors = staticCompositionLocalOf { ExtendedColors() }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 强调色 Palette（每种强调色在浅色/深色主题下的配色）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 单个强调色在浅色 / 深色主题下的 primary 和 onPrimary 色值
+ */
+data class AccentPalette(
+    val lightPrimary: Color,
+    val lightOnPrimary: Color,
+    val lightPrimaryContainer: Color,
+    val lightOnPrimaryContainer: Color,
+    val darkPrimary: Color,
+    val darkOnPrimary: Color,
+    val darkPrimaryContainer: Color,
+    val darkOnPrimaryContainer: Color,
+)
+
+/**
+ * 全量强调色映射表
+ * 通过 AppThemeManager.AccentColor 枚举 key 获取对应的 Palette
+ */
+object SongbookAccentPalettes {
+
+    /** 咖棕（默认）—— 焦橙 BurntOrange 系 */
+    val Mocha = AccentPalette(
+        lightPrimary             = Color(0xFF6C2F00),   // BurntOrange
+        lightOnPrimary           = Color.White,
+        lightPrimaryContainer    = Color(0xFF8B4513),   // TerracottaBrown
+        lightOnPrimaryContainer  = Color(0xFFFFDBC9),
+        darkPrimary              = Color(0xFFFFB68C),   // BurntOrangeLight
+        darkOnPrimary            = Color(0xFF3A1500),
+        darkPrimaryContainer     = Color(0xFF8B4513),
+        darkOnPrimaryContainer   = Color(0xFFFFDBC9),
+    )
+
+    /** 苔绿（Sage）—— 深鼠尾草绿系 */
+    val Sage = AccentPalette(
+        lightPrimary             = Color(0xFF34614D),
+        lightOnPrimary           = Color.White,
+        lightPrimaryContainer    = Color(0xFF4C7965),
+        lightOnPrimaryContainer  = Color(0xFFD6FFE9),
+        darkPrimary              = Color(0xFF8ACDA0),
+        darkOnPrimary            = Color(0xFF003920),
+        darkPrimaryContainer     = Color(0xFF1B4D35),
+        darkOnPrimaryContainer   = Color(0xFFD6FFE9),
+    )
+
+    /** 深蓝（Ocean）—— 海洋蓝系 */
+    val Ocean = AccentPalette(
+        lightPrimary             = Color(0xFF0052A5),
+        lightOnPrimary           = Color.White,
+        lightPrimaryContainer    = Color(0xFF1A6BC4),
+        lightOnPrimaryContainer  = Color(0xFFD1E8FF),
+        darkPrimary              = Color(0xFF9ECAFF),
+        darkOnPrimary            = Color(0xFF003063),
+        darkPrimaryContainer     = Color(0xFF004891),
+        darkOnPrimaryContainer   = Color(0xFFD1E8FF),
+    )
+
+    /** 夕橙（Sunset）—— 日落橙红系 */
+    val Sunset = AccentPalette(
+        lightPrimary             = Color(0xFFC94B00),
+        lightOnPrimary           = Color.White,
+        lightPrimaryContainer    = Color(0xFFE06020),
+        lightOnPrimaryContainer  = Color(0xFFFFDCC2),
+        darkPrimary              = Color(0xFFFFB691),
+        darkOnPrimary            = Color(0xFF5B1900),
+        darkPrimaryContainer     = Color(0xFF7D2D00),
+        darkOnPrimaryContainer   = Color(0xFFFFDCC2),
+    )
+
+    /**
+     * 根据 AccentColor 枚举获取对应 Palette
+     */
+    fun of(accentColor: com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor): AccentPalette {
+        return when (accentColor) {
+            com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.MOCHA  -> Mocha
+            com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.SAGE   -> Sage
+            com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.OCEAN  -> Ocean
+            com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.SUNSET -> Sunset
+        }
+    }
+}

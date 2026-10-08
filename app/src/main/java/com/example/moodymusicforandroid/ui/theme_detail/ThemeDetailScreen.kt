@@ -75,7 +75,7 @@ fun ThemeDetailScreen(
                         Text(
                             text = "THE MODERN SONGBOOK",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SongbookColors.BurntOrange,
+                            color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 1.5.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -116,7 +116,7 @@ fun ThemeDetailScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -139,7 +139,7 @@ fun ThemeDetailScreen(
                         )
                         Button(
                             onClick = { viewModel.loadThemeStory(themeId, storyUrl) },
-                            colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("重新加载", color = Color.White)
                         }
@@ -207,7 +207,7 @@ private fun ThemeDetailContent(
                 if (isCurrentlyPlayingThis) {
                     CoverEqIndicator(
                         isAnimating = true,
-                        barColor = SongbookColors.BurntOrangeLight,
+                        barColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(16.dp)
@@ -245,15 +245,15 @@ private fun ThemeDetailContent(
                             .padding(end = 6.dp)
                             .size(26.dp)
                             .clip(CircleShape)
-                            .background(SongbookColors.BurntOrange.copy(alpha = 0.08f))
-                            .border(1.dp, SongbookColors.BurntOrange.copy(alpha = 0.75f), CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f), CircleShape)
                             .clickable { onPlayToggle() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_play_arrow_rounded),
                             contentDescription = "播放伴读原声",
-                            tint = SongbookColors.BurntOrange,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(13.dp)
                         )
                     }
@@ -276,7 +276,7 @@ private fun ThemeDetailContent(
                 Text(
                     text = story.subtitle,
                     style = MaterialTheme.typography.titleSmall,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium,
                     lineHeight = 22.sp
                 )
@@ -355,7 +355,7 @@ private fun ThemeDetailContent(
                         text = timelineTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = SongbookColors.BurntOrange
+                        color = MaterialTheme.colorScheme.primary
                     )
 
                     story.safeTimelineSections.forEachIndexed { idx, section ->
@@ -417,7 +417,7 @@ private fun ThemeDetailContent(
                                             text = "📖 剧情：",
                                             style = MaterialTheme.typography.bodySmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = SongbookColors.BurntOrange
+                                            color = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
                                             text = section.sceneStory,
@@ -453,7 +453,7 @@ private fun ThemeDetailContent(
                                             text = "🎻 技巧：",
                                             style = MaterialTheme.typography.bodySmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = SongbookColors.BurntOrange
+                                            color = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
                                             text = section.technique,
@@ -503,7 +503,7 @@ private fun ThemeDetailContent(
                         text = story.scenariosTitle.ifBlank { "🎧 适用场景" },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = SongbookColors.BurntOrange
+                        color = MaterialTheme.colorScheme.primary
                     )
 
                     Surface(
@@ -532,7 +532,7 @@ private fun ThemeDetailContent(
                         text = story.benefitsTitle.ifBlank { "✨ 专题亮点" },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = SongbookColors.BurntOrange
+                        color = MaterialTheme.colorScheme.primary
                     )
 
                     Surface(
@@ -622,7 +622,7 @@ private fun CoverPlayButton(
     Icon(
         painter = painterResource(R.drawable.ic_play_arrow),
         contentDescription = "播放",
-        tint = SongbookColors.BurntOrangeLight,
+        tint = MaterialTheme.colorScheme.primary,
         modifier = modifier.size(26.dp)
     )
 }
@@ -637,7 +637,7 @@ private fun CoverPlayButton(
 fun CoverEqIndicator(
     isAnimating: Boolean,
     modifier: Modifier = Modifier,
-    barColor: Color = SongbookColors.BurntOrangeLight
+    barColor: Color = MaterialTheme.colorScheme.primary
 ) {
     val barCount = 3
     val infiniteTransition = rememberInfiniteTransition(label = "EqBars")

@@ -87,7 +87,7 @@ fun SectionTitleBlock(
                 Text(
                     text = actionText,
                     style = MaterialTheme.typography.labelMedium,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
@@ -119,7 +119,7 @@ fun CategoryTabsBlock(
         data.tabs.forEach { tab ->
             val isSelected = tab.isSelected || tab.id == data.selectedId
             val containerColor = if (isSelected) {
-                SongbookColors.BurntOrange
+                MaterialTheme.colorScheme.primary
             } else {
                 MaterialTheme.colorScheme.surfaceContainerLow
             }
@@ -312,7 +312,7 @@ fun TrackListItemCard(
                     .size(34.dp)
                     .clip(CircleShape)
                     .background(
-                        if (track.isPlaying) SongbookColors.BurntOrange else MaterialTheme.colorScheme.surfaceContainerHigh
+                        if (track.isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
                     )
                     .clickable { onPlayToggle() },
                 contentAlignment = Alignment.Center
@@ -320,7 +320,7 @@ fun TrackListItemCard(
                 if (track.isPlaying) {
                     Text(
                         text = "■",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -328,7 +328,7 @@ fun TrackListItemCard(
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Play",
-                        tint = SongbookColors.BurntOrange,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -358,7 +358,7 @@ fun TrackListItemCard(
                 Text(
                     text = track.title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (track.isPlaying) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurface,
+                    color = if (track.isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     maxLines = 1,
@@ -509,14 +509,14 @@ fun ArchiveCardBlock(
                 Text(
                     text = "探索档案",
                     style = MaterialTheme.typography.labelMedium,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "Explore",
-                    tint = SongbookColors.BurntOrange,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -627,7 +627,7 @@ fun QuickActionsBlock(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(SongbookColors.BurntOrange.copy(alpha = 0.12f)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(

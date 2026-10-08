@@ -169,7 +169,7 @@ fun PlaylistDetailScreen(
                     Text(
                         text = currentName,
                         style = MaterialTheme.typography.displayMedium,
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Medium
                     )
@@ -199,8 +199,8 @@ fun PlaylistDetailScreen(
                             },
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = SongbookColors.BurntOrange,
-                                contentColor = Color.White
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
                             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
                             modifier = Modifier.weight(1.2f),
@@ -371,7 +371,7 @@ fun PlaylistDetailScreen(
                     Text("取消")
                 }
             },
-            containerColor = SongbookColors.SurfaceLow,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             shape = RoundedCornerShape(16.dp)
         )
     }
@@ -391,7 +391,7 @@ private fun PlaylistTrackRowItem(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val activeColor = SongbookColors.BurntOrange
+    val activeColor = MaterialTheme.colorScheme.primary
     val inactiveColor = MaterialTheme.colorScheme.onSurface
     val rowBgColor = if (isPlaying) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.background
 
@@ -519,7 +519,7 @@ private fun EditPlaylistDialog(
                         onConfirm(name.trim(), desc.trim(), selectedColor)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("保存", fontWeight = FontWeight.Bold)
             }
@@ -529,7 +529,7 @@ private fun EditPlaylistDialog(
                 Text("取消")
             }
         },
-        containerColor = SongbookColors.SurfaceLow,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(16.dp)
     )
 }

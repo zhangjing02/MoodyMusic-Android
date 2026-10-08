@@ -127,7 +127,7 @@ fun PostDetailScreen(
                             ) {
                                 Text(
                                     text = "登录后参与讨论与回帖",
-                                    color = SongbookColors.BurntOrange,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -143,7 +143,7 @@ fun PostDetailScreen(
                                 .heightIn(min = 42.dp, max = 100.dp),
                             shape = RoundedCornerShape(20.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = SongbookColors.BurntOrange,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = SongbookColors.GhostBorder,
                                 focusedContainerColor = Color.White,
                                 unfocusedContainerColor = Color.White
@@ -167,7 +167,7 @@ fun PostDetailScreen(
                                 .size(42.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (commentInput.isNotBlank()) SongbookColors.BurntOrange else SongbookColors.SurfaceHighest
+                                    if (commentInput.isNotBlank()) MaterialTheme.colorScheme.primary else SongbookColors.SurfaceHighest
                                 )
                         ) {
                             Icon(
@@ -224,11 +224,11 @@ fun PostDetailScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = SongbookColors.BurntOrange.copy(alpha = 0.1f)
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                     ) {
                                         Text(
                                             text = post.getCategoryDisplayName(),
-                                            color = SongbookColors.BurntOrange,
+                                            color = MaterialTheme.colorScheme.primary,
                                             fontSize = 11.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
@@ -334,13 +334,13 @@ fun PostDetailScreen(
                                     modifier = Modifier
                                         .size(28.dp)
                                         .clip(CircleShape)
-                                        .background(SongbookColors.BurntOrange.copy(alpha = 0.15f)),
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Person,
                                         contentDescription = null,
-                                        tint = SongbookColors.BurntOrange,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -482,13 +482,13 @@ private fun CommentItemRow(
                         modifier = Modifier
                             .size(24.dp)
                             .clip(CircleShape)
-                            .background(SongbookColors.BurntOrange.copy(alpha = 0.12f)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = null,
-                            tint = SongbookColors.BurntOrange,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(14.dp)
                         )
                     }

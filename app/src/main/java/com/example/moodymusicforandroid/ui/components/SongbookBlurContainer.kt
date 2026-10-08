@@ -41,7 +41,7 @@ fun SongbookBlurContainer(
     cornerRadius: Dp = 18.dp,
     shape: Shape? = null,
     backgroundColor: Color = MaterialTheme.colorScheme.surface,
-    overlayColor: Color = Color(0x6EF8F9FA), // 约 43% 清透淡灰液态磨砂玻璃（仅用于支持硬件模糊的正常渲染）
+    overlayColor: Color? = null,
     borderColor: Color = Color.Transparent, // 默认无描边
     borderWidth: Dp = 0.dp,
     elevation: Dp = 10.dp,
@@ -54,6 +54,13 @@ fun SongbookBlurContainer(
     val surfaceColor = MaterialTheme.colorScheme.surface
     val isDark = remember(surfaceColor) {
         (surfaceColor.red * 0.299f + surfaceColor.green * 0.587f + surfaceColor.blue * 0.114f) < 0.5f
+    }
+
+    // 自适应磨砂玻璃蒙层：深色下为半透明暗调纸墨黑，浅色下为清透淡灰
+    val effectiveOverlayColor = overlayColor ?: if (isDark) {
+        Color(0x8C161715) // 约 55% 沉浸暗夜纸墨黑，剔除白雾泛光
+    } else {
+        Color(0x6EF8F9FA) // 约 43% 清透淡灰液态磨砂玻璃
     }
 
     // 低端机或降级模式下的 80%~85% 半透明雅灰调色方案
@@ -82,7 +89,7 @@ fun SongbookBlurContainer(
             style = HazeStyle(
                 backgroundColor = backgroundColor,
                 blurRadius = blurRadius,
-                tint = HazeTint(overlayColor),
+                tint = HazeTint(effectiveOverlayColor),
                 fallbackTint = HazeTint(fallbackGreyColor) // 确保即使偶发降级，也是 80% 雅灰色，绝不全透明
             )
         )

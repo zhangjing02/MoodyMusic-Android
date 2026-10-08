@@ -4,6 +4,7 @@ import android.app.Application
 import com.example.moodymusicforandroid.common.preferences.PreferencesManager
 import com.example.moodymusicforandroid.data.manager.UserManager
 
+import com.example.moodymusicforandroid.common.utils.AppThemeManager
 import com.example.moodymusicforandroid.common.utils.FontManager
 import com.example.moodymusicforandroid.common.utils.ThemeManager
 
@@ -61,6 +62,9 @@ class MoodyMusicApplication : Application(), ImageLoaderFactory {
 
         // 初始化主题
         ThemeManager.initTheme(this)
+
+        // 初始化 AppThemeManager（Compose 层主题状态中心：黑/白 + 强调色）
+        AppThemeManager.init(this)
 
         // 应用组合主题（字体 + 颜色）
         applyCombinedTheme()

@@ -64,7 +64,6 @@ fun FloatingMiniPlayer(
         hazeState = hazeState,
         cornerRadius = 16.dp,
         elevation = 10.dp,
-        overlayColor = Color(0x6EF8F9FA),
         borderColor = Color.Transparent,
         borderWidth = 0.dp
     ) {
@@ -121,7 +120,7 @@ fun FloatingMiniPlayerContent(
 
     // 圆弧颜色
     val arcTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
-    val arcFillColor  = SongbookColors.BurntOrange
+    val arcFillColor  = MaterialTheme.colorScheme.primary
 
     Row(
         modifier = modifier
@@ -263,7 +262,7 @@ fun FloatingMiniPlayerContent(
                             if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
                         ),
                         contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = SongbookColors.BurntOrange,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(26.dp)
                     )
                 }

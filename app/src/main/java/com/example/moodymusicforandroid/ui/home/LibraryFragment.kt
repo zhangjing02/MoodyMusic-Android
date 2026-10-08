@@ -79,7 +79,9 @@ fun LibraryScreen(
         },
         state = pullToRefreshState,
         headerTopPadding = statusBarTop,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
         LazyColumn(
             modifier = Modifier
@@ -180,8 +182,8 @@ private fun UserProfileHeaderCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-        border = BorderStroke(1.dp, SongbookColors.GhostBorder)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
@@ -193,7 +195,7 @@ private fun UserProfileHeaderCard(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(SongbookColors.SurfaceHigh),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!user.avatarUrl.isNullOrBlank()) {
@@ -207,7 +209,7 @@ private fun UserProfileHeaderCard(
                             text = user.getDisplayName().take(1).uppercase(),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = SongbookColors.BurntOrange
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -224,13 +226,13 @@ private fun UserProfileHeaderCard(
                     Text(
                         text = user.bio ?: "在音信里听风的声音",
                         style = MaterialTheme.typography.bodySmall,
-                        color = SongbookColors.Outline
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = SongbookColors.GhostBorder, thickness = 1.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
             // 统计数据（恢复3个统计项）
@@ -244,14 +246,14 @@ private fun UserProfileHeaderCard(
                     modifier = Modifier
                         .height(24.dp)
                         .width(1.dp)
-                        .background(SongbookColors.GhostBorder)
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 )
                 UserStatItem(count = user.favoriteAlbumsCount, label = "收藏专辑")
                 Box(
                     modifier = Modifier
                         .height(24.dp)
                         .width(1.dp)
-                        .background(SongbookColors.GhostBorder)
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 )
                 UserStatItem(count = user.followedArtistsCount, label = "关注歌手")
             }
@@ -271,7 +273,7 @@ private fun UserStatItem(count: Int, label: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = SongbookColors.Outline
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -287,8 +289,8 @@ private fun GuestProfileHeaderCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-        border = BorderStroke(1.dp, SongbookColors.GhostBorder)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
@@ -300,13 +302,13 @@ private fun GuestProfileHeaderCard(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(SongbookColors.GhostBorderActive),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "访客",
-                        tint = SongbookColors.BurntOrange,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -323,7 +325,7 @@ private fun GuestProfileHeaderCard(
                     Text(
                         text = "登录同步收藏、关注与原声手札",
                         style = MaterialTheme.typography.bodySmall,
-                        color = SongbookColors.Outline,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.5.sp
                     )
                 }
@@ -332,8 +334,8 @@ private fun GuestProfileHeaderCard(
                     onClick = onAuthClick,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SongbookColors.BurntOrange,
-                        contentColor = androidx.compose.ui.graphics.Color.White
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                 ) {
@@ -346,7 +348,7 @@ private fun GuestProfileHeaderCard(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = SongbookColors.GhostBorder, thickness = 1.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
             // 统计数据（访客状态展示3项）
@@ -360,14 +362,14 @@ private fun GuestProfileHeaderCard(
                     modifier = Modifier
                         .height(24.dp)
                         .width(1.dp)
-                        .background(SongbookColors.GhostBorder)
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 )
                 UserStatItem(count = 0, label = "收藏专辑")
                 Box(
                     modifier = Modifier
                         .height(24.dp)
                         .width(1.dp)
-                        .background(SongbookColors.GhostBorder)
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 )
                 UserStatItem(count = 0, label = "关注歌手")
             }
@@ -410,7 +412,7 @@ private fun CreatePlaylistQuickDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    placeholder = { Text("例如：交响乐、民谣、说唱...", fontSize = 13.sp, color = SongbookColors.Outline) },
+                    placeholder = { Text("例如：交响乐、民谣、说唱...", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -419,7 +421,7 @@ private fun CreatePlaylistQuickDialog(
                 Text(
                     text = "手札主题色",
                     style = MaterialTheme.typography.labelMedium,
-                    color = SongbookColors.Outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Row(
@@ -434,7 +436,7 @@ private fun CreatePlaylistQuickDialog(
                                 .background(col)
                                 .border(
                                     width = if (selectedColor == code) 2.5.dp else 1.dp,
-                                    color = if (selectedColor == code) SongbookColors.BurntOrange else androidx.compose.ui.graphics.Color.Transparent,
+                                    color = if (selectedColor == code) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent,
                                     shape = CircleShape
                                 )
                                 .clickable { selectedColor = code }
@@ -451,7 +453,7 @@ private fun CreatePlaylistQuickDialog(
                     }
                 },
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("完成", fontWeight = FontWeight.Bold)
             }
@@ -461,7 +463,7 @@ private fun CreatePlaylistQuickDialog(
                 Text("取消")
             }
         },
-        containerColor = SongbookColors.SurfaceLow,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(18.dp)
     )
 }

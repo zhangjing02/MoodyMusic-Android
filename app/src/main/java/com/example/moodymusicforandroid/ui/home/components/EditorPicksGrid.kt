@@ -94,7 +94,7 @@ fun EditorPicksGrid(
             Text(
                 text = "浏览全部",
                 style = MaterialTheme.typography.labelMedium,
-                color = SongbookColors.BurntOrange,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { onBrowseAllClick() }
             )

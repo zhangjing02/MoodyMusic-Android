@@ -91,9 +91,9 @@ fun AddToPlaylistSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = SongbookColors.SurfaceLow,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         dragHandle = {
-            BottomSheetDefaults.DragHandle(color = SongbookColors.GhostBorderActive)
+            BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         },
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
@@ -131,7 +131,7 @@ fun AddToPlaylistSheet(
 
                 TextButton(
                     onClick = { showCreateInput = !showCreateInput },
-                    colors = ButtonDefaults.textButtonColors(contentColor = SongbookColors.BurntOrange)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(
                         imageVector = if (showCreateInput) Icons.Default.Close else Icons.Default.Add,
@@ -170,7 +170,7 @@ fun AddToPlaylistSheet(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SongbookColors.BurntOrange,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = SongbookColors.GhostBorder
                         )
                     )
@@ -200,7 +200,7 @@ fun AddToPlaylistSheet(
                             }
                         },
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Text("创建并收录", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
@@ -240,7 +240,7 @@ fun AddToPlaylistSheet(
                     Icon(
                         painter = painterResource(id = R.drawable.ic_playlist),
                         contentDescription = null,
-                        tint = if (isInQueue) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurface,
+                        tint = if (isInQueue) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(22.dp)
                     )
 
@@ -258,7 +258,7 @@ fun AddToPlaylistSheet(
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = null,
-                            tint = SongbookColors.BurntOrange,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -337,7 +337,7 @@ private fun PlaylistItemRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable { onToggle() }
-            .background(if (isSelected) SongbookColors.SurfaceHigh else Color.Transparent)
+            .background(if (isSelected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -375,10 +375,10 @@ private fun PlaylistItemRow(
             modifier = Modifier
                 .size(22.dp)
                 .clip(CircleShape)
-                .background(if (isSelected) SongbookColors.BurntOrange else Color.Transparent)
+                .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                 .border(
                     width = 1.5.dp,
-                    color = if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorderActive,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.GhostBorderActive,
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -387,7 +387,7 @@ private fun PlaylistItemRow(
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(14.dp)
                 )
             }

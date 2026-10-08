@@ -134,6 +134,7 @@ import com.example.moodymusicforandroid.ui.home.viewmodel.HomeViewModel
 import com.example.moodymusicforandroid.ui.home.voice.TopBarTitleState
 import com.example.moodymusicforandroid.ui.player.PlayerViewModel
 import com.example.moodymusicforandroid.ui.theme.SongbookColors
+import com.example.moodymusicforandroid.common.utils.AppThemeManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -171,15 +172,29 @@ fun HomeScreen(
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val playState by playerViewModel.playState.collectAsState()
 
-    // 首页暖渐变背景
-    val warmGradient = remember {
-        Brush.verticalGradient(
-            colorStops = arrayOf(
-                0.0f to Color(0xFFF5E8D8),
-                0.25f to Color(0xFFFAF3EA),
-                1.0f to Color(0xFFFBF9F5)
+    // 订阅全局主题配置，区分浅色暖砂与深色暗调纸质微渐变
+    val themeConfig by AppThemeManager.config.collectAsState()
+    val isDark = themeConfig.isDark
+
+    // 首页自适应渐变背景
+    val homeBackgroundBrush = remember(isDark) {
+        if (isDark) {
+            Brush.verticalGradient(
+                colorStops = arrayOf(
+                    0.0f to Color(0xFF191A18),
+                    0.25f to Color(0xFF161715),
+                    1.0f to Color(0xFF141513)
+                )
             )
-        )
+        } else {
+            Brush.verticalGradient(
+                colorStops = arrayOf(
+                    0.0f to Color(0xFFF5E8D8),
+                    0.25f to Color(0xFFFAF3EA),
+                    1.0f to Color(0xFFFBF9F5)
+                )
+            )
+        }
     }
 
     // TopBar 规格：内容高度 44.dp，加上状态栏总高度
@@ -187,7 +202,7 @@ fun HomeScreen(
     val topBarTotalHeight = statusBarTop + topBarContentHeight
 
     // 滚动驱动的 TopBar 背景 Alpha (0f -> 1f)：
-    // 在顶部未滚动时：alpha = 0f，完全透明，文字图标直接浮在 warmGradient 上，100% 融合，零色差！
+    // 在顶部未滚动时：alpha = 0f，完全透明，文字图标直接浮在 homeBackgroundBrush 上，100% 融合，零色差！
     // 向上滑动前 60dp 过程中：alpha 平滑过渡到 1f，变身为实色吸顶栏，完美遮挡滑过的卡片
     val topBarAlpha by remember {
         derivedStateOf {
@@ -206,7 +221,7 @@ fun HomeScreen(
         headerTopPadding = statusBarTop,
         modifier = modifier
             .fillMaxSize()
-            .background(warmGradient)
+            .background(homeBackgroundBrush)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // 1. 主列表：第一项自然排列在 TopBar 下方
@@ -502,11 +517,14 @@ fun HomeScreen(
             // - 在最顶部未滚动时：topBarAlpha 为 0f，完全透明，透出底层的 warmGradient 暖砂色，0 色差！
             // - 向上滚动时：topBarAlpha 渐变到 1f，平滑变身为实体背景 + 细分割线，无缝吸顶；
             // - 下拉刷新时：随整个内容整体下移，完全不遮挡顶部的刷新文字与旋转指示器。
+            val topBarBg = if (isDark) Color(0xFF191A18) else Color(0xFFF5E8D8)
+            val topBarDividerColor = if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f) else Color(0xFFE8D5BE)
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
-                    .background(Color(0xFFF5E8D8).copy(alpha = topBarAlpha))
+                    .background(topBarBg.copy(alpha = topBarAlpha))
                     .padding(top = statusBarTop)
             ) {
                 Box(
@@ -547,7 +565,7 @@ fun HomeScreen(
                 // 底部细分割线，同样跟随 topBarAlpha 淡入淡出
                 HorizontalDivider(
                     modifier = Modifier.align(Alignment.BottomCenter),
-                    color = Color(0xFFE8D5BE).copy(alpha = topBarAlpha),
+                    color = topBarDividerColor.copy(alpha = topBarAlpha),
                     thickness = 0.5.dp
                 )
             }
@@ -560,13 +578,6 @@ fun HomeScreen(
  * 杂志刊头 TopBar 组件
  */
 // ── 杂志复古纸质强调与状态配色 ───────────────────────────
-private val MenuPaperBg = Color(0xFFFCFAF6)          // 典雅羊皮纸白（与暖砂背景天然融合）
-private val MenuBorderColor = Color(0xFFE2D6C5)       // 书卷装订暖杏边线
-private val IconIdleCharcoal = Color(0xFF5A524A)      // 杂志标题印刷柔和炭墨色（未选中/正常）
-private val IconMutedGray = Color(0xFF9E958A)         // 典雅置灰石板铅印色（漫游未激活）
-private val RoamActiveOrange = Color(0xFFC85208)      // 杂志经典火漆焦橙色（漫游激活）
-private val RoamActivePillBg = Color(0xFFF7E6D7)      // 焦橙专属浅杏圆托底色
-private val VoiceActiveHaloBg = Color(0xFFF7E6D7)     // 语音倾听暖杏底托
 
 // 🌈 漫游模式下头像若隐若现低调珠光彩虹色盘（柔雾雅致、低饱和度、杂志纸风柔和配色）
 private val RainbowHaloColors = listOf(
@@ -658,7 +669,7 @@ private fun SocietyWeeklyTopBar(
             Icon(
                 imageVector = Icons.Default.Menu,
                 contentDescription = "Menu",
-                tint = SongbookColors.BurntOrange
+                tint = MaterialTheme.colorScheme.primary
             )
         }
 
@@ -708,7 +719,7 @@ private fun SocietyWeeklyTopBar(
                             text = displayText,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF5A524A),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             modifier = Modifier.basicMarquee(
                                 iterations = Int.MAX_VALUE,
@@ -774,7 +785,7 @@ private fun SocietyWeeklyTopBar(
                             if (haloVisibility <= 0.01f) {
                                 Modifier.border(
                                     width = 0.8.dp,
-                                    color = MenuBorderColor.copy(alpha = 0.6f),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                                     shape = CircleShape
                                 )
                             } else Modifier
@@ -870,6 +881,8 @@ private fun CapsuleActionMenu(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val themeConfig by AppThemeManager.config.collectAsState()
+    val isDark = themeConfig.isDark
 
     androidx.compose.animation.AnimatedVisibility(
         visible = isExpanded,
@@ -891,12 +904,12 @@ private fun CapsuleActionMenu(
                 .shadow(
                     elevation = 8.dp,
                     shape = RoundedCornerShape(20.dp),
-                    spotColor = Color(0x334A2810),
-                    ambientColor = Color(0x1F5C3318)
+                    spotColor = if (isDark) Color.Black.copy(alpha = 0.6f) else Color(0x334A2810),
+                    ambientColor = if (isDark) Color.Black.copy(alpha = 0.3f) else Color(0x1F5C3318)
                 ),
             shape = RoundedCornerShape(20.dp),
-            color = MenuPaperBg.copy(alpha = 0.98f),
-            border = BorderStroke(1.dp, MenuBorderColor)
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.98f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
         ) {
             Column(
                 modifier = Modifier
@@ -919,7 +932,7 @@ private fun CapsuleActionMenu(
                     modifier = Modifier
                         .width(18.dp)
                         .height(0.6.dp)
-                        .background(Color(0xFFE8DFD3))
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                 )
 
                 // ── 2. 语音功能总开关图标（点击切换开启/关闭） ──
@@ -936,7 +949,7 @@ private fun CapsuleActionMenu(
                     modifier = Modifier
                         .width(18.dp)
                         .height(0.6.dp)
-                        .background(Color(0xFFE8DFD3))
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                 )
 
                 // ── 3. 个人中心/账户图标 ──
@@ -953,7 +966,7 @@ private fun CapsuleActionMenu(
                     Icon(
                         painter = painterResource(R.drawable.ic_user_profile),
                         contentDescription = "User Profile",
-                        tint = IconIdleCharcoal,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(19.dp)
                     )
                 }
@@ -990,8 +1003,8 @@ private fun RoamActionButton(
             .then(
                 if (isRoamingMode) {
                     Modifier
-                        .background(RoamActivePillBg)
-                        .border(0.8.dp, Color(0xFFECCEB6), CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                        .border(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), CircleShape)
                 } else {
                     Modifier
                 }
@@ -1002,7 +1015,7 @@ private fun RoamActionButton(
         Icon(
             painter = painterResource(R.drawable.ic_roam_dice),
             contentDescription = "随心漫游",
-            tint = if (isRoamingMode) RoamActiveOrange else IconMutedGray,
+            tint = if (isRoamingMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             modifier = Modifier
                 .size(24.dp)
                 .then(
@@ -1045,8 +1058,8 @@ private fun VoiceToggleSwitchButton(
             .then(
                 if (isEnabled) {
                     Modifier
-                        .background(RoamActivePillBg)
-                        .border(0.8.dp, Color(0xFFECCEB6), CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                        .border(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), CircleShape)
                 } else {
                     Modifier
                 }
@@ -1057,7 +1070,7 @@ private fun VoiceToggleSwitchButton(
         Icon(
             painter = painterResource(R.drawable.ic_mic_voice),
             contentDescription = if (isEnabled) "语音功能已开启" else "语音功能已关闭",
-            tint = if (isEnabled) RoamActiveOrange else IconMutedGray,
+            tint = if (isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             modifier = Modifier
                 .size(20.dp)
                 .then(

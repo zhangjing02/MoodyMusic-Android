@@ -165,7 +165,7 @@ fun HeroFeaturedCard(
                         onClick = onPlayAlbumClick,
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = SongbookColors.BurntOrange
+                            contentColor = MaterialTheme.colorScheme.primary
                         ),
                         border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.OutlineVariant),
                         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp)

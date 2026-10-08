@@ -101,7 +101,7 @@ fun NoticeBoardScreen(
                         Text(
                             text = "OFFICIAL NOTICES",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SongbookColors.BurntOrange,
+                            color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 2.sp,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.SemiBold
@@ -129,7 +129,7 @@ fun NoticeBoardScreen(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "刷新公告",
-                            tint = if (isNoticeLoading) SongbookColors.BurntOrange else SongbookColors.SoftCharcoal,
+                            tint = if (isNoticeLoading) MaterialTheme.colorScheme.primary else SongbookColors.SoftCharcoal,
                             modifier = Modifier.rotate(if (isNoticeLoading) spinAngle else 0f)
                         )
                     }
@@ -138,7 +138,7 @@ fun NoticeBoardScreen(
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "发布新公告",
-                                tint = SongbookColors.BurntOrange
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -163,7 +163,7 @@ fun NoticeBoardScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     CircularProgressIndicator(
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         strokeWidth = 2.5.dp,
                         modifier = Modifier.size(32.dp)
                     )
@@ -353,7 +353,7 @@ private fun NoticeCard(
                 Text(
                     text = "—— ${notice.authorName}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = SongbookColors.BurntOrange,
+                    color = MaterialTheme.colorScheme.primary,
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                     fontSize = 11.5.sp
                 )
@@ -371,9 +371,9 @@ private fun NoticeTagBadge(notice: SystemNotice) {
 
     val (badgeBg, textColor, borderColor, icon) = when (tag) {
         "置顶" -> TagBadgeStyle(
-            bgColor = SongbookColors.BurntOrange.copy(alpha = 0.14f),
-            textColor = SongbookColors.BurntOrange,
-            borderColor = SongbookColors.BurntOrange.copy(alpha = 0.4f),
+            bgColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+            textColor = MaterialTheme.colorScheme.primary,
+            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
             icon = Icons.Default.Star
         )
         "版本信息" -> TagBadgeStyle(
@@ -407,8 +407,8 @@ private fun NoticeTagBadge(notice: SystemNotice) {
         if (notice.isPinned && tag != "置顶") {
             Surface(
                 shape = RoundedCornerShape(6.dp),
-                color = SongbookColors.BurntOrange.copy(alpha = 0.14f),
-                border = BorderStroke(0.8.dp, SongbookColors.BurntOrange.copy(alpha = 0.4f)),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                 modifier = Modifier.padding(end = 6.dp)
             ) {
                 Row(
@@ -418,13 +418,13 @@ private fun NoticeTagBadge(notice: SystemNotice) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = "置顶",
-                        tint = SongbookColors.BurntOrange,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(11.dp)
                     )
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "置顶",
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -524,7 +524,7 @@ private fun NoticeContent(
                             url = url,
                             styles = TextLinkStyles(
                                 style = SpanStyle(
-                                    color = SongbookColors.BurntOrange,
+                                    color = MaterialTheme.colorScheme.primary,
                                     textDecoration = TextDecoration.Underline,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -564,7 +564,7 @@ private fun NoticeContent(
                         Icon(
                             painter = painterResource(id = com.example.moodymusicforandroid.R.drawable.ic_copy),
                             contentDescription = "复制链接",
-                            tint = SongbookColors.BurntOrange.copy(alpha = 0.75f),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
                             modifier = Modifier.size(13.5.dp)
                         )
                     }
@@ -616,10 +616,10 @@ private fun CreateNoticeDialog(
                             val isSelected = selectedTag == tag
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = if (isSelected) SongbookColors.BurntOrange else SongbookColors.SurfaceLow,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.SurfaceLow,
                                 border = BorderStroke(
                                     1.dp,
-                                    if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder
+                                    if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.GhostBorder
                                 ),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
@@ -647,10 +647,10 @@ private fun CreateNoticeDialog(
                             val isSelected = selectedTag == tag
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = if (isSelected) SongbookColors.BurntOrange else SongbookColors.SurfaceLow,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.SurfaceLow,
                                 border = BorderStroke(
                                     1.dp,
-                                    if (isSelected) SongbookColors.BurntOrange else SongbookColors.GhostBorder
+                                    if (isSelected) MaterialTheme.colorScheme.primary else SongbookColors.GhostBorder
                                 ),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
@@ -698,7 +698,7 @@ private fun CreateNoticeDialog(
                     }
                 },
                 enabled = title.isNotBlank() && content.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = SongbookColors.BurntOrange)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("立即发布")
             }

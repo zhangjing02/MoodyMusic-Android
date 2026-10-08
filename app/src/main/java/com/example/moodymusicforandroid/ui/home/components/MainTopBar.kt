@@ -37,7 +37,11 @@ fun MainTopBar(
         },
         navigationIcon = {
             IconButton(onClick = onMenuClick) {
-                Icon(painterResource(R.drawable.ic_menu_strokes), contentDescription = "Menu")
+                Icon(
+                    painter = painterResource(R.drawable.ic_menu_strokes),
+                    contentDescription = "Menu",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         },
         actions = {
