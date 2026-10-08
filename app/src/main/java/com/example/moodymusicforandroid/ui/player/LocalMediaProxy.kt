@@ -230,7 +230,10 @@ object LocalMediaProxy {
                 val req = Request.Builder()
                     .url(warmUrl)
                     .head()
-                    .header("User-Agent", "MoodyMusic/1.0 (Prewarm)")
+                    .header("User-Agent", "MoodyMusic-Android/1.0 (Prewarm)")
+                    .header("X-App-Platform", "android")
+                    .header("X-Client-Type", "android")
+                    .header("Referer", AppConfig.apiBaseUrl)
                     .build()
                 okHttpClient.newCall(req).execute().close()
                 Log.d(TAG, "Prewarm connection established to: $warmUrl")
@@ -309,7 +312,10 @@ object LocalMediaProxy {
             fun buildRequest(url: String): Request {
                 val reqBuilder = Request.Builder()
                     .url(url)
-                    .header("User-Agent", "MoodyMusic/1.0 (Android Native Player Proxy)")
+                    .header("User-Agent", "MoodyMusic-Android/1.0 (Android Native Player Proxy)")
+                    .header("X-App-Platform", "android")
+                    .header("X-Client-Type", "android")
+                    .header("Referer", AppConfig.apiBaseUrl)
                 if (rangeHeader != null) {
                     reqBuilder.header("Range", rangeHeader)
                 }

@@ -317,7 +317,10 @@ object OfflineDownloadManager {
 
                     val request = Request.Builder()
                         .url(encodedUrl)
-                        .header("User-Agent", "MoodyMusic/1.0 (Offline Downloader)")
+                        .header("User-Agent", "MoodyMusic-Android/1.0 (Offline Downloader)")
+                        .header("X-App-Platform", "android")
+                        .header("X-Client-Type", "android")
+                        .header("Referer", AppConfig.apiBaseUrl)
                         .build()
 
                     val response = httpClient.newCall(request).execute()
@@ -395,7 +398,13 @@ object OfflineDownloadManager {
             try {
                 val fullUrl = AppConfig.resolveStorageUrl(lrcPath)
                 val safeUrl = AppConfig.safeEncodeUrl(fullUrl)
-                val req = Request.Builder().url(safeUrl).build()
+                val req = Request.Builder()
+                    .url(safeUrl)
+                    .header("User-Agent", "MoodyMusic-Android/1.0 (Lrc Downloader)")
+                    .header("X-App-Platform", "android")
+                    .header("X-Client-Type", "android")
+                    .header("Referer", AppConfig.apiBaseUrl)
+                    .build()
                 val resp = httpClient.newCall(req).execute()
                 if (resp.isSuccessful) {
                     val lrcText = resp.body?.string()
