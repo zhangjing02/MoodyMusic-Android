@@ -285,7 +285,7 @@ fun AppDrawerContent(
             Text(
                 text = "离线曲库",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.BurntOrange,
+                color = primary,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
                 fontSize = 11.5.sp
@@ -294,7 +294,7 @@ fun AppDrawerContent(
             Text(
                 text = "· OFFLINE STORAGE",
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.BurntOrange.copy(alpha = 0.45f),
+                color = primary.copy(alpha = 0.45f),
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 1.sp,
                 fontSize = 9.sp
@@ -307,11 +307,14 @@ fun AppDrawerContent(
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-            border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
+            border = androidx.compose.foundation.BorderStroke(1.dp, ghostBorder)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 DrawerMenuItem(
                     title = "下载管理",
+                    primary = primary,
+                    onSurface = onSurface,
+                    ghostBorder = ghostBorder,
                     onClick = onDownloadManagerClick
                 )
             }

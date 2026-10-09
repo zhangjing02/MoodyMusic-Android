@@ -518,6 +518,10 @@ private fun ThemeDetailContent(
 
                                 // 下方导赏与解析：经典极简排版，绝不使用出戏的生硬 emoji 前缀
                                 if (hasDetails) {
+                                    val isStandardSingleDesc = section.sceneStory.isNotBlank() &&
+                                            section.emotion.isBlank() &&
+                                            section.technique.isBlank() &&
+                                            section.performerNote.isBlank()
                                     if (isStandardSingleDesc) {
                                         // 经典内页副文本导赏（如演唱会解说、背景故事）
                                         Text(

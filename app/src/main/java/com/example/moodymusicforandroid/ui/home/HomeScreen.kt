@@ -840,31 +840,31 @@ private fun SocietyWeeklyTopBar(
                     }
 
                     CapsuleListeningMode.FAVORITE_SONGS -> {
-                        // 播放收藏歌曲：火漆焦橙色纯净图标直出，不加圆底背景
+                        // 播放收藏歌曲：强调色纯净图标直出，不加圆底背景
                         Icon(
                             painter = painterResource(R.drawable.ic_headset_fav_song),
                             contentDescription = "播放收藏歌曲",
-                            tint = RoamActiveOrange,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
 
                     CapsuleListeningMode.FAVORITE_ALBUMS -> {
-                        // 播放收藏专辑：火漆焦橙色纯净图标直出，不加圆底背景
+                        // 播放收藏专辑：强调色纯净图标直出，不加圆底背景
                         Icon(
                             painter = painterResource(R.drawable.ic_headset_fav_album),
                             contentDescription = "播放收藏专辑",
-                            tint = RoamActiveOrange,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
 
                     CapsuleListeningMode.FOLLOWED_ARTISTS -> {
-                        // 播放关注歌手：火漆焦橙色纯净图标直出，不加圆底背景
+                        // 播放关注歌手：强调色纯净图标直出，不加圆底背景
                         Icon(
                             painter = painterResource(R.drawable.ic_headset_fav_artist),
                             contentDescription = "播放关注歌手",
-                            tint = RoamActiveOrange,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -1078,7 +1078,6 @@ private fun CapsuleMenuItem(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
         Icon(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
