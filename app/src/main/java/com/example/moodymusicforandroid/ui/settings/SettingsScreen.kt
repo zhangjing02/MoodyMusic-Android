@@ -6,6 +6,24 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -117,8 +135,8 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
 
-            // ── 0. 显示模式（白色/黑色主题） ──────────────────────────
-            SettingsSectionLabel(text = "显示模式", primary = primary)
+            // ── 0. 界面外观（显示模式 + 主题色调统一收敛卡片） ──────────────────────────
+            SettingsSectionLabel(text = "界面外观", primary = primary)
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -127,129 +145,61 @@ fun SettingsScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(primary.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_palette),
-                                contentDescription = null,
-                                tint = primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "显示模式",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = onSurface
-                            )
-                            Text(
-                                text = if (isDark) "当前：黑色主题（夜间模式）" else "当前：白色主题（日间模式）",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isDark) primary else onSurface.copy(alpha = 0.6f),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
+                    // ── 主题色调：左侧标题与当前色调说明，右侧直接集成昼夜拟态 Switch ──
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 白色主题
-                        ThemeModeCard(
-                            label = "白色主题",
-                            subLabel = "日间 · 纸质暖白",
-                            isSelected = !isDark,
-                            indicatorColor = Color(0xFFF5F3EF),
-                            indicatorBorder = Color(0xFFDAC2B6),
-                            primary = primary,
-                            onSurface = onSurface,
-                            surfaceLow = surfaceLow,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                AppThemeManager.setDarkMode(false, context)
-                                Toast.makeText(context, "已切换为白色主题", Toast.LENGTH_SHORT).show()
-                            }
-                        )
-
-                        // 黑色主题
-                        ThemeModeCard(
-                            label = "黑色主题",
-                            subLabel = "夜间 · 深暗柔和",
-                            isSelected = isDark,
-                            indicatorColor = Color(0xFF222320),
-                            indicatorBorder = Color(0xFF54433A),
-                            primary = primary,
-                            onSurface = onSurface,
-                            surfaceLow = surfaceLow,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                AppThemeManager.setDarkMode(true, context)
-                                Toast.makeText(context, "已切换为黑色主题", Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // ── 1. 主题色调选择 ─────────────────────────────────────────
-            SettingsSectionLabel(text = "主题色调", primary = primary)
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = surfaceLow),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(primary.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_palette),
-                                contentDescription = null,
-                                tint = primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "主题色调",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = onSurface
-                            )
-                            val accentDesc = if (currentAccent == AppThemeManager.AccentColor.CUSTOM && themeConfig.customColorArgb != null) {
-                                val hex = String.format("#%06X", 0xFFFFFF and themeConfig.customColorArgb!!)
-                                "当前：自由调色盘 ($hex)"
-                            } else {
-                                "当前：${currentAccent.displayName}"
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(primary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_palette),
+                                    contentDescription = null,
+                                    tint = primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
-                            Text(
-                                text = accentDesc,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = primary,
-                                fontSize = 12.sp
-                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "主题色调",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = onSurface
+                                )
+                                val accentDesc = if (currentAccent == AppThemeManager.AccentColor.CUSTOM && themeConfig.customColorArgb != null) {
+                                    val hex = String.format("#%06X", 0xFFFFFF and themeConfig.customColorArgb!!)
+                                    "当前：自由调色盘 ($hex)"
+                                } else {
+                                    "当前：${currentAccent.displayName}"
+                                }
+                                Text(
+                                    text = accentDesc,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = primary,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
+
+                        // 右侧个性拟态昼夜 Switch 开关
+                        DayNightNeumorphicSwitch(
+                            isDark = isDark,
+                            onToggle = { newIsDark ->
+                                AppThemeManager.setDarkMode(newIsDark, context)
+                                Toast.makeText(context, if (newIsDark) "已切换为黑色主题" else "已切换为白色主题", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -840,71 +790,388 @@ private fun SettingsSectionLabel(text: String, primary: Color) {
     )
 }
 
-/** 显示模式选择卡片（白色/黑色）*/
+/**
+ * 极富个性的昼夜主题拟态切换开关 (DayNightNeumorphicSwitch)
+ *
+ * 参照设计规范与参考图：
+ * - 胶囊型内凹轨道：浅色下带有纸质微凹暗角，深色下为深邃碳墨凹槽；
+ * - 轨道内隐现微刻文字："LIGHT"（日间一侧，夜间时显露）与 "DARK"（夜间一侧，日间时显露）；
+ * - 浮雕圆形滑块：日间呈象牙白圆盘，中心绘制暖日金棕太阳 (☀️ 带放射圆头光芒)；
+ *   夜间呈曜石黑灰圆盘，中心绘制冷银月牙与小星芒 (🌙✨)；
+ * - 结合 spring 物理阻尼位移动画与图标微旋转，流畅自然，质感出众。
+ */
+/**
+ * 高质感新拟态昼夜切换开关 (DayNightNeumorphicSwitch)
+ *
+ * 参照设计规范与参考图（像素级深度复刻）：
+ * 1. 黄金视觉比例：宽度 72dp，高度 34dp，圆形滑块 28dp，内边距 3dp；
+ * 2. 新拟态内凹槽 (Debossed Track)：
+ *    - 依据左上方 135° 虚拟物理光源：
+ *    - 左上方渲染深色内阴影 (Inner Shadow)，下凹立体感突出；
+ *    - 右下方渲染亮白/微白内高光 (Inner Highlight)，形成边缘受光切面；
+ *    - 上暗下亮渐变边框，逼真倒角质感；
+ * 3. 紧凑排版与语义对齐 (Typography & Layout)：
+ *    - 白天模式（滑块居左）：右侧区域居中清晰显示两行 "LIGHT \n MODE"；
+ *    - 黑夜模式（滑块居右）：左侧区域居中清晰显示两行 "DARK \n MODE"；
+ *    - 滑块位移时通过精确 alpha 交叉淡化，互不遮挡，优雅切换；
+ * 4. 浮雕凸起滑块 (Embossed Convex Thumb)：
+ *    - 右下方立体软阴影 (Drop Shadow) 营造悬浮微凸感；
+ *    - 滑块表面自左上到右下呈现细腻微球面渐变 (Spherical Dome Gradient)；
+ *    - 倒角高光微边框；
+ * 5. 图标细节像素级复刻：
+ *    - 白天太阳：镂空圆环 (Hollow Ring) + 8 束精妙对称圆头放射光芒线；
+ *    - 黑夜月亮：流线圆润线条弯月 + 右上角一大一小双十字星芒 (Dual Stars)；
+ *    - 伴随平滑弹簧阻尼与图标转动动效。
+ */
 @Composable
-private fun ThemeModeCard(
-    label: String,
-    subLabel: String,
-    isSelected: Boolean,
-    indicatorColor: Color,
-    indicatorBorder: Color,
-    primary: Color,
-    onSurface: Color,
-    surfaceLow: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
+fun DayNightNeumorphicSwitch(
+    isDark: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) primary.copy(alpha = 0.10f) else surfaceLow,
-        border = androidx.compose.foundation.BorderStroke(
-            1.5.dp,
-            if (isSelected) primary else MaterialTheme.colorScheme.outlineVariant
+    val haptic = LocalHapticFeedback.current
+
+    // 0f 表示白天 (滑块居左)，1f 表示黑夜 (滑块居右)
+    val progress by animateFloatAsState(
+        targetValue = if (isDark) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = 0.78f,
+            stiffness = Spring.StiffnessMediumLow
         ),
-        modifier = modifier.height(88.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            // 颜色预览圆点 + 勾选标记
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .clip(CircleShape)
-                    .background(indicatorColor)
-                    .then(
-                        if (!isSelected) Modifier.border(1.dp, indicatorBorder, CircleShape) else Modifier
+        label = "day_night_switch_progress"
+    )
+
+    val trackWidth = 70.dp
+    val trackHeight = 32.dp
+    val thumbSize = 26.dp
+    val trackPadding = 3.dp
+    val maxSlideDistance = trackWidth - thumbSize - (trackPadding * 2) // 70 - 26 - 6 = 38.dp
+
+    // ── 1. 轨道颜色与新拟态内凹材质（全面对齐现代颂歌温暖纸质系统）──
+    val trackBgStart = lerp(
+        Color(0xFFEBE7DF), // 浅色温暖米纸微凹底
+        Color(0xFF141512), // 深色碳墨暗纸凹槽
+        progress
+    )
+    val trackBgEnd = lerp(
+        Color(0xFFDFDAD0), // 浅色凹槽底部轻暗面
+        Color(0xFF0C0D0B), // 深色碳胶底
+        progress
+    )
+
+    // 凹槽左上内阴影（浅色为温暖炭茶暗影，深色为沉黑暗影）与右下内高光（象牙白高光）
+    val innerShadowColor = lerp(Color(0x30352B20), Color(0x75000000), progress)
+    val innerHighlightColor = lerp(Color(0xF5FFFFFF), Color(0x18FFFFFF), progress)
+
+    // 外轮廓切面倒角边框（上微暗，下受光）
+    val trackBorderTop = lerp(Color(0x30877369), Color(0x55000000), progress)
+    val trackBorderBottom = lerp(Color(0xF0FFFFFF), Color(0x22FFFFFF), progress)
+
+    // ── 2. 滑块颜色与浮雕立体材质（象牙白浮雕圆盘）──
+    val thumbGradTopLeft = lerp(Color(0xFFFFFFFF), Color(0xFF383A35), progress)
+    val thumbGradCenter = lerp(Color(0xFFFAF9F6), Color(0xFF282A25), progress)
+    val thumbGradBottomRight = lerp(Color(0xFFEBE6DC), Color(0xFF1C1D1A), progress)
+
+    val thumbBorderTopLeft = lerp(Color(0xFFFFFFFF), Color(0xFF4C4E48), progress)
+    val thumbBorderBottomRight = lerp(Color(0xFFDED8CD), Color(0xFF161714), progress)
+
+    val thumbShadowColor = lerp(Color(0x2E3B2F23), Color(0x70000000), progress)
+
+    // ── 3. 文字与图标颜色（温润石墨灰，完全契合纸质正文）──
+    val textIconColor = lerp(
+        Color(0xFF7A7367), // 温暖石墨灰
+        Color(0xFF94978F), // 暗调沉稳银灰
+        progress
+    )
+
+    // 文字淡入淡出透明度
+    val lightTextAlpha = (1f - progress * 2.2f).coerceIn(0f, 1f)
+    val darkTextAlpha = ((progress - 0.55f) * 2.2f).coerceIn(0f, 1f)
+
+    Box(
+        modifier = modifier
+            .size(width = trackWidth, height = trackHeight)
+            .clip(RoundedCornerShape(percent = 50))
+            .drawBehind {
+                val corner = CornerRadius(size.height / 2f, size.height / 2f)
+
+                // A. 基础内凹底槽渐变
+                drawRoundRect(
+                    brush = Brush.verticalGradient(listOf(trackBgStart, trackBgEnd)),
+                    cornerRadius = corner
+                )
+
+                // B. 左上内阴影 (Inset Debossed Shadow)
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(innerShadowColor, Color.Transparent),
+                        startY = 0f,
+                        endY = 5.5.dp.toPx()
                     ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
+                    cornerRadius = corner
+                )
+                drawRoundRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(innerShadowColor, Color.Transparent),
+                        startX = 0f,
+                        endX = 6.5.dp.toPx()
+                    ),
+                    cornerRadius = corner
+                )
+
+                // C. 右下内高光 (Inset Highlight)
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, innerHighlightColor),
+                        startY = size.height - 4.5.dp.toPx(),
+                        endY = size.height
+                    ),
+                    cornerRadius = corner
+                )
+                drawRoundRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(Color.Transparent, innerHighlightColor),
+                        startX = size.width - 5.5.dp.toPx(),
+                        endX = size.width
+                    ),
+                    cornerRadius = corner
+                )
+
+                // D. 外切面倒角细描边
+                drawRoundRect(
+                    brush = Brush.verticalGradient(listOf(trackBorderTop, trackBorderBottom)),
+                    cornerRadius = corner,
+                    style = Stroke(width = 0.85.dp.toPx())
+                )
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onToggle(!isDark)
+            }
+            .padding(trackPadding),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        // ── 文本层 (精简为单行大写 LIGHT / DARK，去除冗余的 MODE) ──
+        // 1. 白天模式下：滑块在左侧，右侧区域居中展示单行 "LIGHT"
+        Box(
+            modifier = Modifier
+                .width(38.dp)
+                .fillMaxHeight()
+                .align(Alignment.CenterEnd)
+                .padding(end = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
-                text = label,
-                fontSize = 13.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) primary else onSurface
-            )
-            Text(
-                text = subLabel,
-                fontSize = 10.5.sp,
-                color = onSurface.copy(alpha = 0.5f),
-                maxLines = 1
+                text = "LIGHT",
+                fontSize = 7.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp,
+                color = textIconColor.copy(alpha = lightTextAlpha),
+                modifier = Modifier.graphicsLayer(alpha = lightTextAlpha)
             )
         }
+
+        // 2. 黑夜模式下：滑块在右侧，左侧区域居中展示单行 "DARK"
+        Box(
+            modifier = Modifier
+                .width(38.dp)
+                .fillMaxHeight()
+                .align(Alignment.CenterStart)
+                .padding(start = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "DARK",
+                fontSize = 7.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp,
+                color = textIconColor.copy(alpha = darkTextAlpha),
+                modifier = Modifier.graphicsLayer(alpha = darkTextAlpha)
+            )
+        }
+
+        // ── 浮雕滑块 (Embossed Convex Thumb) ──
+        val thumbOffset = maxSlideDistance * progress
+
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(thumbSize)
+                .drawBehind {
+                    // 右下方柔和羽化立体外投影 (Drop Shadow)
+                    drawCircle(
+                        color = thumbShadowColor,
+                        radius = size.width / 2f + 0.6.dp.toPx(),
+                        center = Offset(
+                            x = size.width / 2f + 1.5.dp.toPx(),
+                            y = size.height / 2f + 2.0.dp.toPx()
+                        )
+                    )
+                }
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(thumbGradTopLeft, thumbGradCenter, thumbGradBottomRight),
+                        start = Offset.Zero,
+                        end = Offset(thumbSize.value * 2.2f, thumbSize.value * 2.2f)
+                    )
+                )
+                .border(
+                    width = 0.8.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(thumbBorderTopLeft, thumbBorderBottomRight),
+                        start = Offset.Zero,
+                        end = Offset(thumbSize.value * 2.2f, thumbSize.value * 2.2f)
+                    ),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            val iconRotation = progress * 180f
+
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .graphicsLayer(rotationZ = iconRotation),
+                contentAlignment = Alignment.Center
+            ) {
+                // 太阳图标 (日间镂空光环)
+                if (progress < 0.85f) {
+                    val sunAlpha = (1f - progress * 1.3f).coerceIn(0f, 1f)
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(alpha = sunAlpha)
+                    ) {
+                        drawSunIcon(color = textIconColor)
+                    }
+                }
+
+                // 月亮与双星芒图标 (夜间线框月牙与双星)
+                if (progress > 0.15f) {
+                    val moonAlpha = ((progress - 0.15f) * 1.3f).coerceIn(0f, 1f)
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(alpha = moonAlpha)
+                    ) {
+                        drawMoonAndStarIcon(color = textIconColor)
+                    }
+                }
+            }
+        }
     }
+}
+
+/** 太阳图标绘制：中心镂空圆环 + 8 束精妙对称放射光芒线 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSunIcon(color: Color) {
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val coreRadius = size.minDimension * 0.22f
+    val strokeWidth = 1.35.dp.toPx()
+
+    // 1. 中心镂空圆环 (Hollow Ring)
+    drawCircle(
+        color = color,
+        radius = coreRadius,
+        center = center,
+        style = Stroke(width = strokeWidth)
+    )
+
+    // 2. 8 束圆头光芒线
+    val rayStart = coreRadius + 1.8.dp.toPx()
+    val rayEnd = coreRadius + 4.2.dp.toPx()
+
+    for (i in 0 until 8) {
+        val angleRad = (i * 45f) * (Math.PI / 180f).toFloat()
+        val startOffset = Offset(
+            x = center.x + kotlin.math.cos(angleRad) * rayStart,
+            y = center.y + kotlin.math.sin(angleRad) * rayStart
+        )
+        val endOffset = Offset(
+            x = center.x + kotlin.math.cos(angleRad) * rayEnd,
+            y = center.y + kotlin.math.sin(angleRad) * rayEnd
+        )
+        drawLine(
+            color = color,
+            start = startOffset,
+            end = endOffset,
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+/** 月牙与双星芒图标绘制：双圆布尔差集生成流线弯月 + 右上角一大一小双十字星芒 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMoonAndStarIcon(color: Color) {
+    val center = Offset(size.width * 0.42f, size.height * 0.52f)
+    val moonRadius = size.minDimension * 0.35f
+
+    // 1. 月牙 Path（利用主圆与切割圆差集生成自然月牙）
+    val moonPath = Path().apply {
+        val mainCircle = Path().apply {
+            addOval(Rect(center = center, radius = moonRadius))
+        }
+        val cutCircle = Path().apply {
+            addOval(
+                Rect(
+                    center = Offset(center.x + moonRadius * 0.50f, center.y - moonRadius * 0.30f),
+                    radius = moonRadius * 0.88f
+                )
+            )
+        }
+        op(mainCircle, cutCircle, PathOperation.Difference)
+    }
+
+    drawPath(path = moonPath, color = color)
+
+    // 2. 右上角双十字星芒 (Primary & Secondary Stars)
+    // 主星芒 (Primary Star)
+    val star1Center = Offset(size.width * 0.74f, size.height * 0.28f)
+    val star1Ray = 2.1.dp.toPx()
+    val star1Stroke = 1.0.dp.toPx()
+
+    drawLine(
+        color = color,
+        start = Offset(star1Center.x - star1Ray, star1Center.y),
+        end = Offset(star1Center.x + star1Ray, star1Center.y),
+        strokeWidth = star1Stroke,
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(star1Center.x, star1Center.y - star1Ray),
+        end = Offset(star1Center.x, star1Center.y + star1Ray),
+        strokeWidth = star1Stroke,
+        cap = StrokeCap.Round
+    )
+    drawCircle(
+        color = color,
+        radius = 0.6.dp.toPx(),
+        center = star1Center
+    )
+
+    // 副伴星芒 (Secondary Star, 较小，位于主星右下方)
+    val star2Center = Offset(size.width * 0.88f, size.height * 0.46f)
+    val star2Ray = 1.2.dp.toPx()
+    val star2Stroke = 0.85.dp.toPx()
+
+    drawLine(
+        color = color,
+        start = Offset(star2Center.x - star2Ray, star2Center.y),
+        end = Offset(star2Center.x + star2Ray, star2Center.y),
+        strokeWidth = star2Stroke,
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(star2Center.x, star2Center.y - star2Ray),
+        end = Offset(star2Center.x, star2Center.y + star2Ray),
+        strokeWidth = star2Stroke,
+        cap = StrokeCap.Round
+    )
 }
 
 /**
