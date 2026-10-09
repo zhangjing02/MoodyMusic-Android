@@ -14,6 +14,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.audiofx.AudioEffect
 import android.os.Binder
 import android.os.Build
 import android.os.Handler
@@ -89,6 +90,38 @@ class MusicPlayerService : Service() {
     private var retryCount: Int = 0
     private val retryHandler = Handler(Looper.getMainLooper())
     private val MAX_RETRY_COUNT = 2
+
+    // 系统级硬件音效控制会话（Dolby Atmos / 华为 Histen / 小米音效 / 车载声学算法）
+    private var currentAudioSessionId: Int? = null
+
+    private fun openAudioEffectSession(sessionId: Int) {
+        if (sessionId <= 0) return
+        try {
+            val intent = Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
+                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
+                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+            }
+            sendBroadcast(intent)
+            Log.i(TAG, "AudioEffect session opened for sessionId=$sessionId (Dolby/Histen/车载音效已挂载)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to open AudioEffect session: ${e.message}")
+        }
+    }
+
+    private fun closeAudioEffectSession(sessionId: Int?) {
+        if (sessionId == null || sessionId <= 0) return
+        try {
+            val intent = Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
+                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
+            }
+            sendBroadcast(intent)
+            Log.i(TAG, "AudioEffect session closed for sessionId=$sessionId")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to close AudioEffect session: ${e.message}")
+        }
+    }
 
     // 媒体流准备看门狗 (自适应数据流动感知：常规歌曲基准 35s，长篇大作/整轨特辑 60s)
     private val prepareTimeoutHandler = Handler(Looper.getMainLooper())
@@ -339,11 +372,20 @@ class MusicPlayerService : Service() {
         retryHandler.removeCallbacksAndMessages(null)
         prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
         progressHandler.removeCallbacks(progressRunnable)
+        currentAudioSessionId?.let {
+            closeAudioEffectSession(it)
+            currentAudioSessionId = null
+        }
         mediaPlayer?.release()
         mediaPlayer = MediaPlayer().apply {
             setAudioAttributes(AUDIO_ATTRIBUTES)
+            val newSessionId = audioSessionId
+            if (newSessionId > 0) {
+                currentAudioSessionId = newSessionId
+                openAudioEffectSession(newSessionId)
+            }
             try {
-                Log.i(TAG, "Playing song [${currentIndex + 1}/${playlist.size}]: ${item.songTitle}, url=$targetUrl (retryCount=$retryCount)")
+                Log.i(TAG, "Playing song [${currentIndex + 1}/${playlist.size}]: ${item.songTitle}, url=$targetUrl (retryCount=$retryCount, audioSessionId=$newSessionId)")
                 setDataSource(targetUrl)
 
                 // 动态自适应数据感知准备看门狗 (Dynamic Data-Flow Adaptive Watchdog)
@@ -799,6 +841,10 @@ class MusicPlayerService : Service() {
         prepareTimeoutRunnable?.let { prepareTimeoutHandler.removeCallbacks(it) }
         abandonAudioFocus()
         progressHandler.removeCallbacks(progressRunnable)
+        currentAudioSessionId?.let {
+            closeAudioEffectSession(it)
+            currentAudioSessionId = null
+        }
         try {
             mediaPlayer?.stop()
             mediaPlayer?.release()
