@@ -113,6 +113,7 @@ import com.example.moodymusicforandroid.data.model.toTopRecommendBanner
 import com.example.moodymusicforandroid.data.model.toTrackList
 import com.example.moodymusicforandroid.data.model.toVarietyShowGrid
 import com.example.moodymusicforandroid.data.manager.UserManager
+import com.example.moodymusicforandroid.data.manager.SecureAudioStorage
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.components.SongbookPullToRefreshLayout
 import com.example.moodymusicforandroid.ui.home.components.ArchiveCardBlock
@@ -245,17 +246,26 @@ fun HomeScreen(
                         HomeBlockType.TOP_RECOMMEND_BANNER -> {
                             item(key = block.id, contentType = block.type) {
                                 val banner = block.parsedData as? TopRecommendBannerData ?: block.toTopRecommendBanner()
-                            val cleanBannerTitle = banner.title.substringBefore("—").replace("《", "").replace("》", "").trim()
-                            val isBannerPlaying = playState.isPlaying && (
-                                (playState.songTitle.isNotBlank() && (playState.songTitle.contains(cleanBannerTitle) || cleanBannerTitle.contains(playState.songTitle))) ||
-                                (!banner.audioUrl.isNullOrBlank() && (
-                                    banner.audioUrl.substringAfterLast('/').substringBefore('?').isNotBlank() &&
-                                    banner.audioUrl.substringAfterLast('/').substringBefore('?') == playState.audioUrl.substringAfterLast('/').substringBefore('?')
-                                ))
-                            )
-                            TopRecommendBannerBlock(
-                                data = banner,
-                                isPlaying = isBannerPlaying,
+                                val cleanBannerTitle = banner.title.substringBefore("—").replace("《", "").replace("》", "").trim()
+                                val cleanCurrentTitle = playState.songTitle.substringBefore("—").replace("《", "").replace("》", "").trim()
+
+                                // 1. 标题严格精确匹配（杜绝 contains 子串包含导致短歌名误伤，如“雪”、“钢琴”等）
+                                val isTitleMatched = cleanBannerTitle.isNotBlank() && cleanCurrentTitle.isNotBlank() && (
+                                    cleanCurrentTitle.equals(cleanBannerTitle, ignoreCase = true) ||
+                                    cleanCurrentTitle.equals(banner.title.replace("《", "").replace("》", "").trim(), ignoreCase = true)
+                                )
+
+                                // 2. 音频真实资源一致性比对（杜绝 Generic 代理端点 /api/media/stream 的 "stream" 路径片段引发全局误判）
+                                val isAudioMatched = !banner.audioUrl.isNullOrBlank() &&
+                                    SecureAudioStorage.isSameAudioResource(banner.audioUrl, playState.audioUrl)
+
+                                // 3. 漫游与胶囊电台隔离：在随心漫游/电台模式下播放的是单曲流，绝不误触首页 Banner
+                                val isRoamingOrCapsule = playState.isRoamingMode || playState.capsuleListeningMode != CapsuleListeningMode.NONE
+
+                                val isBannerPlaying = playState.isPlaying && !isRoamingOrCapsule && (isAudioMatched || isTitleMatched)
+                                TopRecommendBannerBlock(
+                                    data = banner,
+                                    isPlaying = isBannerPlaying,
                                 onClick = { item ->
                                     if (item.actionType == "theme" || item.actionTarget.contains("theme")) {
                                         val fullTitle = if (item.subtitle.isNullOrBlank()) item.title else "${item.title} — ${item.subtitle}"
@@ -947,6 +957,12 @@ private fun CapsuleActionMenu(
             shrinkTowards = Alignment.Top
         )
     ) {
+        val dividerColor = if (isDark) {
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+        } else {
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+        }
+
         Surface(
             modifier = Modifier
                 .width(48.dp)
@@ -957,8 +973,8 @@ private fun CapsuleActionMenu(
                     ambientColor = if (isDark) Color.Black.copy(alpha = 0.3f) else Color(0x1F5C3318)
                 ),
             shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.98f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.95f else 0.98f),
+            border = BorderStroke(1.dp, if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
         ) {
             Column(
                 modifier = Modifier
@@ -972,6 +988,7 @@ private fun CapsuleActionMenu(
                     iconRes = R.drawable.ic_roam_dice,
                     contentDescription = "随心漫游",
                     isSelected = (currentMode == CapsuleListeningMode.ROAMING),
+                    isDark = isDark,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onRoamingClick()
@@ -983,7 +1000,7 @@ private fun CapsuleActionMenu(
                     modifier = Modifier
                         .width(20.dp)
                         .height(0.6.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        .background(dividerColor)
                 )
 
                 // ── 2. 播放收藏歌曲（一箭穿心 💘） ──
@@ -991,6 +1008,7 @@ private fun CapsuleActionMenu(
                     iconRes = R.drawable.ic_headset_fav_song,
                     contentDescription = "播放收藏歌曲",
                     isSelected = (currentMode == CapsuleListeningMode.FAVORITE_SONGS),
+                    isDark = isDark,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onPlayFavoriteSongs()
@@ -1002,7 +1020,7 @@ private fun CapsuleActionMenu(
                     modifier = Modifier
                         .width(20.dp)
                         .height(0.6.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        .background(dividerColor)
                 )
 
                 // ── 3. 播放收藏专辑（黑胶唱片 + 播放三角 ▶） ──
@@ -1010,6 +1028,7 @@ private fun CapsuleActionMenu(
                     iconRes = R.drawable.ic_headset_fav_album,
                     contentDescription = "播放收藏专辑",
                     isSelected = (currentMode == CapsuleListeningMode.FAVORITE_ALBUMS),
+                    isDark = isDark,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onPlayFavoriteAlbums()
@@ -1021,7 +1040,7 @@ private fun CapsuleActionMenu(
                     modifier = Modifier
                         .width(20.dp)
                         .height(0.6.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        .background(dividerColor)
                 )
 
                 // ── 4. 播放关注歌手（复古爵士立麦 🎙️ + 星芒） ──
@@ -1029,6 +1048,7 @@ private fun CapsuleActionMenu(
                     iconRes = R.drawable.ic_headset_fav_artist,
                     contentDescription = "播放关注歌手",
                     isSelected = (currentMode == CapsuleListeningMode.FOLLOWED_ARTISTS),
+                    isDark = isDark,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onPlayFollowedArtists()
@@ -1041,14 +1061,15 @@ private fun CapsuleActionMenu(
 
 /**
  * 胶囊菜单单项：
- * - 激活/选中状态：火漆焦橙色高亮 + 浅杏橙暖色圆底背景 + 细腻微呼吸
- * - 未激活/未选中状态：置灰石板铅印色 (IconMutedGray)，无底色无边框
+ * - 激活/选中状态：强调色高亮 + 浅色底托 + 细腻微呼吸
+ * - 未激活/未选中状态：深色下为象牙白微透 (70% onSurface)，浅色下为石板铅印色 (65% onSurfaceVariant)
  */
 @Composable
 private fun CapsuleMenuItem(
     iconRes: Int,
     contentDescription: String,
     isSelected: Boolean,
+    isDark: Boolean = false,
     onClick: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "capsule_item_pulse")
@@ -1062,6 +1083,12 @@ private fun CapsuleMenuItem(
         label = "item_pulse_scale"
     )
 
+    val unselectedColor = if (isDark) {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+    }
+
     Box(
         modifier = Modifier
             .size(36.dp)
@@ -1069,8 +1096,8 @@ private fun CapsuleMenuItem(
             .then(
                 if (isSelected) {
                     Modifier
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                        .border(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.20f else 0.15f))
+                        .border(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), CircleShape)
                 } else {
                     Modifier
                 }
@@ -1081,7 +1108,7 @@ private fun CapsuleMenuItem(
         Icon(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
-            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            tint = if (isSelected) MaterialTheme.colorScheme.primary else unselectedColor,
             modifier = Modifier
                 .size(24.dp)
                 .then(

@@ -84,6 +84,78 @@ object SecureAudioStorage {
     }
 
     /**
+     * 将流媒体 target 还原为直链真实地址（如果无法还原或不是流媒体则返回 null）
+     */
+    fun unpackStreamTarget(url: String?): String? {
+        if (url.isNullOrBlank() || !url.contains("/api/media/stream") || !url.contains("target=")) return null
+        val query = url.substringAfter('?', "")
+        val targetParam = query.split('&').firstOrNull { it.startsWith("target=") }?.substringAfter("target=")
+        if (targetParam.isNullOrBlank()) return null
+        return try {
+            val padLength = (4 - targetParam.length % 4) % 4
+            val padded = targetParam + "=".repeat(padLength)
+            val decodedBytes = try {
+                android.util.Base64.decode(padded, android.util.Base64.URL_SAFE)
+            } catch (_: Exception) {
+                android.util.Base64.decode(padded, android.util.Base64.DEFAULT)
+            }
+            val rawStr = String(decodedBytes, Charsets.UTF_8)
+            val decoded = java.net.URLDecoder.decode(rawStr, "UTF-8")
+            if (decoded.startsWith("http://") || decoded.startsWith("https://")) decoded else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * 提取实际音频文件名（如 snow_cafe_piano.mp3），必须包含合法音频后缀，绝不允许 Generic 路径名如 "stream"
+     */
+    fun extractAudioFileName(url: String?): String? {
+        if (url.isNullOrBlank()) return null
+        val cleanUrl = (unpackStreamTarget(url) ?: url).substringBefore('?').substringBefore('#')
+        val fileName = cleanUrl.substringAfterLast('/')
+        if (fileName.contains('.')) {
+            val ext = fileName.substringAfterLast('.', "")
+            if (ext.equals("mp3", ignoreCase = true) || ext.equals("m4a", ignoreCase = true) ||
+                ext.equals("flac", ignoreCase = true) || ext.equals("wav", ignoreCase = true) ||
+                ext.equals("aac", ignoreCase = true) || ext.equals("ogg", ignoreCase = true)
+            ) {
+                return fileName
+            }
+        }
+        return null
+    }
+
+    /**
+     * 判断两个音频地址是否指向同一个真实音频实体资源
+     * 彻底消灭将 Generic API 路径 (如 /api/media/stream) 的 "stream" 误作为文件名引发的全局假阳性对比
+     */
+    fun isSameAudioResource(url1: String?, url2: String?): Boolean {
+        if (url1.isNullOrBlank() || url2.isNullOrBlank()) return false
+        if (url1 == url2) return true
+
+        // 1. 尝试比对稳定的 Canonical Key (支持相同签名参数或相同 target)
+        val key1 = extractCanonicalResourceKey(url1)
+        val key2 = extractCanonicalResourceKey(url2)
+        if (key1.isNotBlank() && key2.isNotBlank() && key1 == key2) {
+            // 严防任何不带具体参数的通用路径片段碰撞
+            if (key1 != "stream" && !key1.endsWith("/stream")) {
+                return true
+            }
+        }
+
+        // 2. 尝试从 target 解包真实文件名对比（跨直链与签名流对比）
+        val file1 = extractAudioFileName(url1)
+        val file2 = extractAudioFileName(url2)
+        if (!file1.isNullOrBlank() && !file2.isNullOrBlank() && file1.equals(file2, ignoreCase = true)) {
+            return true
+        }
+
+        return false
+    }
+
+
+    /**
      * 根据远程 URL 生成唯一文件名 (.moody)
      */
     fun getSecureFileName(url: String): String {

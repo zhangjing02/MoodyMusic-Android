@@ -111,7 +111,7 @@ fun NoticeBoardScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontFamily = FontFamily.Serif,
                             fontWeight = FontWeight.Bold,
-                            color = SongbookColors.SoftCharcoal
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -120,7 +120,7 @@ fun NoticeBoardScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回",
-                            tint = SongbookColors.SoftCharcoal
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -129,7 +129,7 @@ fun NoticeBoardScreen(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "刷新公告",
-                            tint = if (isNoticeLoading) MaterialTheme.colorScheme.primary else SongbookColors.SoftCharcoal,
+                            tint = if (isNoticeLoading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.rotate(if (isNoticeLoading) spinAngle else 0f)
                         )
                     }
@@ -144,11 +144,11 @@ fun NoticeBoardScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SongbookColors.PaperBackground
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
-        containerColor = SongbookColors.PaperBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         if (isNoticeLoading && notices.isEmpty()) {
             // 首次进页面正在拉取数据时的 Loading 状态，避免闪现“暂无公告”
@@ -259,7 +259,7 @@ private fun NoticeCard(
 
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(1.dp, SongbookColors.GhostBorder),
         modifier = Modifier
             .fillMaxWidth()
@@ -293,7 +293,7 @@ private fun NoticeCard(
                     Text(
                         text = notice.createdAt?.take(10) ?: "近期",
                         style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.SoftCharcoal.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         fontSize = 11.sp
                     )
                 }
@@ -315,7 +315,7 @@ private fun NoticeCard(
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowUp,
                         contentDescription = if (isExpanded) "收起" else "展开",
-                        tint = SongbookColors.SoftCharcoal.copy(alpha = 0.5f),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         modifier = Modifier
                             .size(20.dp)
                             .rotate(arrowRotation)
@@ -331,7 +331,7 @@ private fun NoticeCard(
                 style = MaterialTheme.typography.titleMedium,
                 fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold,
-                color = SongbookColors.SoftCharcoal,
+                color = MaterialTheme.colorScheme.onSurface,
                 lineHeight = 22.sp
             )
 
@@ -484,7 +484,7 @@ private fun NoticeContent(
         Text(
             text = content,
             style = MaterialTheme.typography.bodyMedium,
-            color = SongbookColors.SoftCharcoal.copy(alpha = 0.85f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
             lineHeight = 22.sp,
             maxLines = if (isExpanded) Int.MAX_VALUE else 3,
             overflow = TextOverflow.Ellipsis
@@ -503,7 +503,7 @@ private fun NoticeContent(
                     Text(
                         text = line,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = SongbookColors.SoftCharcoal.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                         lineHeight = 22.sp
                     )
                 } else {
@@ -546,7 +546,7 @@ private fun NoticeContent(
                     Text(
                         text = annotatedLine,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = SongbookColors.SoftCharcoal.copy(alpha = 0.85f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                             lineHeight = 22.sp
                         ),
                         modifier = Modifier.weight(1f, fill = false)

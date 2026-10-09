@@ -306,7 +306,7 @@ fun AppDrawerContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
+            colors = CardDefaults.cardColors(containerColor = surfaceLow),
             border = androidx.compose.foundation.BorderStroke(1.dp, ghostBorder)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {

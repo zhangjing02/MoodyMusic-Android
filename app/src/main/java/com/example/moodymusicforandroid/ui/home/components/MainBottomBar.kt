@@ -90,13 +90,19 @@ fun MainBottomBar(
     onCancelVoiceRecording: () -> Unit = {},
     onVoiceNeedOpenPrompt: () -> Unit = {}
 ) {
+    val surface = MaterialTheme.colorScheme.surface
+    val isDark = remember(surface) {
+        (surface.red * 0.299f + surface.green * 0.587f + surface.blue * 0.114f) < 0.5f
+    }
+    val topBorderColor = if (isDark) Color.White.copy(alpha = 0.09f) else Color(0x14000000)
+
     SongbookBlurContainer(
         modifier = modifier.fillMaxWidth(),
         hazeState = hazeState,
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
         cornerRadius = 20.dp,
         elevation = 12.dp,
-        borderColor = Color.Transparent,  // 彻底移除边缘杂线
+        borderColor = Color.Transparent,
         borderWidth = 0.dp
     ) {
         Column(
@@ -104,6 +110,11 @@ fun MainBottomBar(
                 .fillMaxWidth()
                 .navigationBarsPadding()
         ) {
+            // 顶部晶透地平线：暗色下为 0.6dp 柔和白微光，划定底栏与主页滑动内容的立体视差边界
+            androidx.compose.material3.HorizontalDivider(
+                thickness = 0.6.dp,
+                color = topBorderColor
+            )
             MainBottomBarContent(
                 currentRoute = currentRoute,
                 onNavigate = onNavigate,

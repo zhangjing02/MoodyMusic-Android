@@ -69,7 +69,7 @@ fun PostDetailScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold,
-                        color = SongbookColors.SoftCharcoal
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -77,7 +77,7 @@ fun PostDetailScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回",
-                            tint = SongbookColors.SoftCharcoal
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -93,14 +93,14 @@ fun PostDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SongbookColors.PaperBackground
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
         bottomBar = {
             // 底部常驻评论输入栏
             Surface(
-                color = SongbookColors.SurfaceLow,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
                 modifier = Modifier
                     .fillMaxWidth()
                     .imePadding(),
@@ -181,7 +181,7 @@ fun PostDetailScreen(
                 }
             }
         },
-        containerColor = SongbookColors.PaperBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         if (post == null) {
             Box(

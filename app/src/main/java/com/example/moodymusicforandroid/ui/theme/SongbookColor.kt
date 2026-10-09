@@ -6,6 +6,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 
 /**
  * The Modern Songbook (现代颂歌) 杂志风色彩系统
@@ -141,7 +142,7 @@ val LocalExtendedColors = staticCompositionLocalOf { ExtendedColors() }
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * 单个强调色在浅色 / 深色主题下的 primary 和 onPrimary 色值
+ * 单个主题色在浅色 / 深色主题下的 primary 和 onPrimary 色值
  */
 data class AccentPalette(
     val lightPrimary: Color,
@@ -155,12 +156,12 @@ data class AccentPalette(
 )
 
 /**
- * 全量强调色映射表
- * 通过 AppThemeManager.AccentColor 枚举 key 获取对应的 Palette
+ * 全量主题色彩映射表
+ * 预设官方雅致推荐色，并提供自选调色盘色彩的科学映射生成器
  */
 object SongbookAccentPalettes {
 
-    /** 咖棕（默认）—— 焦橙 BurntOrange 系 */
+    /** 经典咖棕（官方推荐 / 原版默认：焦橙 #6C2F00） */
     val Mocha = AccentPalette(
         lightPrimary             = Color(0xFF6C2F00),   // BurntOrange
         lightOnPrimary           = Color.White,
@@ -172,51 +173,124 @@ object SongbookAccentPalettes {
         darkOnPrimaryContainer   = Color(0xFFFFDBC9),
     )
 
-    /** 苔绿（Sage）—— 深鼠尾草绿系 */
-    val Sage = AccentPalette(
-        lightPrimary             = Color(0xFF34614D),
+    /** 复古墨绿（森系雅致：#2E563E） */
+    val Forest = AccentPalette(
+        lightPrimary             = Color(0xFF2E563E),
         lightOnPrimary           = Color.White,
-        lightPrimaryContainer    = Color(0xFF4C7965),
-        lightOnPrimaryContainer  = Color(0xFFD6FFE9),
-        darkPrimary              = Color(0xFF8ACDA0),
-        darkOnPrimary            = Color(0xFF003920),
+        lightPrimaryContainer    = Color(0xFF3D6D50),
+        lightOnPrimaryContainer  = Color(0xFFD3F5DF),
+        darkPrimary              = Color(0xFF85CFA2),
+        darkOnPrimary            = Color(0xFF00381C),
         darkPrimaryContainer     = Color(0xFF1B4D35),
-        darkOnPrimaryContainer   = Color(0xFFD6FFE9),
+        darkOnPrimaryContainer   = Color(0xFFD3F5DF),
     )
+    val Sage = Forest // 向后兼容
 
-    /** 深蓝（Ocean）—— 海洋蓝系 */
+    /** 静谧黛蓝（北欧冷调：#204D74） */
     val Ocean = AccentPalette(
-        lightPrimary             = Color(0xFF0052A5),
+        lightPrimary             = Color(0xFF204D74),
         lightOnPrimary           = Color.White,
-        lightPrimaryContainer    = Color(0xFF1A6BC4),
-        lightOnPrimaryContainer  = Color(0xFFD1E8FF),
-        darkPrimary              = Color(0xFF9ECAFF),
-        darkOnPrimary            = Color(0xFF003063),
-        darkPrimaryContainer     = Color(0xFF004891),
-        darkOnPrimaryContainer   = Color(0xFFD1E8FF),
+        lightPrimaryContainer    = Color(0xFF2D6596),
+        lightOnPrimaryContainer  = Color(0xFFD2E6FD),
+        darkPrimary              = Color(0xFF8EBAE5),
+        darkOnPrimary            = Color(0xFF002F53),
+        darkPrimaryContainer     = Color(0xFF0F3A60),
+        darkOnPrimaryContainer   = Color(0xFFD2E6FD),
     )
 
-    /** 夕橙（Sunset）—— 日落橙红系 */
+    /** 晚霞暮绯（复古枫红：#9C3636） */
     val Sunset = AccentPalette(
-        lightPrimary             = Color(0xFFC94B00),
+        lightPrimary             = Color(0xFF9C3636),
         lightOnPrimary           = Color.White,
-        lightPrimaryContainer    = Color(0xFFE06020),
-        lightOnPrimaryContainer  = Color(0xFFFFDCC2),
-        darkPrimary              = Color(0xFFFFB691),
-        darkOnPrimary            = Color(0xFF5B1900),
-        darkPrimaryContainer     = Color(0xFF7D2D00),
-        darkOnPrimaryContainer   = Color(0xFFFFDCC2),
+        lightPrimaryContainer    = Color(0xFFBC4747),
+        lightOnPrimaryContainer  = Color(0xFFFFDAD9),
+        darkPrimary              = Color(0xFFFF9E9E),
+        darkOnPrimary            = Color(0xFF560007),
+        darkPrimaryContainer     = Color(0xFF731B1E),
+        darkOnPrimaryContainer   = Color(0xFFFFDAD9),
     )
 
     /**
-     * 根据 AccentColor 枚举获取对应 Palette
+     * 基于色彩学第一性原理的自适应 Palette 生成器
+     * 将用户在调色盘中自由选择的任意基础色，科学映射为符合《现代颂歌》纸质美学与 Material 3 对比度规范的完整 Palette。
      */
-    fun of(accentColor: com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor): AccentPalette {
+    fun fromCustomColor(baseColor: Color): AccentPalette {
+        val argb = baseColor.toArgb()
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(argb, hsv)
+        val hue = hsv[0]
+        val sat = hsv[1]
+        val value = hsv[2]
+
+        // 1. 浅色模式 Primary：
+        // 若饱和度过低且亮度极高（近乎纯白），适度微调防止在米白纸质背景上隐形
+        val lightPrimary = if (value > 0.88f && sat < 0.25f) {
+            Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.45f, 0.65f)))
+        } else {
+            baseColor
+        }
+
+        // 浅色模式 onPrimary：根据感知亮度自适应 (Rec. 601)
+        val luminance = lightPrimary.red * 0.299f + lightPrimary.green * 0.587f + lightPrimary.blue * 0.114f
+        val lightOnPrimary = if (luminance > 0.62f) Color(0xFF1B1C1A) else Color.White
+
+        // 浅色容器色：降低饱和度、适度提高明度
+        val lightContainer = Color(
+            android.graphics.Color.HSVToColor(
+                floatArrayOf(hue, (sat * 0.45f).coerceIn(0.15f, 0.50f), (value * 0.95f).coerceIn(0.70f, 0.95f))
+            )
+        )
+        val lightOnContainer = if (luminance > 0.62f) Color(0xFF1B1C1A) else Color(0xFF1B1C1A)
+
+        // 2. 深色模式 Primary（核心）：
+        // 在纯暗背景下，主色必须具有温润发光的高对比度（提高 Value 至 0.88~0.96，收敛 Saturation 至 0.35~0.55）
+        val darkPrimary = Color(
+            android.graphics.Color.HSVToColor(
+                floatArrayOf(hue, (sat * 0.55f).coerceIn(0.32f, 0.55f), (value + 0.50f).coerceIn(0.88f, 0.98f))
+            )
+        )
+        val darkOnPrimary = Color(0xFF1E140A)
+
+        // 深色容器色：基色本身或略降明度的沉着色
+        val darkContainer = Color(
+            android.graphics.Color.HSVToColor(
+                floatArrayOf(hue, (sat * 0.8f).coerceIn(0.40f, 0.80f), (value * 0.5f).coerceIn(0.25f, 0.55f))
+            )
+        )
+        val darkOnContainer = Color(
+            android.graphics.Color.HSVToColor(
+                floatArrayOf(hue, 0.25f, 0.95f)
+            )
+        )
+
+        return AccentPalette(
+            lightPrimary = lightPrimary,
+            lightOnPrimary = lightOnPrimary,
+            lightPrimaryContainer = lightContainer,
+            lightOnPrimaryContainer = lightOnContainer,
+            darkPrimary = darkPrimary,
+            darkOnPrimary = darkOnPrimary,
+            darkPrimaryContainer = darkContainer,
+            darkOnPrimaryContainer = darkOnContainer
+        )
+    }
+
+    /**
+     * 根据 AccentColor 枚举与自选颜色获取对应 Palette
+     */
+    fun of(
+        accentColor: com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor,
+        customColorArgb: Int? = null
+    ): AccentPalette {
+        if (accentColor == com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.CUSTOM && customColorArgb != null) {
+            return fromCustomColor(Color(customColorArgb))
+        }
         return when (accentColor) {
             com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.MOCHA  -> Mocha
-            com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.SAGE   -> Sage
+            com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.FOREST -> Forest
             com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.OCEAN  -> Ocean
             com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.SUNSET -> Sunset
+            com.example.moodymusicforandroid.common.utils.AppThemeManager.AccentColor.CUSTOM -> Mocha
         }
     }
 }

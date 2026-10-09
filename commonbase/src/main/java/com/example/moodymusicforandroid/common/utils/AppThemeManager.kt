@@ -32,40 +32,55 @@ object AppThemeManager {
     private const val PREFS_NAME = "app_theme_prefs"
     private const val KEY_IS_DARK = "is_dark_mode"
     private const val KEY_ACCENT_COLOR = "accent_color"
+    private const val KEY_CUSTOM_COLOR_ARGB = "custom_color_argb"
 
-    // ─── 强调色枚举 ───────────────────────────────────────────────────────────
+    // ─── 主题色枚举 ───────────────────────────────────────────────────────────
     /**
-     * 强调色方案
-     * 每种颜色包含浅色/深色主题下的 primary 色值，以字符串 key 存入 SharedPreferences
+     * 主题色调方案
+     * 预设雅致推荐色，并支持自由调色盘 CUSTOM 模式
      */
-    enum class AccentColor(val key: String, val displayName: String) {
-        /** 咖棕（当前默认：焦橙 BurntOrange） */
-        MOCHA("mocha", "咖棕"),
-        /** 鼠尾草绿（Sage Green） */
-        SAGE("sage", "苔绿"),
-        /** 海洋蓝（Ocean Blue） */
-        OCEAN("ocean", "深蓝"),
-        /** 日落橙红（Sunset Red） */
-        SUNSET("sunset", "夕橙");
+    enum class AccentColor(val key: String, val displayName: String, val defaultHex: String) {
+        /** 经典咖棕（官方推荐 / 原版经典焦橙） */
+        MOCHA("mocha", "经典咖棕", "#6C2F00"),
+        /** 复古墨绿（森系雅致） */
+        FOREST("forest", "复古墨绿", "#2E563E"),
+        /** 静谧黛蓝（北欧冷调） */
+        OCEAN("ocean", "静谧黛蓝", "#204D74"),
+        /** 晚霞暮绯（复古枫红） */
+        SUNSET("sunset", "晚霞暮绯", "#9C3636"),
+        /** 自由调色盘自定义色彩 */
+        CUSTOM("custom", "自由调色", "");
 
         companion object {
+            // 向后兼容旧版 SAGE 引用
+            val SAGE: AccentColor get() = FOREST
+
             fun fromKey(key: String): AccentColor =
-                entries.firstOrNull { it.key == key } ?: MOCHA
+                when (key) {
+                    "mocha" -> MOCHA
+                    "forest", "sage" -> FOREST
+                    "ocean" -> OCEAN
+                    "sunset" -> SUNSET
+                    "custom" -> CUSTOM
+                    else -> MOCHA
+                }
         }
     }
 
     // ─── 主题配置数据类 ────────────────────────────────────────────────────────
     /**
      * 主题配置快照
-     * @param isDark      true = 黑色主题；false = 白色主题
-     * @param accentColor 强调色方案
+     * @param isDark           true = 黑色主题；false = 白色主题
+     * @param accentColor      主题色方案
+     * @param customColorArgb  用户通过调色盘自由调制的 ARGB 整数（accentColor 为 CUSTOM 时生效）
      */
     data class ThemeConfig(
         val isDark: Boolean = false,
-        val accentColor: AccentColor = AccentColor.MOCHA
+        val accentColor: AccentColor = AccentColor.MOCHA,
+        val customColorArgb: Int? = null
     )
 
-    // ─── StateFlow（Compose 层订阅这个） ──────────────────────────────────────
+    // ─── StateFlow（Compose 层订阅） ──────────────────────────────────────────
     private val _config = MutableStateFlow(ThemeConfig())
     val config: StateFlow<ThemeConfig> = _config.asStateFlow()
 
@@ -77,37 +92,47 @@ object AppThemeManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val isDark = prefs.getBoolean(KEY_IS_DARK, false)
         val accentKey = prefs.getString(KEY_ACCENT_COLOR, AccentColor.MOCHA.key) ?: AccentColor.MOCHA.key
+        val accentColor = AccentColor.fromKey(accentKey)
+        val customArgb = if (prefs.contains(KEY_CUSTOM_COLOR_ARGB)) prefs.getInt(KEY_CUSTOM_COLOR_ARGB, 0) else null
         _config.value = ThemeConfig(
             isDark = isDark,
-            accentColor = AccentColor.fromKey(accentKey)
+            accentColor = accentColor,
+            customColorArgb = if (accentColor == AccentColor.CUSTOM) customArgb else null
         )
     }
 
     // ─── 切换深色/浅色 ────────────────────────────────────────────────────────
-    /**
-     * 切换黑/白主题
-     * @param isDark true = 切换为黑色主题；false = 切换为白色主题
-     * @param context 用于写入 SharedPreferences
-     */
     fun setDarkMode(isDark: Boolean, context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean(KEY_IS_DARK, isDark).apply()
         _config.value = _config.value.copy(isDark = isDark)
     }
 
-    // ─── 切换强调色 ───────────────────────────────────────────────────────────
-    /**
-     * 切换强调色
-     * @param accentColor 目标强调色方案
-     * @param context 用于写入 SharedPreferences
-     */
+    // ─── 切换预设主题色 ────────────────────────────────────────────────────────
     fun setAccentColor(accentColor: AccentColor, context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString(KEY_ACCENT_COLOR, accentColor.key).apply()
-        _config.value = _config.value.copy(accentColor = accentColor)
+        _config.value = _config.value.copy(
+            accentColor = accentColor,
+            customColorArgb = if (accentColor == AccentColor.CUSTOM) _config.value.customColorArgb else null
+        )
+    }
+
+    // ─── 设置自由调色盘自定义颜色 ──────────────────────────────────────────────
+    fun setCustomColor(colorArgb: Int, context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString(KEY_ACCENT_COLOR, AccentColor.CUSTOM.key)
+            .putInt(KEY_CUSTOM_COLOR_ARGB, colorArgb)
+            .apply()
+        _config.value = _config.value.copy(
+            accentColor = AccentColor.CUSTOM,
+            customColorArgb = colorArgb
+        )
     }
 
     // ─── 便捷只读属性（在非 Compose 层使用） ─────────────────────────────────
     val isDark: Boolean get() = _config.value.isDark
     val accentColor: AccentColor get() = _config.value.accentColor
+    val customColorArgb: Int? get() = _config.value.customColorArgb
 }

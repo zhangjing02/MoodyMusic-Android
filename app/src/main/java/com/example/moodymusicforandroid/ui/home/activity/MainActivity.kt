@@ -39,6 +39,7 @@ import com.example.moodymusicforandroid.common.eventbus.EventBusManager
 import com.example.moodymusicforandroid.common.eventbus.EventType
 import com.example.moodymusicforandroid.common.preferences.PreferencesManager
 import com.example.moodymusicforandroid.data.manager.UserManager
+import com.example.moodymusicforandroid.data.manager.SecureAudioStorage
 import com.example.moodymusicforandroid.common.utils.ActivityTransitionUtils
 import com.example.moodymusicforandroid.common.utils.AppFlags
 import com.example.moodymusicforandroid.common.utils.FontManager
@@ -606,16 +607,18 @@ fun MainScreen(
 
                     entry<RouteThemeDetail> { key ->
                         val cleanKeyTitle = key.title.substringBefore("—").replace("《", "").replace("》", "").trim()
-                        val isTitleMatched = playState.songTitle.isNotBlank() && playState.songTitle.equals(cleanKeyTitle, ignoreCase = true)
-                        val resolvedKeyAudio = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl(key.audioUrl)
-                        val keyAudioName = key.audioUrl.substringAfterLast('/').substringBefore('?')
-                        val playAudioName = playState.audioUrl.substringAfterLast('/').substringBefore('?')
-                        val isUrlMatched = key.audioUrl.isNotBlank() && playState.audioUrl.isNotBlank() && (
-                            playState.audioUrl == key.audioUrl ||
-                            playState.audioUrl == resolvedKeyAudio ||
-                            (keyAudioName.isNotBlank() && keyAudioName == playAudioName)
+                        val cleanCurrentTitle = playState.songTitle.substringBefore("—").replace("《", "").replace("》", "").trim()
+                        val isTitleMatched = cleanKeyTitle.isNotBlank() && cleanCurrentTitle.isNotBlank() && (
+                            cleanCurrentTitle.equals(cleanKeyTitle, ignoreCase = true) ||
+                            cleanCurrentTitle.equals(key.title.replace("《", "").replace("》", "").trim(), ignoreCase = true)
                         )
-                        val isThisThemeActive = if (key.audioUrl.isNotBlank()) isUrlMatched else isTitleMatched
+                        val resolvedKeyAudio = com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl(key.audioUrl)
+                        val isUrlMatched = (!key.audioUrl.isNullOrBlank() || !resolvedKeyAudio.isNullOrBlank()) && (
+                            SecureAudioStorage.isSameAudioResource(key.audioUrl, playState.audioUrl) ||
+                            SecureAudioStorage.isSameAudioResource(resolvedKeyAudio, playState.audioUrl)
+                        )
+                        val isRoamingOrCapsule = playState.isRoamingMode || playState.capsuleListeningMode != com.example.moodymusicforandroid.ui.player.CapsuleListeningMode.NONE
+                        val isThisThemeActive = !isRoamingOrCapsule && (if (key.audioUrl.isNotBlank()) isUrlMatched else isTitleMatched)
                         val isThisThemePlaying = playState.isPlaying && isThisThemeActive
                         val isMiniPlayerVisible = playState.songTitle.isNotBlank()
                         ThemeDetailScreen(

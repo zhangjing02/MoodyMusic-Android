@@ -72,6 +72,14 @@ fun DownloadManagerScreen(
         Formatter.formatFileSize(context, totalStorageBytes)
     }
 
+    val primary = MaterialTheme.colorScheme.primary
+    val surface = MaterialTheme.colorScheme.surface
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val background = MaterialTheme.colorScheme.background
+    val surfaceLow = MaterialTheme.colorScheme.surfaceContainerLow
+    val outline = MaterialTheme.colorScheme.outline
+    val ghostBorder = SongbookColors.GhostBorder
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -79,7 +87,7 @@ fun DownloadManagerScreen(
                     Text(
                         text = "下载管理",
                         style = MaterialTheme.typography.titleLarge,
-                        color = SongbookColors.SoftCharcoal,
+                        color = onSurface,
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -88,7 +96,7 @@ fun DownloadManagerScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回",
-                            tint = SongbookColors.SoftCharcoal
+                            tint = onSurface
                         )
                     }
                 },
@@ -104,11 +112,11 @@ fun DownloadManagerScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SongbookColors.PaperBackground
+                    containerColor = surface
                 )
             )
         },
-        containerColor = SongbookColors.PaperBackground
+        containerColor = background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -121,8 +129,8 @@ fun DownloadManagerScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-                border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
+                colors = CardDefaults.cardColors(containerColor = surfaceLow),
+                border = androidx.compose.foundation.BorderStroke(1.dp, ghostBorder)
             ) {
                 Row(
                     modifier = Modifier
@@ -135,19 +143,19 @@ fun DownloadManagerScreen(
                         Text(
                             text = "本地离线曲库空间",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SongbookColors.Outline,
+                            color = outline,
                             letterSpacing = 1.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "已离线 ${downloadedSongs.size} 首歌曲 · 占用 $formattedStorageSize",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = SongbookColors.SoftCharcoal,
+                            color = onSurface,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
                     Surface(
-                        color = SongbookColors.BurntOrange.copy(alpha = 0.12f),
+                        color = primary.copy(alpha = 0.12f),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(
@@ -155,13 +163,13 @@ fun DownloadManagerScreen(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             AlbumDownloadIcon(
-                                tint = SongbookColors.BurntOrange,
+                                tint = primary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "私有加密",
-                                color = SongbookColors.BurntOrange,
+                                color = primary,
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -173,10 +181,10 @@ fun DownloadManagerScreen(
             // ── 2. 分页 Tab 栏 ─────────────────────────────────────
             TabRow(
                 selectedTabIndex = selectedTabIndex,
-                containerColor = SongbookColors.PaperBackground,
-                contentColor = SongbookColors.BurntOrange,
+                containerColor = surface,
+                contentColor = primary,
                 divider = {
-                    HorizontalDivider(color = SongbookColors.GhostBorder, thickness = 0.5.dp)
+                    HorizontalDivider(color = ghostBorder.copy(alpha = 0.6f), thickness = 0.5.dp)
                 }
             ) {
                 Tab(
@@ -298,6 +306,7 @@ private fun DownloadingTabContent(
     onResume: (DownloadTask) -> Unit,
     onCancel: (DownloadTask) -> Unit
 ) {
+    val outline = MaterialTheme.colorScheme.outline
     if (tasks.isEmpty()) {
         Box(
             modifier = Modifier
@@ -307,14 +316,14 @@ private fun DownloadingTabContent(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 AlbumDownloadIcon(
-                    tint = SongbookColors.Outline.copy(alpha = 0.4f),
+                    tint = outline.copy(alpha = 0.4f),
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "当前没有正在排队或下载的任务",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = SongbookColors.Outline
+                    color = outline
                 )
             }
         }
@@ -344,12 +353,17 @@ private fun DownloadingItemCard(
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
+    val surfaceLow = MaterialTheme.colorScheme.surfaceContainerLow
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val outline = MaterialTheme.colorScheme.outline
+    val primary = MaterialTheme.colorScheme.primary
+    val ghostBorder = SongbookColors.GhostBorder
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
-        border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
+        colors = CardDefaults.cardColors(containerColor = surfaceLow),
+        border = androidx.compose.foundation.BorderStroke(1.dp, ghostBorder)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -373,7 +387,7 @@ private fun DownloadingItemCard(
                         text = task.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = SongbookColors.SoftCharcoal,
+                        color = onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -381,7 +395,7 @@ private fun DownloadingItemCard(
                     Text(
                         text = "${task.artistName} · ${task.albumTitle}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = SongbookColors.Outline,
+                        color = outline,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         fontSize = 11.5.sp
@@ -400,7 +414,7 @@ private fun DownloadingItemCard(
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = "继续",
-                                tint = SongbookColors.BurntOrange,
+                                tint = primary,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -422,7 +436,7 @@ private fun DownloadingItemCard(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "取消任务",
-                        tint = SongbookColors.Outline,
+                        tint = outline,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -439,8 +453,8 @@ private fun DownloadingItemCard(
                             .fillMaxWidth()
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp)),
-                        color = SongbookColors.BurntOrange,
-                        trackColor = SongbookColors.BurntOrange.copy(alpha = 0.18f)
+                        color = primary,
+                        trackColor = primary.copy(alpha = 0.18f)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
@@ -452,12 +466,12 @@ private fun DownloadingItemCard(
                         Text(
                             text = "$currentStr / $totalStr",
                             fontSize = 10.sp,
-                            color = SongbookColors.Outline
+                            color = outline
                         )
                         Text(
                             text = "${(status.progress * 100).toInt()}%",
                             fontSize = 10.sp,
-                            color = SongbookColors.BurntOrange,
+                            color = primary,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -466,14 +480,14 @@ private fun DownloadingItemCard(
                     Text(
                         text = "正在排队中，等待空闲带宽...",
                         fontSize = 11.sp,
-                        color = SongbookColors.Outline
+                        color = outline
                     )
                 }
                 is DownloadStatus.PAUSED -> {
                     Text(
                         text = "已暂停下载",
                         fontSize = 11.sp,
-                        color = SongbookColors.Outline
+                        color = outline
                     )
                 }
                 is DownloadStatus.FAILED -> {
@@ -504,6 +518,7 @@ private fun DownloadedTabContent(
     onPlaySong: (DownloadedSongEntity) -> Unit,
     onDeleteSong: (DownloadedSongEntity) -> Unit
 ) {
+    val outline = MaterialTheme.colorScheme.outline
     if (songs.isEmpty()) {
         Box(
             modifier = Modifier
@@ -513,20 +528,20 @@ private fun DownloadedTabContent(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 AlbumDownloadIcon(
-                    tint = SongbookColors.Outline.copy(alpha = 0.4f),
+                    tint = outline.copy(alpha = 0.4f),
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "暂无已下载的离线歌曲",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = SongbookColors.Outline
+                    color = outline
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "进入任意专辑页面，点击「下载专辑」即可离线至本地",
                     style = MaterialTheme.typography.bodySmall,
-                    color = SongbookColors.Outline.copy(alpha = 0.65f),
+                    color = outline.copy(alpha = 0.65f),
                     fontSize = 12.sp
                 )
             }
@@ -555,6 +570,9 @@ private fun DownloadedItemCard(
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
+    val surfaceLow = MaterialTheme.colorScheme.surfaceContainerLow
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val outline = MaterialTheme.colorScheme.outline
     val sizeStr = remember(song.fileSize) {
         Formatter.formatFileSize(context, song.fileSize)
     }
@@ -563,7 +581,7 @@ private fun DownloadedItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(SongbookColors.SurfaceLow)
+            .background(surfaceLow)
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -585,7 +603,7 @@ private fun DownloadedItemCard(
                     text = song.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
-                    color = SongbookColors.SoftCharcoal,
+                    color = onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -599,7 +617,7 @@ private fun DownloadedItemCard(
             Text(
                 text = "${song.artistName} · ${song.albumTitle} · $sizeStr",
                 style = MaterialTheme.typography.bodySmall,
-                color = SongbookColors.Outline,
+                color = outline,
                 fontSize = 11.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -613,7 +631,7 @@ private fun DownloadedItemCard(
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = "删除歌曲",
-                tint = SongbookColors.Outline.copy(alpha = 0.55f),
+                tint = outline.copy(alpha = 0.55f),
                 modifier = Modifier.size(18.dp)
             )
         }

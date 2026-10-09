@@ -73,7 +73,7 @@ fun SongbookTheme(
  * 2. 用强调色 Palette 覆写 primary / onPrimary / primaryContainer / onPrimaryContainer
  */
 private fun buildColorScheme(config: AppThemeManager.ThemeConfig): ColorScheme {
-    val palette = SongbookAccentPalettes.of(config.accentColor)
+    val palette = SongbookAccentPalettes.of(config.accentColor, config.customColorArgb)
     return if (config.isDark) {
         SongbookDarkColorScheme.copy(
             primary              = palette.darkPrimary,

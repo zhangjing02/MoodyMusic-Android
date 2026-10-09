@@ -3,6 +3,9 @@ package com.example.moodymusicforandroid.ui.settings
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -38,18 +41,10 @@ import com.example.moodymusicforandroid.ui.theme.SongbookAccentPalettes
  * 应用设置页面 (SettingsScreen)
  *
  * 改造：
- * - 全部 SongbookColors.BurntOrange / SoftCharcoal / PaperBackground 替换为 MaterialTheme
- * - 新增「显示模式」（白色/黑色）切换卡片
- * - 新增「强调色」选择卡片（咖棕 / 苔绿 / 深蓝 / 夕橙）
- * - 移除旧 ThemeManager 多主题列表（合并进新方案）
- *
- * 功能：
- * 1. 显示模式（白色/黑色主题）
- * 2. 强调色选择
- * 3. App 休眠时间（睡眠定时器）
- * 4. 首页卡片播放偏好
- * 5. 字体显示大小
- * 6. 存储与缓存清理
+ * - 全部 SongbookColors 语义化对接 MaterialTheme
+ * - 显示模式（白色/黑色）切换卡片
+ * - 主题色调（官方雅致推荐色 + 自由调色盘）切换卡片
+ * - 移除旧版生硬“强调色”术语与固定怪异色彩
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +57,9 @@ fun SettingsScreen(
     val themeConfig by AppThemeManager.config.collectAsState()
     val isDark = themeConfig.isDark
     val currentAccent = themeConfig.accentColor
+
+    // ── 自由调色盘弹窗开关 ──
+    var showColorPicker by remember { mutableStateOf(false) }
 
     // ── 休眠定时状态 ──
     val selectedSleepTimer by SleepTimerManager.selectedMinutes.collectAsState()
@@ -206,8 +204,8 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // ── 1. 强调色选择 ─────────────────────────────────────────
-            SettingsSectionLabel(text = "强调色", primary = primary)
+            // ── 1. 主题色调选择 ─────────────────────────────────────────
+            SettingsSectionLabel(text = "主题色调", primary = primary)
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -225,7 +223,7 @@ fun SettingsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Star,
+                                painter = painterResource(R.drawable.ic_palette),
                                 contentDescription = null,
                                 tint = primary,
                                 modifier = Modifier.size(20.dp)
@@ -234,15 +232,21 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "强调色",
+                                text = "主题色调",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = onSurface
                             )
+                            val accentDesc = if (currentAccent == AppThemeManager.AccentColor.CUSTOM && themeConfig.customColorArgb != null) {
+                                val hex = String.format("#%06X", 0xFFFFFF and themeConfig.customColorArgb!!)
+                                "当前：自由调色盘 ($hex)"
+                            } else {
+                                "当前：${currentAccent.displayName}"
+                            }
                             Text(
-                                text = "Tab、按钮、图标选中色等共用主色",
+                                text = accentDesc,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = onSurface.copy(alpha = 0.6f),
+                                color = primary,
                                 fontSize = 12.sp
                             )
                         }
@@ -250,27 +254,26 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    val accentOptions = listOf(
-                        Triple(AppThemeManager.AccentColor.MOCHA, "咖棕",
+                    val presetOptions = listOf(
+                        Triple(AppThemeManager.AccentColor.MOCHA, "经典咖棕",
                             if (isDark) SongbookAccentPalettes.Mocha.darkPrimary else SongbookAccentPalettes.Mocha.lightPrimary),
-                        Triple(AppThemeManager.AccentColor.SAGE, "苔绿",
-                            if (isDark) SongbookAccentPalettes.Sage.darkPrimary else SongbookAccentPalettes.Sage.lightPrimary),
-                        Triple(AppThemeManager.AccentColor.OCEAN, "深蓝",
+                        Triple(AppThemeManager.AccentColor.FOREST, "复古墨绿",
+                            if (isDark) SongbookAccentPalettes.Forest.darkPrimary else SongbookAccentPalettes.Forest.lightPrimary),
+                        Triple(AppThemeManager.AccentColor.OCEAN, "静谧黛蓝",
                             if (isDark) SongbookAccentPalettes.Ocean.darkPrimary else SongbookAccentPalettes.Ocean.lightPrimary),
-                        Triple(AppThemeManager.AccentColor.SUNSET, "夕橙",
-                            if (isDark) SongbookAccentPalettes.Sunset.darkPrimary else SongbookAccentPalettes.Sunset.lightPrimary),
                     )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        accentOptions.forEach { (accent, label, previewColor) ->
+                        // 1~3. 官方精选推荐色
+                        presetOptions.forEach { (accent, label, previewColor) ->
                             val isSelected = currentAccent == accent
                             Surface(
                                 onClick = {
                                     AppThemeManager.setAccentColor(accent, context)
-                                    Toast.makeText(context, "已切换强调色为 $label", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "已切换为 $label", Toast.LENGTH_SHORT).show()
                                 },
                                 shape = RoundedCornerShape(12.dp),
                                 color = if (isSelected) previewColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
@@ -306,11 +309,58 @@ fun SettingsScreen(
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
                                         text = label,
-                                        fontSize = 12.sp,
+                                        fontSize = 11.5.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         color = if (isSelected) previewColor else onSurface
                                     )
                                 }
+                            }
+                        }
+
+                        // 4. 自由调色（纯净彩虹圆盘，点击直接弹窗选色）
+                        val isCustomSelected = currentAccent == AppThemeManager.AccentColor.CUSTOM
+                        Surface(
+                            onClick = { showColorPicker = true },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isCustomSelected) primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.5.dp,
+                                if (isCustomSelected) primary else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(72.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // 纯粹彩虹渐变色相盘：无打勾、不覆盖颜色，点击即可打开调色盘查看和调试
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            Brush.sweepGradient(
+                                                listOf(
+                                                    Color(0xFFFF5252),
+                                                    Color(0xFFFFB74D),
+                                                    Color(0xFF81C784),
+                                                    Color(0xFF4DD0E1),
+                                                    Color(0xFF7E57C2),
+                                                    Color(0xFFFF5252)
+                                                )
+                                            )
+                                        )
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "自由调色",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = if (isCustomSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isCustomSelected) primary else onSurface
+                                )
                             }
                         }
                     }
@@ -752,6 +802,24 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(30.dp))
         }
     }
+
+    // ── 自由调色盘弹窗 ─────────────────────────────────────────────────────────
+    if (showColorPicker) {
+        val initialPickerColor = if (currentAccent == AppThemeManager.AccentColor.CUSTOM && themeConfig.customColorArgb != null) {
+            Color(themeConfig.customColorArgb!!)
+        } else {
+            SongbookAccentPalettes.Mocha.lightPrimary
+        }
+        ThemeColorPickerDialog(
+            initialColor = initialPickerColor,
+            onDismiss = { showColorPicker = false },
+            onColorApplied = { selectedColor ->
+                AppThemeManager.setCustomColor(selectedColor.toArgb(), context)
+                showColorPicker = false
+                Toast.makeText(context, "已应用自选主题色", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -837,4 +905,294 @@ private fun ThemeModeCard(
             )
         }
     }
+}
+
+/**
+ * 现代颂歌 自由调色盘弹窗组件 (ThemeColorPickerDialog)
+ * 支持色相全光谱滑块 (0°~360°)、纯度/饱和度滑块、明度/亮度滑块，以及经典灵感速选色
+ */
+@Composable
+private fun ThemeColorPickerDialog(
+    initialColor: Color,
+    onDismiss: () -> Unit,
+    onColorApplied: (Color) -> Unit
+) {
+    val initialArgb = initialColor.toArgb()
+    val initialHsv = remember(initialArgb) {
+        FloatArray(3).also { android.graphics.Color.colorToHSV(initialArgb, it) }
+    }
+
+    var hue by remember { mutableFloatStateOf(initialHsv[0]) }
+    var sat by remember { mutableFloatStateOf(initialHsv[1].coerceIn(0.1f, 1f)) }
+    var value by remember { mutableFloatStateOf(initialHsv[2].coerceIn(0.2f, 1f)) }
+
+    val currentColor = remember(hue, sat, value) {
+        Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, sat, value)))
+    }
+    val currentHex = remember(currentColor) {
+        val argb = currentColor.toArgb()
+        String.format("#%06X", 0xFFFFFF and argb)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_palette),
+                    contentDescription = null,
+                    tint = currentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "自由调色盘",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // 顶部：实时预览大色球与 Hex 颜色代码
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(currentColor)
+                                .border(1.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "实时预览",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Text(
+                                text = currentHex,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(initialColor)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "初始色",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+                // 1. 色相 Hue 滑块 (0°..360°)
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "色相 (Hue)", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text(text = "${hue.toInt()}°", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Color(0xFFFF0000),
+                                        Color(0xFFFFFF00),
+                                        Color(0xFF00FF00),
+                                        Color(0xFF00FFFF),
+                                        Color(0xFF0000FF),
+                                        Color(0xFFFF00FF),
+                                        Color(0xFFFF0000)
+                                    )
+                                )
+                            )
+                    )
+                    Slider(
+                        value = hue,
+                        onValueChange = { hue = it },
+                        valueRange = 0f..360f,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp),
+                        colors = SliderDefaults.colors(
+                            thumbColor = currentColor,
+                            activeTrackColor = Color.Transparent,
+                            inactiveTrackColor = Color.Transparent
+                        )
+                    )
+                }
+
+                // 2. 鲜艳度 / 饱和度 Saturation 滑块 (0.05..1)
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "纯度 / 饱和度", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text(text = "${(sat * 100).toInt()}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.05f, value))),
+                                        Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 1f, value)))
+                                    )
+                                )
+                            )
+                    )
+                    Slider(
+                        value = sat,
+                        onValueChange = { sat = it },
+                        valueRange = 0.05f..1f,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp),
+                        colors = SliderDefaults.colors(
+                            thumbColor = currentColor,
+                            activeTrackColor = Color.Transparent,
+                            inactiveTrackColor = Color.Transparent
+                        )
+                    )
+                }
+
+                // 3. 明亮度 Value 滑块 (0.2..1)
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = "明度 / 亮度", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text(text = "${(value * 100).toInt()}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(14.dp)
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, sat, 0.2f))),
+                                        Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, sat, 1f)))
+                                    )
+                                )
+                            )
+                    )
+                    Slider(
+                        value = value,
+                        onValueChange = { value = it },
+                        valueRange = 0.2f..1f,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp),
+                        colors = SliderDefaults.colors(
+                            thumbColor = currentColor,
+                            activeTrackColor = Color.Transparent,
+                            inactiveTrackColor = Color.Transparent
+                        )
+                    )
+                }
+
+                // 4. 灵感速选色点
+                Column {
+                    Text(
+                        text = "灵感色标",
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    val quickSwatches = listOf(
+                        Color(0xFF6C2F00), // 经典咖棕
+                        Color(0xFF2E563E), // 复古墨绿
+                        Color(0xFF204D74), // 静谧黛蓝
+                        Color(0xFF9C3636), // 晚霞暮绯
+                        Color(0xFFB8781B), // 琥珀原金
+                        Color(0xFF754591), // 优雅紫藤
+                        Color(0xFF137A7F)  // 碧湖松石
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        quickSwatches.forEach { swatch ->
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(swatch)
+                                    .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                    .clickable {
+                                        val hsv = FloatArray(3)
+                                        android.graphics.Color.colorToHSV(swatch.toArgb(), hsv)
+                                        hue = hsv[0]
+                                        sat = hsv[1]
+                                        value = hsv[2]
+                                    }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onColorApplied(currentColor) },
+                colors = ButtonDefaults.buttonColors(containerColor = currentColor)
+            ) {
+                Text(
+                    text = "应用此色彩",
+                    color = if ((currentColor.red * 0.299f + currentColor.green * 0.587f + currentColor.blue * 0.114f) > 0.62f) Color(0xFF1B1C1A) else Color.White
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
 }

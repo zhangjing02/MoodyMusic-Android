@@ -109,7 +109,7 @@ fun MessageBoardScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontFamily = FontFamily.Serif,
                             fontWeight = FontWeight.Bold,
-                            color = SongbookColors.SoftCharcoal
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -126,12 +126,12 @@ fun MessageBoardScreen(
                         Icon(
                             imageVector = if (isEditingMode) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = if (isEditingMode) "取消编辑" else "返回",
-                            tint = SongbookColors.SoftCharcoal
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SongbookColors.PaperBackground
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -170,7 +170,7 @@ fun MessageBoardScreen(
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = SongbookColors.PaperBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         if (isEditingMode) {
             // ── 模式 A：页面内可编辑窗口 (In-Place Editor View) ───────────

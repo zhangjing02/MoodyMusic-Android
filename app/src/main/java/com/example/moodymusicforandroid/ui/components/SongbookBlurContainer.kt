@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.moodymusicforandroid.common.utils.DeviceInfoUtils
+import com.example.moodymusicforandroid.ui.theme.SongbookColors
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -56,41 +57,55 @@ fun SongbookBlurContainer(
         (surfaceColor.red * 0.299f + surfaceColor.green * 0.587f + surfaceColor.blue * 0.114f) < 0.5f
     }
 
-    // 自适应磨砂玻璃蒙层：深色下为半透明暗调纸墨黑，浅色下为清透淡灰
+    // 自适应磨砂玻璃蒙层：
+    // 深色下由原本 78% 死黑调整为通透温润的约 58% 黑曜石晶雾 (0x94181916)，底层内容光影可自然透出高斯漫射光晕；
+    // 浅色下维持 43% 清透淡灰液态磨砂玻璃 (0x6EF8F9FA)。
     val effectiveOverlayColor = overlayColor ?: if (isDark) {
-        Color(0x8C161715) // 约 55% 沉浸暗夜纸墨黑，剔除白雾泛光
+        Color(0x94181916) // 约 58% 墨曜石深灰通透蒙层，告别死黑沉闷
     } else {
         Color(0x6EF8F9FA) // 约 43% 清透淡灰液态磨砂玻璃
     }
 
-    // 低端机或降级模式下的 80%~85% 半透明雅灰调色方案
+    // 深色模式下基底色：由死黑 SurfaceDarkLowest (0xFF0F100E) 提升至 SurfaceDarkLow (0xFF1B1C1A)
+    // 确保在深暗页面背景 (0xFF141513) 上抬升一个立体层级，形成自然的表面层级阶梯
+    val effectiveBackgroundColor = if (isDark) {
+        SongbookColors.SurfaceDarkLow // 0xFF1B1C1A 沉稳暗调低层表面，高于页面背景
+    } else {
+        backgroundColor
+    }
+
+    // 低端机或降级模式下的半透明雅灰调色方案
     val fallbackGreyColor = if (isDark) {
-        Color(0xD4222320) // 约 83% 深灰软炭色，不透底字且微透底光
+        Color(0xF51E201D) // 约 96% 暖调石墨黑，清晰界定浮层高度
     } else {
         Color(0xD9EAE8E4) // 约 85% 暖调纸质浅灰
     }
 
-    // 细微边框增强轮廓，防止底栏/悬浮窗在低端机上与底层内容粘连
-    val fallbackBorderColor = if (isDark) {
-        Color.White.copy(alpha = 0.12f)
+    // 晶莹微轮廓：深色模式下阴影对比度极低，必须由晶透细微边框提供视觉骨架与边界分离！
+    val defaultBorderColor = if (isDark) {
+        Color.White.copy(alpha = 0.10f) // 10% 晶莹白色微光轮廓，在暗色背景上划定清晰通透的玻璃边界
     } else {
-        Color(0x22877369)
+        Color(0x18877369) // 浅色下极微弱自然轮廓
     }
+    val defaultBorderWidth = 0.8.dp
 
     val borderModifier = if (borderWidth > 0.dp && borderColor != Color.Transparent && borderColor.alpha > 0f) {
         Modifier.border(borderWidth, borderColor, effectiveShape)
     } else if (isLowEnd) {
-        Modifier.border(0.6.dp, fallbackBorderColor, effectiveShape)
-    } else Modifier
+        Modifier.border(0.6.dp, defaultBorderColor, effectiveShape)
+    } else {
+        // 常规硬件毛玻璃模式：自动施加晶莹微边框，确保在深色模式下与底色清晰分离
+        Modifier.border(defaultBorderWidth, defaultBorderColor, effectiveShape)
+    }
 
     val hazeModifier = if (!isLowEnd && hazeState != null) {
         Modifier.hazeEffect(
             state = hazeState,
             style = HazeStyle(
-                backgroundColor = backgroundColor,
+                backgroundColor = effectiveBackgroundColor,
                 blurRadius = blurRadius,
                 tint = HazeTint(effectiveOverlayColor),
-                fallbackTint = HazeTint(fallbackGreyColor) // 确保即使偶发降级，也是 80% 雅灰色，绝不全透明
+                fallbackTint = HazeTint(fallbackGreyColor)
             )
         )
     } else {
@@ -102,24 +117,32 @@ fun SongbookBlurContainer(
             .shadow(
                 elevation = elevation,
                 shape = effectiveShape,
-                ambientColor = Color(0x0E000000),
-                spotColor = Color(0x16000000)
+                ambientColor = if (isDark) Color(0x33000000) else Color(0x0E000000),
+                spotColor = if (isDark) Color(0x55000000) else Color(0x16000000)
             )
             .clip(effectiveShape)
             .then(hazeModifier)
             .then(borderModifier)
     ) {
-        // 顶层微光漫反射层：赋予磨砂玻璃表面自然的光泽感与立体感
+        // 顶层微光漫反射层：在深色模式下呈现 0.08f 迎光面珠宝切面光泽，温润通透
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = if (isDark) 0.08f else 0.14f),
-                            Color.White.copy(alpha = 0.02f),
-                            Color.Transparent
-                        )
+                        colors = if (isDark) {
+                            listOf(
+                                Color.White.copy(alpha = 0.08f),
+                                Color.White.copy(alpha = 0.02f),
+                                Color.Transparent
+                            )
+                        } else {
+                            listOf(
+                                Color.White.copy(alpha = 0.14f),
+                                Color.White.copy(alpha = 0.02f),
+                                Color.Transparent
+                            )
+                        }
                     )
                 )
         )
