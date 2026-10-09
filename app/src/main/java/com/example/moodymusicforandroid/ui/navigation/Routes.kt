@@ -69,3 +69,6 @@ data class RoutePlaylistDetail(
     val playlistId: Long,
     val playlistName: String
 ) : NavKey
+
+@Serializable
+data object RouteDownloadManager : NavKey

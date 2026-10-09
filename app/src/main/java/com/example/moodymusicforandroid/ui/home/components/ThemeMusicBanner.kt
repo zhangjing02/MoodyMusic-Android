@@ -10,8 +10,8 @@ import androidx.compose.ui.unit.dp
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 
-private val THEME_BANNER_URL =
-    com.example.moodymusicforandroid.common.config.AppConfig.resolveStorageUrl("covers/home/snow_cafe_static.jpg")
+private const val THEME_BANNER_URL =
+    "https://pub-9ea7ff16135d47238c0229f1aa54ecc4.r2.dev/covers/home/snow_cafe_static.jpg"
 
 /**
  * 首页主题音乐专栏卡片 (ThemeMusicBanner)

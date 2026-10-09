@@ -33,6 +33,7 @@ import com.example.moodymusicforandroid.ui.theme.SongbookColors
 fun TopRecommendBannerBlock(
     data: TopRecommendBannerData,
     modifier: Modifier = Modifier,
+    isPlaying: Boolean = false,
     onClick: (TopRecommendBannerData) -> Unit = {}
 ) {
     Box(
@@ -112,6 +113,18 @@ fun TopRecommendBannerBlock(
                 )
             }
         }
+
+        // 卡片右下角：若此卡片在播放状态，展示无背景纯净跳动 EQ 柱状动画
+        if (isPlaying) {
+            com.example.moodymusicforandroid.ui.theme_detail.CoverEqIndicator(
+                isAnimating = true,
+                barColor = SongbookColors.BurntOrange,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(width = 22.dp, height = 16.dp)
+            )
+        }
     }
 }
 
@@ -160,6 +173,7 @@ fun TodayRecommendScrollBlock(
             items(data.items, key = { it.id }) { item ->
                 val fallbackRes = remember(item.id, item.coverUrl) {
                     when {
+                        item.id.contains("pub") || item.coverUrl.contains("pub") -> R.drawable.album_pub_heroes
                         item.id.contains("rene") || item.coverUrl.contains("rene") -> R.drawable.album_rene_liu_live
                         item.id.contains("wen") || item.coverUrl.contains("wen") -> R.drawable.album_wen_4versions
                         item.id.contains("jonathan") || item.coverUrl.contains("jonathan") -> R.drawable.album_jonathan_lee

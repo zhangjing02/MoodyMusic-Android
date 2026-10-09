@@ -36,5 +36,8 @@ data class Song(
     // 扩展字段
     var artistName: String? = null,
     var albumTitle: String? = null,
-    var audioUrl: String? = null
+    var audioUrl: String? = null,
+
+    @SerializedName(value = "file_hash", alternate = ["fileHash"])
+    var fileHash: String? = null
 )

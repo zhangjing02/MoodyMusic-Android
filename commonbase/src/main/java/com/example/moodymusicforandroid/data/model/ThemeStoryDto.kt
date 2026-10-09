@@ -34,13 +34,24 @@ data class ThemeStoryDto(
 )
 
 data class TimelineSectionDto(
-    @SerializedName("timeLabel") val timeLabel: String = "",
+    @SerializedName("timeLabel") val rawTimeLabel: String = "",
+    @SerializedName("time") val rawTime: String = "",
     @SerializedName("title") val title: String = "",
-    @SerializedName("sceneStory") val sceneStory: String = "",
+    @SerializedName("desc") val desc: String = "",
+    @SerializedName("sceneStory") val rawSceneStory: String = "",
     @SerializedName("emotion") val emotion: String = "",
     @SerializedName("technique") val technique: String = "",
     @SerializedName("performerNote") val performerNote: String = ""
-)
+) {
+    val timeLabel: String
+        get() = rawTimeLabel.ifBlank { rawTime }.trim()
+
+    val sceneStory: String
+        get() = rawSceneStory.ifBlank { desc }.trim()
+
+    val safeDesc: String
+        get() = desc.ifBlank { rawSceneStory }.trim()
+}
 
 val ThemeStoryDto.safeBodyParagraphs: List<String>
     get() = bodyParagraphs ?: emptyList()

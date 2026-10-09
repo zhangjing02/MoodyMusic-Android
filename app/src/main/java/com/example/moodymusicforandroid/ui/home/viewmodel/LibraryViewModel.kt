@@ -12,6 +12,7 @@ import com.example.moodymusicforandroid.data.model.UserLibraryResponse
 import com.example.moodymusicforandroid.data.model.isInvalidName
 import com.example.moodymusicforandroid.data.model.enrichedWith
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -42,8 +43,7 @@ class LibraryViewModel : BaseViewModel() {
             UserManager.isLoggedIn.collect { loggedIn ->
                 if (!loggedIn) {
                     _userProfile.postValue(null)
-                    _userLibrary.postValue(null)
-                    _favoriteSongs.postValue(emptyList())
+                    loadLocalGuestLibrary()
                 } else {
                     loadData()
                 }
@@ -56,38 +56,64 @@ class LibraryViewModel : BaseViewModel() {
                     _userProfile.postValue(user)
                 } else {
                     _userProfile.postValue(null)
-                    _userLibrary.postValue(null)
-                    _favoriteSongs.postValue(emptyList())
                 }
             }
         }
-        // 订阅本地已收藏歌曲列表（确保本地收藏操作即时同步至音信页）
+        // 订阅本地已收藏歌曲列表（无论访客还是登录用户，均统一响应式刷新）
         viewModelScope.launch {
             UserManager.favoriteSongsList.collect { list ->
+                _favoriteSongs.postValue(list)
+            }
+        }
+        // 订阅本地已收藏专辑与歌手列表（统一响应式刷新）
+        viewModelScope.launch {
+            combine(
+                UserManager.favoriteAlbumsList,
+                UserManager.followedArtistsList,
+                UserManager.favoriteSongIds
+            ) { albums, artists, songIds ->
+                UserLibraryResponse(
+                    favoriteAlbums = albums,
+                    followedArtists = artists,
+                    favoriteSongIds = songIds.toList(),
+                    favoriteSongsCount = songIds.size,
+                    favoriteAlbumsCount = albums.size,
+                    followedArtistsCount = artists.size
+                )
+            }.collect { localLibrary ->
                 if (!UserManager.isLoggedIn.value) {
-                    _favoriteSongs.postValue(emptyList())
-                } else if (list.isNotEmpty() || _favoriteSongs.value?.isNotEmpty() == true) {
-                    _favoriteSongs.postValue(list)
+                    _userLibrary.postValue(localLibrary)
                 }
             }
         }
     }
 
+    private fun loadLocalGuestLibrary() {
+        val songs = UserManager.favoriteSongsList.value
+        val albums = UserManager.favoriteAlbumsList.value
+        val artists = UserManager.followedArtistsList.value
+        _favoriteSongs.value = songs
+        _userLibrary.value = UserLibraryResponse(
+            favoriteAlbums = albums,
+            followedArtists = artists,
+            favoriteSongIds = UserManager.favoriteSongIds.value.toList(),
+            favoriteSongsCount = songs.size,
+            favoriteAlbumsCount = albums.size,
+            followedArtistsCount = artists.size
+        )
+    }
+
     /**
      * 加载音信页面所有数据：library 资产 + 收藏歌曲列表
-     * 两个请求并发执行，互不阻塞
+     * 无论是否登录，资产均以本地 Room 响应式驱动，登录状态下并发拉取云端对齐
      */
     fun loadData() {
         if (!UserManager.isLoggedIn.value) {
-            // 访客模式：需要用协程 + delay 让 true → false 跨两帧发出。
-            // 若在同一帧内同步赋值 true 再 false，LiveData/Compose 会批处理只见到 false，
-            // PullToRefreshBox 内的 LaunchedEffect(isRefreshing) 永远触发不到 state.endRefresh()。
             _userProfile.value = null
-            _userLibrary.value = null
-            _favoriteSongs.value = emptyList()
+            loadLocalGuestLibrary()
             viewModelScope.launch {
                 _isRefreshing.postValue(true)
-                kotlinx.coroutines.delay(350)
+                kotlinx.coroutines.delay(200)
                 _isRefreshing.postValue(false)
             }
             return

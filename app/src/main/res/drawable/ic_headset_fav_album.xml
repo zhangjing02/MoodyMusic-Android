@@ -1,0 +1,50 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 唱片封套本体 (Jacket Sleeve：左圆角方套 + 右侧月牙取盘缺口，闭合连续曲线) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.25"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M12.5,5.0 L4.0,5.0 C3.2,5.0 2.5,5.7 2.5,6.5 L2.5,17.5 C2.5,18.3 3.2,19.0 4.0,19.0 L12.5,19.0 L12.5,13.8 C11.2,13.8 10.8,12.9 10.8,12.0 C10.8,11.1 11.2,10.2 12.5,10.2 Z" />
+
+    <!-- 封套封面极简艺术排版线条 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.0"
+        android:strokeLineCap="round"
+        android:pathData="M4.5,7.8 L9.5,7.8 M4.5,10.2 L7.8,10.2" />
+
+    <!-- 抽出式正圆黑胶唱片外沿 (Emerging Outer Vinyl Edge, R=6.8dp) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.25"
+        android:strokeLineCap="round"
+        android:pathData="M17.33,5.61 A6.8,6.8 0 0,1 17.33,18.39" />
+
+    <!-- 抽出式黑胶同心微音轨 (Concentric Sound Groove, R=5.0dp) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="0.85"
+        android:strokeLineCap="round"
+        android:pathData="M16.87,7.36 A5.0,5.0 0 0,1 16.87,16.64" />
+
+    <!-- 唱片中心轴环 (Spindle Hub, R=3.2dp) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.1"
+        android:pathData="M15.0,8.8 A3.2,3.2 0 1,1 14.99,8.8" />
+
+    <!-- 播放三角按键 ▶ (微偏置居中，清脆通透) -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M14.3,10.5 L16.6,12.0 L14.3,13.5 Z" />
+</vector>

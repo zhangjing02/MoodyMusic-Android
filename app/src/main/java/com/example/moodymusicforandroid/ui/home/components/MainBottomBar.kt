@@ -83,7 +83,7 @@ fun MainBottomBar(
     onNavigate: (Any) -> Unit,
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
-    isVoiceEnabled: Boolean = false,
+    isVoiceEnabled: Boolean = true,
     isVoiceListening: Boolean = false,
     onStartVoiceRecording: () -> Boolean = { false },
     onFinishVoiceRecording: () -> Unit = {},
@@ -126,7 +126,7 @@ fun MainBottomBarContent(
     currentRoute: Any,
     onNavigate: (Any) -> Unit,
     modifier: Modifier = Modifier,
-    isVoiceEnabled: Boolean = false,
+    isVoiceEnabled: Boolean = true,
     isVoiceListening: Boolean = false,
     onStartVoiceRecording: () -> Boolean = { false },
     onFinishVoiceRecording: () -> Unit = {},
@@ -359,10 +359,9 @@ private fun DiscoverNavIcon(
                     val longPressJob = coroutineScope.launch {
                         delay(220) // 220ms 判定长按
                         isLongPress = true
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (currentIsVoiceEnabled) {
-                            voiceRecordingStarted = currentOnStartVoice()
-                        } else {
+                        // 语音功能默认常驻启用，长按直接触发录音/权限申请
+                        voiceRecordingStarted = currentOnStartVoice()
+                        if (!voiceRecordingStarted && !currentIsVoiceEnabled) {
                             currentOnVoiceDisabled()
                         }
                     }
@@ -377,7 +376,7 @@ private fun DiscoverNavIcon(
                         }
                     } catch (c: CancellationException) {
                         longPressJob.cancel()
-                        if (isLongPress && currentIsVoiceEnabled && voiceRecordingStarted) {
+                        if (isLongPress && voiceRecordingStarted) {
                             currentOnCancelVoice()
                         }
                         throw c
@@ -385,7 +384,7 @@ private fun DiscoverNavIcon(
 
                     longPressJob.cancel()
                     if (isLongPress) {
-                        if (currentIsVoiceEnabled && voiceRecordingStarted) {
+                        if (voiceRecordingStarted) {
                             currentOnFinishVoice()
                         }
                     } else {

@@ -15,6 +15,7 @@ data class AlbumDetailUiState(
     val songs: List<SongItem> = emptyList(),
     val coverUrl: String = "",
     val releaseYear: String = "",
+    val allowDownload: Boolean = true,
     val error: String? = null
 )
 
@@ -29,7 +30,7 @@ class AlbumDetailViewModel(
     val uiState: StateFlow<AlbumDetailUiState> = _uiState.asStateFlow()
 
     init {
-        if (artistId.isNotBlank() && albumTitle.isNotBlank()) {
+        if (albumTitle.isNotBlank() || artistId.isNotBlank()) {
             loadAlbumDetail()
         }
     }
@@ -38,19 +39,41 @@ class AlbumDetailViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val response = MoodyApiProvider.apiService.getArtistDetail(artistId)
+                val response = if (artistId.isNotBlank()) {
+                    MoodyApiProvider.apiService.getArtistDetail(artistId)
+                } else {
+                    MoodyApiProvider.apiService.getSongsByArtist(album = albumTitle)
+                }
                 if (response.code == 200) {
-                    val artistData = response.data?.firstOrNull()
+                    val artistDataList = response.data ?: emptyList()
+                    var isDownloadAllowed = response.allowDownload ?: true
+
                     // 找到匹配专辑（忽略大小写）
-                    var album = artistData?.albums?.firstOrNull { a ->
-                        a.title.trim().equals(albumTitle.trim(), ignoreCase = true)
+                    var album: com.example.moodymusicforandroid.data.model.AlbumWithSongs? = null
+                    for (artist in artistDataList) {
+                        val matched = artist.albums.firstOrNull { a ->
+                            a.title.trim().equals(albumTitle.trim(), ignoreCase = true)
+                        }
+                        if (matched != null) {
+                            album = matched
+                            break
+                        }
                     }
                     if (album == null) {
+                        album = artistDataList.firstOrNull()?.albums?.firstOrNull()
+                    }
+                    if (album == null && albumTitle.isNotBlank()) {
                         // 兜底：若全集名录未包含，发起单专辑精准查询
                         try {
-                            val albumResp = MoodyApiProvider.apiService.getSongsByArtist(artistId = artistId, album = albumTitle)
+                            val albumResp = MoodyApiProvider.apiService.getSongsByArtist(
+                                artistId = artistId.takeIf { it.isNotBlank() },
+                                album = albumTitle
+                            )
                             if (albumResp.code == 200) {
                                 album = albumResp.data?.firstOrNull()?.albums?.firstOrNull()
+                                if (albumResp.allowDownload != null) {
+                                    isDownloadAllowed = albumResp.allowDownload == true
+                                }
                             }
                         } catch (_: Exception) {}
                     }
@@ -58,7 +81,8 @@ class AlbumDetailViewModel(
                         isLoading = false,
                         songs = album?.songs ?: emptyList(),
                         coverUrl = album?.cover ?: "",
-                        releaseYear = album?.year ?: ""
+                        releaseYear = album?.year ?: "",
+                        allowDownload = isDownloadAllowed
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(

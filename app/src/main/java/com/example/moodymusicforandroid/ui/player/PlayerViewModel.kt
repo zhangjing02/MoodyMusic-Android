@@ -22,12 +22,18 @@ import com.example.moodymusicforandroid.ui.home.voice.VoiceAiManager
 import com.example.moodymusicforandroid.ui.home.voice.VoiceRecordingManager
 import com.example.moodymusicforandroid.ui.home.voice.VoiceProcessException
 import com.example.moodymusicforandroid.ui.home.voice.VoiceDispatchResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 
@@ -52,8 +58,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     /** 漫游模式是否正在后台追加队列 */
     private var isRoamAppending = false
 
-    // ── 语音点歌与控制状态 ─────────────────────────────────────
-    private val _isVoiceEnabled = MutableStateFlow(false)
+    // ── 语音点歌与控制状态（默认常驻开启） ─────────────────────────────────────
+    private val _isVoiceEnabled = MutableStateFlow(true)
     val isVoiceEnabled: StateFlow<Boolean> = _isVoiceEnabled.asStateFlow()
 
     private val _isVoiceListening = MutableStateFlow(false)
@@ -65,6 +71,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var voiceAiManager: VoiceAiManager? = null
     private var voiceRecordingManager: VoiceRecordingManager? = null
     private var titleResetJob: Job? = null
+    private var favBatchPlayJob: Job? = null
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -106,10 +113,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (event.eventType == EventType.MUSIC_PLAY_STATE_CHANGED) {
             val state = event.eventData as? MusicPlayState
             state?.let { incoming ->
+                // 当底层广播表明播放已彻底停止（歌名为空且队列为空）
+                if (incoming.songTitle.isBlank() && incoming.queue.isEmpty()) {
+                    favBatchPlayJob?.cancel()
+                    isRoamAppending = false
+                    _playState.value = incoming.copy(
+                        isRoamingMode = false,
+                        isRoamingLoading = false,
+                        capsuleListeningMode = CapsuleListeningMode.NONE
+                    )
+                    return
+                }
+
                 val prevIdx = _playState.value.playlistIndex
                 val wasRoaming = _playState.value.isRoamingMode
                 val wasLoading = _playState.value.isRoamingLoading
-                _playState.value = incoming.copy(isRoamingMode = wasRoaming, isRoamingLoading = wasLoading)
+                val prevListeningMode = _playState.value.capsuleListeningMode
+                _playState.value = incoming.copy(
+                    isRoamingMode = wasRoaming,
+                    isRoamingLoading = wasLoading,
+                    capsuleListeningMode = prevListeningMode
+                )
 
                 // 漫游模式下，切歌自动检查储备队列
                 if (wasRoaming && incoming.playlistIndex != prevIdx) {
@@ -120,11 +144,76 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
+     * 通用播放队列方法：接收已构建好的 PlayQueueItem 列表，支持从 startIndex 开始播放。
+     * 自动跳过无效音频，乐观更新底栏与播放状态，并启动 MusicPlayerService。
+     */
+    fun playQueue(
+        queue: List<PlayQueueItem>,
+        startIndex: Int = 0,
+        listeningMode: CapsuleListeningMode = CapsuleListeningMode.NONE,
+        initialSeekMs: Int = 0
+    ) {
+        if (queue.isEmpty()) return
+        // 关键防护：一旦用户手动切歌或启动非快捷批量模式播放，立刻阻断上一次批量异步追加，避免新旧歌单串流踩踏
+        if (listeningMode != CapsuleListeningMode.FAVORITE_ALBUMS && listeningMode != CapsuleListeningMode.FOLLOWED_ARTISTS) {
+            favBatchPlayJob?.cancel()
+        }
+        if (listeningMode != CapsuleListeningMode.ROAMING) {
+            isRoamAppending = false
+        }
+        val ctx = getApplication<Application>()
+        val playlist = ArrayList(queue)
+
+        var targetIndex = startIndex.coerceIn(0, playlist.size - 1)
+        if (targetIndex in playlist.indices && playlist[targetIndex].audioUrl.isBlank()) {
+            val firstPlayable = playlist.indexOfFirst { it.audioUrl.isNotBlank() }
+            if (firstPlayable != -1) {
+                targetIndex = firstPlayable
+            } else {
+                Toast.makeText(ctx, "列表中暂无可播放的有效音频", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
+        isRoamAppending = false
+
+        if (targetIndex in playlist.indices) {
+            val current = playlist[targetIndex]
+            _playState.value = MusicPlayState(
+                songTitle = current.songTitle,
+                artistName = current.artistName,
+                albumTitle = current.albumTitle,
+                coverUrl = current.coverUrl,
+                audioUrl = current.audioUrl,
+                lrcPath = current.lrcPath,
+                isPlaying = true,
+                duration = 0,
+                position = initialSeekMs,
+                playlistIndex = targetIndex,
+                playMode = _playState.value.playMode,
+                queue = playlist,
+                isRoamingMode = (listeningMode == CapsuleListeningMode.ROAMING),
+                capsuleListeningMode = listeningMode
+            )
+        }
+
+        val intent = Intent(ctx, MusicPlayerService::class.java).apply {
+            action = MusicPlayerService.ACTION_PLAY
+            putExtra(MusicPlayerService.EXTRA_PLAYLIST, playlist)
+            putExtra(MusicPlayerService.EXTRA_INDEX, targetIndex)
+            putExtra(MusicPlayerService.EXTRA_SEEK_POSITION, initialSeekMs)
+        }
+        ctx.startForegroundService(intent)
+        if (isBound && musicService != null) {
+            musicService?.playPlaylist(playlist, targetIndex, initialSeekMs)
+        }
+    }
+
+    /**
      * 播放指定歌单（从第 index 首开始）
      */
     fun play(songs: List<SongItem>, index: Int, artistName: String, albumTitle: String, coverUrl: String) {
-        val ctx = getApplication<Application>()
-        val playlist = ArrayList(songs.mapIndexed { i, song ->
+        val playlist = songs.map { song ->
             PlayQueueItem(
                 songTitle = song.title,
                 artistName = artistName,
@@ -133,44 +222,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 audioUrl = buildAudioUrl(song.path),
                 lrcPath = song.lrcPath
             )
-        })
-
-        var targetIndex = index
-        if (targetIndex in playlist.indices && playlist[targetIndex].audioUrl.isBlank()) {
-            val firstPlayable = playlist.indexOfFirst { it.audioUrl.isNotBlank() }
-            if (firstPlayable != -1) {
-                targetIndex = firstPlayable
-            } else {
-                Toast.makeText(ctx, "《${playlist[index].songTitle}》暂无可用音频文件", Toast.LENGTH_SHORT).show()
-                return
-            }
         }
-
-        // 立即乐观更新播放状态，悬浮迷你播放器与底栏瞬时响应
-        if (targetIndex in playlist.indices) {
-            val current = playlist[targetIndex]
-            _playState.value = MusicPlayState(
-                songTitle = current.songTitle,
-                artistName = current.artistName,
-                albumTitle = current.albumTitle,
-                coverUrl = current.coverUrl,
-                audioUrl = current.audioUrl,
-                lrcPath = current.lrcPath,
-                isPlaying = true,
-                duration = 0,
-                position = 0,
-                playlistIndex = targetIndex,
-                playMode = _playState.value.playMode,
-                queue = playlist
-            )
-        }
-
-        val intent = Intent(ctx, MusicPlayerService::class.java).apply {
-            action = MusicPlayerService.ACTION_PLAY
-            putExtra(MusicPlayerService.EXTRA_PLAYLIST, playlist)
-            putExtra(MusicPlayerService.EXTRA_INDEX, targetIndex)
-        }
-        ctx.startForegroundService(intent)
+        playQueue(playlist, index)
     }
 
     /**
@@ -178,8 +231,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun playPlaylistSongs(songs: List<com.example.moodymusicforandroid.data.local.db.PlaylistSongEntity>, index: Int, playlistName: String) {
         if (songs.isEmpty()) return
-        val ctx = getApplication<Application>()
-        val playlist = ArrayList(songs.map { song ->
+        val playlist = songs.map { song ->
             PlayQueueItem(
                 songTitle = song.title,
                 artistName = song.artistName?.takeIf { it.isNotBlank() } ?: "未知歌手",
@@ -188,43 +240,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 audioUrl = buildAudioUrl(song.filePath),
                 lrcPath = null
             )
-        })
-
-        var targetIndex = index.coerceIn(0, playlist.size - 1)
-        if (targetIndex in playlist.indices && playlist[targetIndex].audioUrl.isBlank()) {
-            val firstPlayable = playlist.indexOfFirst { it.audioUrl.isNotBlank() }
-            if (firstPlayable != -1) {
-                targetIndex = firstPlayable
-            } else {
-                Toast.makeText(ctx, "《${playlist[index].songTitle}》暂无可用音频文件", Toast.LENGTH_SHORT).show()
-                return
-            }
         }
-
-        if (targetIndex in playlist.indices) {
-            val current = playlist[targetIndex]
-            _playState.value = MusicPlayState(
-                songTitle = current.songTitle,
-                artistName = current.artistName,
-                albumTitle = current.albumTitle,
-                coverUrl = current.coverUrl,
-                audioUrl = current.audioUrl,
-                lrcPath = current.lrcPath,
-                isPlaying = true,
-                duration = 0,
-                position = 0,
-                playlistIndex = targetIndex,
-                playMode = _playState.value.playMode,
-                queue = playlist
-            )
-        }
-
-        val intent = Intent(ctx, MusicPlayerService::class.java).apply {
-            action = MusicPlayerService.ACTION_PLAY
-            putExtra(MusicPlayerService.EXTRA_PLAYLIST, playlist)
-            putExtra(MusicPlayerService.EXTRA_INDEX, targetIndex)
-        }
-        ctx.startForegroundService(intent)
+        playQueue(playlist, index)
     }
 
     /**
@@ -236,40 +253,18 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         artistName: String = "MoodyMusic",
         albumTitle: String = "主题精选",
         coverUrl: String = "",
-        lrcPath: String? = null
+        lrcPath: String? = null,
+        initialSeekMs: Int = 0
     ) {
-        val ctx = getApplication<Application>()
         val item = PlayQueueItem(
             songTitle = songTitle,
             artistName = artistName,
             albumTitle = albumTitle,
             coverUrl = coverUrl,
-            audioUrl = audioUrl,
+            audioUrl = buildAudioUrl(audioUrl),
             lrcPath = lrcPath
         )
-        val playlist = arrayListOf(item)
-
-        _playState.value = MusicPlayState(
-            songTitle = songTitle,
-            artistName = artistName,
-            albumTitle = albumTitle,
-            coverUrl = coverUrl,
-            audioUrl = audioUrl,
-            lrcPath = lrcPath,
-            isPlaying = true,
-            duration = 0,
-            position = 0,
-            playlistIndex = 0,
-            playMode = _playState.value.playMode,
-            queue = playlist
-        )
-
-        val intent = Intent(ctx, MusicPlayerService::class.java).apply {
-            action = MusicPlayerService.ACTION_PLAY
-            putExtra(MusicPlayerService.EXTRA_PLAYLIST, playlist)
-            putExtra(MusicPlayerService.EXTRA_INDEX, 0)
-        }
-        ctx.startForegroundService(intent)
+        playQueue(listOf(item), 0, initialSeekMs = initialSeekMs)
     }
 
     /**
@@ -277,33 +272,322 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun playVoiceResult(result: VoiceDispatchResult) {
         if (result.playlist.isEmpty()) return
-        val ctx = getApplication<Application>()
-        val playlist = ArrayList(result.playlist)
-        val targetIndex = result.startIndex.coerceIn(0, playlist.size - 1)
-        val current = playlist[targetIndex]
+        playQueue(result.playlist, result.startIndex)
+    }
 
-        _playState.value = MusicPlayState(
-            songTitle = current.songTitle,
-            artistName = current.artistName,
-            albumTitle = current.albumTitle,
-            coverUrl = current.coverUrl,
-            audioUrl = current.audioUrl,
-            lrcPath = current.lrcPath,
-            isPlaying = true,
-            duration = 0,
-            position = 0,
-            playlistIndex = targetIndex,
-            playMode = _playState.value.playMode,
-            queue = playlist,
-            isRoamingMode = false
+    /**
+     * 播放用户收藏的所有单曲（方案A：首批 50 首极速秒播 + 后台分批流式静默追加，零 Binder 1MB 溢出风险）
+     */
+    fun playFavoriteSongs() {
+        val songs = UserManager.favoriteSongsList.value
+        if (songs.isEmpty()) {
+            Toast.makeText(getApplication(), "暂无收藏的单曲，快去收藏吧", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val queueItems = songs.mapNotNull { song ->
+            val url = buildAudioUrl(song.filePath)
+            if (url.isNotBlank()) {
+                PlayQueueItem(
+                    songTitle = song.title,
+                    artistName = song.artistName?.takeIf { it.isNotBlank() } ?: "未知歌手",
+                    albumTitle = song.albumTitle?.takeIf { it.isNotBlank() } ?: "收藏歌曲",
+                    coverUrl = song.coverUrl?.takeIf { it.isNotBlank() } ?: "",
+                    audioUrl = url,
+                    lrcPath = null
+                )
+            } else null
+        }
+
+        if (queueItems.isEmpty()) {
+            Toast.makeText(getApplication(), "收藏单曲中暂无可播放的音频文件", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        favBatchPlayJob?.cancel()
+        // 首批 50 首即刻起播，彻底杜绝 Binder 1MB 事务溢出风险
+        val initialBatch = queueItems.take(50)
+        playQueue(initialBatch, 0, CapsuleListeningMode.FAVORITE_SONGS)
+        Toast.makeText(getApplication(), "▶ 开始播放收藏单曲 (共 ${queueItems.size} 首)", Toast.LENGTH_SHORT).show()
+
+        if (queueItems.size > 50) {
+            favBatchPlayJob = viewModelScope.launch(Dispatchers.IO) {
+                val remaining = queueItems.drop(50)
+                for (chunk in remaining.chunked(50)) {
+                    if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FAVORITE_SONGS) break
+                    delay(250)
+                    withContext(Dispatchers.Main) {
+                        if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FAVORITE_SONGS) return@withContext
+                        appendTracksToQueue(chunk)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 播放用户收藏的所有专辑（方案A：首张专辑极速秒播 + 后台按序流式静默追加，零 Binder 溢出，零高并发）
+     */
+    fun playFavoriteAlbums() {
+        val albums = UserManager.favoriteAlbumsList.value
+        if (albums.isEmpty()) {
+            Toast.makeText(getApplication(), "暂无收藏的专辑，快去收藏吧", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        favBatchPlayJob?.cancel()
+        _playState.value = _playState.value.copy(
+            capsuleListeningMode = CapsuleListeningMode.FAVORITE_ALBUMS
         )
 
-        val intent = Intent(ctx, MusicPlayerService::class.java).apply {
-            action = MusicPlayerService.ACTION_PLAY
-            putExtra(MusicPlayerService.EXTRA_PLAYLIST, playlist)
-            putExtra(MusicPlayerService.EXTRA_INDEX, targetIndex)
+        favBatchPlayJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 1. 极速首播阶段：按序寻找第一张包含有效歌曲的专辑，50ms 级秒开起播
+                var firstPlayableIndex = -1
+                var initialTracks: List<PlayQueueItem> = emptyList()
+
+                for (i in albums.indices) {
+                    if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FAVORITE_ALBUMS) return@launch
+                    val tracks = fetchSongsForAlbum(albums[i])
+                    if (tracks.isNotEmpty()) {
+                        firstPlayableIndex = i
+                        initialTracks = tracks
+                        break
+                    }
+                }
+
+                if (firstPlayableIndex == -1 || initialTracks.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "收藏专辑中暂无可播放的曲目", Toast.LENGTH_SHORT).show()
+                        _playState.value = _playState.value.copy(capsuleListeningMode = CapsuleListeningMode.NONE)
+                    }
+                    return@launch
+                }
+
+                // 立即在主线程起播第一张专辑！
+                withContext(Dispatchers.Main) {
+                    if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FAVORITE_ALBUMS) return@withContext
+                    playQueue(initialTracks, 0, CapsuleListeningMode.FAVORITE_ALBUMS)
+                    val albumTitle = albums[firstPlayableIndex].title ?: "收藏专辑"
+                    Toast.makeText(getApplication(), "▶ 正在播放《$albumTitle》(${initialTracks.size} 首)", Toast.LENGTH_SHORT).show()
+                }
+
+                // 2. 后台流式追加阶段：平滑按序拉取剩余专辑，低并发、防穿透、永不超 1MB Binder 限制
+                for (i in (firstPlayableIndex + 1) until albums.size) {
+                    if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FAVORITE_ALBUMS) break
+                    delay(350)
+                    val nextTracks = fetchSongsForAlbum(albums[i])
+                    if (nextTracks.isNotEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FAVORITE_ALBUMS) return@withContext
+                            appendTracksToQueue(nextTracks)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "加载专辑曲目异常，请重试", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
-        ctx.startForegroundService(intent)
+    }
+
+    /**
+     * 后台抓取单张专辑的所有可播曲目
+     */
+    private suspend fun fetchSongsForAlbum(album: LibraryAlbumItem): List<PlayQueueItem> {
+        val albumTitle = album.title.orEmpty().trim()
+        val artistId = album.artistId.orEmpty().trim()
+        val albumCover = album.cover.orEmpty()
+
+        if (artistId.isNotBlank()) {
+            val artistDetail = fetchArtistDetail(artistId)
+            if (artistDetail != null) {
+                val matched = artistDetail.albums.firstOrNull {
+                    it.title.trim().equals(albumTitle, ignoreCase = true)
+                }
+                if (matched != null && matched.songs.isNotEmpty()) {
+                    val cover = if (matched.cover.isNotBlank()) buildAudioUrl(matched.cover) else buildAudioUrl(albumCover)
+                    val artistName = artistDetail.name.ifBlank { "未知歌手" }
+                    return matched.songs.mapNotNull { song ->
+                        val url = buildAudioUrl(song.path)
+                        if (url.isNotBlank()) {
+                            PlayQueueItem(
+                                songTitle = song.title,
+                                artistName = artistName,
+                                albumTitle = matched.title.ifBlank { albumTitle },
+                                coverUrl = cover,
+                                audioUrl = url,
+                                lrcPath = song.lrcPath
+                            )
+                        } else null
+                    }
+                }
+            }
+        }
+
+        return try {
+            val resp = MoodyApiProvider.apiService.getSongsByArtist(
+                artistId = artistId.takeIf { it.isNotBlank() },
+                album = albumTitle.takeIf { it.isNotBlank() }
+            )
+            val matchedArtist = resp.data?.firstOrNull()
+            val matchedAlbum = matchedArtist?.albums?.firstOrNull()
+            val songs = matchedAlbum?.songs ?: emptyList()
+            val artistName = matchedArtist?.name?.ifBlank { "未知歌手" } ?: "未知歌手"
+            val cover = if (!matchedAlbum?.cover.isNullOrBlank()) buildAudioUrl(matchedAlbum!!.cover) else buildAudioUrl(albumCover)
+
+            songs.mapNotNull { song ->
+                val url = buildAudioUrl(song.path)
+                if (url.isNotBlank()) {
+                    PlayQueueItem(
+                        songTitle = song.title,
+                        artistName = artistName,
+                        albumTitle = matchedAlbum?.title ?: albumTitle,
+                        coverUrl = cover,
+                        audioUrl = url,
+                        lrcPath = song.lrcPath
+                    )
+                } else null
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * 播放关注的歌手所有专辑曲目（方案A：首位歌手极速秒播 + 后台按序流式静默追加，零 Binder 溢出，零高并发）
+     */
+    fun playFollowedArtists() {
+        val artists = UserManager.followedArtistsList.value
+        if (artists.isEmpty()) {
+            Toast.makeText(getApplication(), "暂无关注的歌手，快去关注吧", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        favBatchPlayJob?.cancel()
+        _playState.value = _playState.value.copy(
+            capsuleListeningMode = CapsuleListeningMode.FOLLOWED_ARTISTS
+        )
+
+        favBatchPlayJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 1. 极速首播阶段：按序寻找第一位包含有效歌曲的歌手，50ms 级秒开起播
+                var firstPlayableIndex = -1
+                var initialTracks: List<PlayQueueItem> = emptyList()
+
+                for (i in artists.indices) {
+                    if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FOLLOWED_ARTISTS) return@launch
+                    val tracks = fetchSongsForArtist(artists[i])
+                    if (tracks.isNotEmpty()) {
+                        firstPlayableIndex = i
+                        initialTracks = tracks
+                        break
+                    }
+                }
+
+                if (firstPlayableIndex == -1 || initialTracks.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "关注歌手暂无可播放的曲目", Toast.LENGTH_SHORT).show()
+                        _playState.value = _playState.value.copy(capsuleListeningMode = CapsuleListeningMode.NONE)
+                    }
+                    return@launch
+                }
+
+                // 立即在主线程起播第一位歌手！
+                withContext(Dispatchers.Main) {
+                    if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FOLLOWED_ARTISTS) return@withContext
+                    playQueue(initialTracks, 0, CapsuleListeningMode.FOLLOWED_ARTISTS)
+                    val artistName = artists[firstPlayableIndex].name ?: "关注歌手"
+                    Toast.makeText(getApplication(), "▶ 正在播放：$artistName (${initialTracks.size} 首)", Toast.LENGTH_SHORT).show()
+                }
+
+                // 2. 后台流式追加阶段：平滑按序拉取剩余歌手，低并发、防穿透、永不超 1MB Binder 限制
+                for (i in (firstPlayableIndex + 1) until artists.size) {
+                    if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FOLLOWED_ARTISTS) break
+                    delay(400)
+                    val nextTracks = fetchSongsForArtist(artists[i])
+                    if (nextTracks.isNotEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            if (!isActive || _playState.value.capsuleListeningMode != CapsuleListeningMode.FOLLOWED_ARTISTS) return@withContext
+                            appendTracksToQueue(nextTracks)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "加载歌手曲目异常，请重试", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * 后台抓取某位关注艺人的所有专辑曲目
+     */
+    private suspend fun fetchSongsForArtist(artist: LibraryArtistItem): List<PlayQueueItem> {
+        val artistId = artist.artistId.trim()
+        if (artistId.isBlank()) return emptyList()
+
+        val detail = fetchArtistDetail(artistId) ?: return emptyList()
+        val artistName = detail.name.ifBlank { artist.name?.ifBlank { "未知歌手" } ?: "未知歌手" }
+        val artistAvatar = detail.avatar?.takeIf { it.isNotBlank() } ?: (artist.avatar ?: "")
+
+        val sortedAlbums = detail.albums.sortedWith(
+            compareByDescending<AlbumWithSongs> { album ->
+                album.songs.any { !it.path.isNullOrBlank() }
+            }.thenBy { album ->
+                val yr = album.year.takeIf { it != "未知" && it.isNotBlank() } ?: "9999"
+                yr
+            }
+        )
+
+        val tracks = mutableListOf<PlayQueueItem>()
+        for (album in sortedAlbums) {
+            val albumCover = if (album.cover.isNotBlank()) buildAudioUrl(album.cover) else buildAudioUrl(artistAvatar)
+            for (song in album.songs) {
+                val path = song.path
+                if (!path.isNullOrBlank()) {
+                    val url = buildAudioUrl(path)
+                    if (url.isNotBlank()) {
+                        tracks.add(
+                            PlayQueueItem(
+                                songTitle = song.title,
+                                artistName = artistName,
+                                albumTitle = album.title.ifBlank { "单曲专辑" },
+                                coverUrl = albumCover,
+                                audioUrl = url,
+                                lrcPath = song.lrcPath
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return tracks
+    }
+
+    /**
+     * 辅助方法：获取艺人详情，优先读内存缓存，未命中则请求网络
+     */
+    private suspend fun fetchArtistDetail(artistId: String): ArtistWithAlbums? {
+        cachedArtistDetails[artistId]?.let { return it }
+        return try {
+            val resp = MoodyApiProvider.apiService.getArtistDetail(artistId)
+            val d = resp.data?.firstOrNull()
+            if (d != null) {
+                cachedArtistDetails[artistId] = d
+                if (cachedArtistDetails.size > 50) {
+                    val firstKey = cachedArtistDetails.keys.first()
+                    cachedArtistDetails.remove(firstKey)
+                }
+            }
+            d
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun togglePlayPause() {
@@ -406,23 +690,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (candidates.isEmpty()) return null
 
         for (artist in candidates) {
-            val detail = cachedArtistDetails[artist.id] ?: run {
-                try {
-                    val resp = MoodyApiProvider.apiService.getArtistDetail(artist.id)
-                    val d = resp.data?.firstOrNull()
-                    if (d != null) {
-                        cachedArtistDetails[artist.id] = d
-                        // 缓存上限控制在 50 位艺人，防止内存泄漏
-                        if (cachedArtistDetails.size > 50) {
-                            val firstKey = cachedArtistDetails.keys.first()
-                            cachedArtistDetails.remove(firstKey)
-                        }
-                    }
-                    d
-                } catch (_: Exception) {
-                    null
-                }
-            } ?: continue
+            val detail = fetchArtistDetail(artist.id) ?: continue
 
             // 收集所有带可播音源的歌曲
             val playablePairs = mutableListOf<Pair<AlbumWithSongs, SongItem>>()
@@ -470,13 +738,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun startRoamingMode() {
         Toast.makeText(getApplication(), "✨ 正在全库随心漫游，寻找好歌...", Toast.LENGTH_SHORT).show()
         // 乐观更新：立即将 isRoamingMode 标记为 true，UI 状态秒切高亮
-        _playState.value = _playState.value.copy(isRoamingMode = true)
+        _playState.value = _playState.value.copy(
+            isRoamingMode = true,
+            capsuleListeningMode = CapsuleListeningMode.ROAMING
+        )
         viewModelScope.launch {
             try {
                 val firstTrack = pickOneRandomSong()
                 if (firstTrack == null) {
                     Toast.makeText(getApplication(), "全库暂无可漫游曲目，请检查网络", Toast.LENGTH_SHORT).show()
-                    _playState.value = _playState.value.copy(isRoamingMode = false)
+                    _playState.value = _playState.value.copy(
+                        isRoamingMode = false,
+                        capsuleListeningMode = CapsuleListeningMode.NONE
+                    )
                     return@launch
                 }
 
@@ -494,7 +768,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     playlistIndex = 0,
                     playMode = _playState.value.playMode,
                     queue = initialQueue,
-                    isRoamingMode = true
+                    isRoamingMode = true,
+                    capsuleListeningMode = CapsuleListeningMode.ROAMING
                 )
 
                 val intent = Intent(getApplication(), MusicPlayerService::class.java).apply {
@@ -507,7 +782,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 // 立即在后台静默预填充队列至 7 首充裕储备
                 fillRoamingQueue(targetRemaining = 7)
             } catch (e: Exception) {
-                _playState.value = _playState.value.copy(isRoamingMode = false)
+                _playState.value = _playState.value.copy(
+                    isRoamingMode = false,
+                    capsuleListeningMode = CapsuleListeningMode.NONE
+                )
                 Toast.makeText(getApplication(), "漫游启动异常，请稍后重试", Toast.LENGTH_SHORT).show()
             }
         }
@@ -522,7 +800,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (destroyPlayer) {
             stop()
         } else {
-            _playState.value = _playState.value.copy(isRoamingMode = false)
+            _playState.value = _playState.value.copy(
+                isRoamingMode = false,
+                capsuleListeningMode = CapsuleListeningMode.NONE
+            )
         }
     }
 
@@ -664,6 +945,31 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         getApplication<Application>().startService(intent)
     }
 
+    /**
+     * 将一批曲目流式追加到当前播放队列末尾（静默无感预加载，自动去重，杜绝 IPC 1MB 溢出）
+     */
+    fun appendTracksToQueue(tracks: List<PlayQueueItem>): Int {
+        if (tracks.isEmpty()) return 0
+        val currentQueue = _playState.value.queue
+        val existingUrls = currentQueue.map { it.audioUrl }.toHashSet()
+        val deduped = tracks.filter { it.audioUrl.isNotBlank() && existingUrls.add(it.audioUrl) }
+        if (deduped.isEmpty()) return 0
+
+        if (isBound && musicService != null) {
+            musicService?.addAllToQueue(deduped)
+        } else {
+            val intent = Intent(getApplication(), MusicPlayerService::class.java).apply {
+                action = MusicPlayerService.ACTION_ADD_ALL_TO_QUEUE
+                putExtra(MusicPlayerService.EXTRA_PLAYLIST, ArrayList(deduped))
+            }
+            getApplication<Application>().startService(intent)
+        }
+
+        val updatedQueue = currentQueue + deduped
+        _playState.value = _playState.value.copy(queue = updatedQueue)
+        return deduped.size
+    }
+
     fun clearQueue() {
         stop()
     }
@@ -752,6 +1058,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun stop() {
+        favBatchPlayJob?.cancel()
+        isRoamAppending = false
         _playState.value = MusicPlayState()
         if (isBound) {
             musicService?.stopPlayback()
@@ -860,15 +1168,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _topBarTitleState.value = TopBarTitleState.Default
     }
 
-    /** 未开启语音开关时长按底栏提示 */
+    /** 未开启语音或未授权录音时长按底栏提示 */
     fun promptVoiceNeedOpen() {
-        _topBarTitleState.value = TopBarTitleState.Error("语音功能未开启，请先在右上角开启")
+        _topBarTitleState.value = TopBarTitleState.Error("未获取麦克风权限，请先授予权限")
         scheduleTitleReset(3000L)
     }
 
     override fun onCleared() {
         super.onCleared()
         titleResetJob?.cancel()
+        favBatchPlayJob?.cancel()
         voiceRecordingManager?.cancelRecording()
         EventBusManager.unregister(this)
         if (isBound) {

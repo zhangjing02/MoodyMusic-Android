@@ -1,4 +1,4 @@
-﻿package com.example.moodymusicforandroid.data.model
+package com.example.moodymusicforandroid.data.model
 
 import com.google.gson.annotations.SerializedName
 
@@ -16,7 +16,22 @@ data class SongItem(
     val lrcPath: String? = null,
 
     @SerializedName("TrackIndex")
-    val trackIndex: Int? = null
+    val trackIndex: Int? = null,
+
+    @SerializedName("disc")
+    val disc: Int? = null,
+
+    @SerializedName("disc_name")
+    val discName: String? = null,
+
+    @SerializedName("mood")
+    val mood: String? = null,
+
+    @SerializedName("id")
+    val id: Long? = null,
+
+    @SerializedName(value = "file_hash", alternate = ["fileHash"])
+    val fileHash: String? = null
 )
 
 /**

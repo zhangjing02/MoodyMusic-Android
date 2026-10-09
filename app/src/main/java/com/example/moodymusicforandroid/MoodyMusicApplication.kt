@@ -60,6 +60,9 @@ class MoodyMusicApplication : Application(), ImageLoaderFactory {
         // 初始化 ArtistManager (本地艺人名录与发现页离线中枢)
         com.example.moodymusicforandroid.data.manager.ArtistManager.init(this)
 
+        // 初始化 OfflineDownloadManager (离线下载队列与本地多维索引中枢)
+        com.example.moodymusicforandroid.data.manager.OfflineDownloadManager.init(this)
+
         // 初始化主题
         ThemeManager.initTheme(this)
 

@@ -20,7 +20,10 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.moodymusicforandroid.data.manager.OfflineDownloadManager
+import com.example.moodymusicforandroid.data.manager.DownloadStatus
 import com.example.moodymusicforandroid.data.manager.UserManager
+import com.example.moodymusicforandroid.ui.home.components.HeadphonesVinylCanvas
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +44,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.data.model.SongItem
+import com.example.moodymusicforandroid.ui.components.DownloadedTrackBadge
 import com.example.moodymusicforandroid.ui.components.SongbookImage
 import com.example.moodymusicforandroid.ui.player.MusicPlayState
 import com.example.moodymusicforandroid.ui.player.PlayerViewModel
@@ -78,19 +82,74 @@ fun AlbumDetailScreen(
     )
 
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(artistId, albumTitle) {
+        if (viewModel.uiState.value.songs.isEmpty() && (albumTitle.isNotBlank() || artistId.isNotBlank())) {
+            viewModel.loadAlbumDetail()
+        }
+    }
     val livePlayState by (playerViewModel?.playState ?: remember { kotlinx.coroutines.flow.MutableStateFlow(playState) }).collectAsState()
     val currentPlay = if (playerViewModel != null) livePlayState else playState
+    val downloadTasks by OfflineDownloadManager.tasksFlow.collectAsState()
+    val downloadedSongs by OfflineDownloadManager.downloadedSongsFlow.collectAsState()
+
+    // 服务端驱动 Tab 分组：
+    // 优先使用服务端返回的 disc_name 字段进行分组（零硬编码，任意多个 Tab）；
+    // 若服务端无 disc_name，则回退到兼容条件（disc==2 / trackIndex>=100 / mood=="导师考核与对决"）；
+    // 分组后按 disc_name 的首次出现顺序排列 Tab，Tab 标签直接取 disc_name 值。
+    val albumTabs = remember(uiState.songs) {
+        val hasDsicName = uiState.songs.any { !it.discName.isNullOrBlank() }
+        if (hasDsicName) {
+            // ─── 路径 A：服务端已提供 disc_name，完全服务端驱动 ───
+            // 保持 disc_name 首次出现顺序
+            val orderedLabels = uiState.songs
+                .mapNotNull { it.discName?.trim()?.takeIf { n -> n.isNotEmpty() } }
+                .distinct()
+            if (orderedLabels.size <= 1) {
+                // 只有一组（或全为 null）→ 不显示 Tab
+                emptyList()
+            } else {
+                orderedLabels.map { label ->
+                    label to uiState.songs.filter { it.discName?.trim() == label }
+                }
+            }
+        } else {
+            // ─── 路径 B：向后兼容（disc 字段 / trackIndex / mood 条件）───
+            val disc2Songs = uiState.songs.filter {
+                (it.disc ?: 1) == 2 || (it.trackIndex ?: 0) >= 100 || it.mood == "导师考核与对决"
+            }
+            if (disc2Songs.isEmpty()) {
+                emptyList()
+            } else {
+                val disc1Songs = uiState.songs.filter { it !in disc2Songs }
+                listOf(
+                    "第一轮盲选" to disc1Songs,
+                    "导师考核与PK" to disc2Songs
+                )
+            }
+        }
+    }
+    val hasMultipleTabs = albumTabs.size > 1
+    var selectedTabIndex by androidx.compose.runtime.saveable.rememberSaveable(albumTitle, artistId) {
+        mutableIntStateOf(0)
+    }
+    val currentDisplaySongs = if (hasMultipleTabs) {
+        albumTabs.getOrNull(selectedTabIndex.coerceIn(0, albumTabs.lastIndex))?.second
+            ?: uiState.songs
+    } else {
+        uiState.songs
+    }
 
     // 核心：基于全局播放服务状态计算当前专辑正在播放的唯一曲目（严格校对与去重，杜绝多曲目同时高亮与切歌失效）
     val activeTrackIndex = remember(
-        uiState.songs,
+        currentDisplaySongs,
         currentPlay.songTitle,
         currentPlay.audioUrl,
         currentPlay.albumTitle,
         currentPlay.artistName
     ) {
         findActiveTrackIndex(
-            songs = uiState.songs,
+            songs = currentDisplaySongs,
             playState = currentPlay,
             currentAlbumTitle = albumTitle,
             currentArtistName = artistName
@@ -99,6 +158,7 @@ fun AlbumDetailScreen(
 
     val context = LocalContext.current
     var songToAddToPlaylist by remember { mutableStateOf<SongItem?>(null) }
+    var showDownloadAlbumConfirmDialog by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
     val isStickyTitleVisible by remember {
@@ -257,7 +317,7 @@ fun AlbumDetailScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // 操作按钮区：全部播放 + 收藏专辑
-                    val playableSongs = remember(uiState.songs) { uiState.songs.filter { !it.path.isNullOrBlank() } }
+                    val playableSongs = remember(currentDisplaySongs) { currentDisplaySongs.filter { !it.path.isNullOrBlank() } }
                     val favoriteAlbumIds by UserManager.favoriteAlbumIds.collectAsState()
                     val resolvedAlbumId = albumId.ifBlank { "${artistId}_${albumTitle}" }
                     val isAlbumFavorited = (resolvedAlbumId.isNotBlank() && resolvedAlbumId in favoriteAlbumIds) || (albumTitle.isNotBlank() && albumTitle in favoriteAlbumIds)
@@ -269,9 +329,9 @@ fun AlbumDetailScreen(
                         Button(
                             onClick = {
                                 if (playableSongs.isEmpty()) {
-                                    Toast.makeText(context, "该专辑暂无可用音频资源", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "当前阶段暂无可用音频资源", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    onPlayAllClick(uiState.songs, uiState.coverUrl)
+                                    onPlayAllClick(currentDisplaySongs, uiState.coverUrl)
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -281,7 +341,7 @@ fun AlbumDetailScreen(
                             ),
                             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
                             modifier = Modifier.weight(1f),
-                            enabled = uiState.songs.isNotEmpty()
+                            enabled = currentDisplaySongs.isNotEmpty()
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
@@ -330,27 +390,104 @@ fun AlbumDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // 3. 曲目列表头
+            // 3. 曲目列表头（支持单列表与多阶段 Tab 无缝切换）
             item {
                 Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Text(
-                            text = "曲目目录",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "${uiState.songs.size} TRACKS",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SongbookColors.Outline,
-                            letterSpacing = 1.sp,
-                            fontWeight = FontWeight.Normal
-                        )
+                    if (hasMultipleTabs) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                albumTabs.forEachIndexed { tabIndex, (tabTitle, _) ->
+                                    val isSelected = (tabIndex == selectedTabIndex)
+                                    Column(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { selectedTabIndex = tabIndex }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = tabTitle,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = if (isSelected) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .height(2.5.dp)
+                                                .width(if (isSelected) 36.dp else 0.dp)
+                                                .background(
+                                                    if (isSelected) SongbookColors.BurntOrange else Color.Transparent,
+                                                    RoundedCornerShape(1.dp)
+                                                )
+                                        )
+                                    }
+                                }
+                                if (uiState.allowDownload) {
+                                    IconButton(
+                                        onClick = { showDownloadAlbumConfirmDialog = true },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        AlbumDownloadIcon(
+                                            tint = SongbookColors.BurntOrange,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = "${currentDisplaySongs.size} TRACKS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SongbookColors.Outline,
+                                letterSpacing = 1.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "曲目目录",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                if (uiState.allowDownload) {
+                                    IconButton(
+                                        onClick = { showDownloadAlbumConfirmDialog = true },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        AlbumDownloadIcon(
+                                            tint = SongbookColors.BurntOrange,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = "${uiState.songs.size} TRACKS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SongbookColors.Outline,
+                                letterSpacing = 1.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
                     }
                     HorizontalDivider(color = SongbookColors.OutlineVariant.copy(alpha = 0.2f))
                     Spacer(modifier = Modifier.height(8.dp))
@@ -369,21 +506,39 @@ fun AlbumDetailScreen(
                 }
             }
 
-            // 5. 曲目列表（真实数据）
-            itemsIndexed(uiState.songs) { index, song ->
+            // 5. 曲目列表（真实数据，按当前 Tab 显示）
+            itemsIndexed(currentDisplaySongs) { index, song ->
                 val isCurrentSong = (index == activeTrackIndex)
                 val hasAudio = !song.path.isNullOrBlank()
+                val task = downloadTasks[song.path]
+                val isDownloaded = OfflineDownloadManager.isDownloaded(
+                    filePath = song.path,
+                    songId = song.id,
+                    title = song.title,
+                    albumTitle = albumTitle
+                )
+                val isHashOutdated = OfflineDownloadManager.isHashOutdated(
+                    filePath = song.path,
+                    serverHash = song.fileHash,
+                    songId = song.id,
+                    title = song.title,
+                    albumTitle = albumTitle
+                )
+
                 TrackRowItem(
                     song = song,
                     index = index,
                     isPlaying = isCurrentSong,
                     isAudioPlaying = isCurrentSong && currentPlay.isPlaying,
                     hasAudio = hasAudio,
+                    downloadStatus = task?.status,
+                    isDownloaded = isDownloaded,
+                    isHashOutdated = isHashOutdated,
                     onClick = {
                         if (!hasAudio) {
                             Toast.makeText(context, "《${song.title}》暂无可用音频文件", Toast.LENGTH_SHORT).show()
                         } else {
-                            onTrackClick(uiState.songs, index, uiState.coverUrl)
+                            onTrackClick(currentDisplaySongs, index, uiState.coverUrl)
                         }
                     },
                     onMoreClick = {
@@ -393,14 +548,14 @@ fun AlbumDetailScreen(
             }
 
             // 6. 空状态（无数据且不在加载）
-            if (!uiState.isLoading && uiState.songs.isEmpty()) {
+            if (!uiState.isLoading && currentDisplaySongs.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (uiState.error != null) "加载失败，请下拉刷新" else "暂无曲目",
+                            text = if (uiState.error != null) "加载失败，请下拉刷新" else "该阶段暂无收录曲目",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -442,7 +597,76 @@ fun AlbumDetailScreen(
                     )
                 }
             } else null,
+            allowDownload = uiState.allowDownload,
+            onDownloadClick = {
+                OfflineDownloadManager.enqueueSong(
+                    song = targetSong,
+                    albumTitle = albumTitle,
+                    artistName = artistName,
+                    coverUrl = uiState.coverUrl
+                )
+                Toast.makeText(context, "已加入下载队列: 《${targetSong.title}》", Toast.LENGTH_SHORT).show()
+            },
             onDismiss = { songToAddToPlaylist = null }
+        )
+    }
+
+    // 批量下载整张专辑二次确认弹窗
+    if (showDownloadAlbumConfirmDialog) {
+        val validSongs = currentDisplaySongs.filter { !it.path.isNullOrBlank() }
+        AlertDialog(
+            onDismissRequest = { showDownloadAlbumConfirmDialog = false },
+            title = {
+                Text(
+                    text = "下载专辑",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = SongbookColors.SoftCharcoal
+                )
+            },
+            text = {
+                Text(
+                    text = "确认下载这 ${validSongs.size} 首歌曲？",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDownloadAlbumConfirmDialog = false
+                        if (validSongs.isEmpty()) {
+                            Toast.makeText(context, "当前暂无可下载音频", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val count = OfflineDownloadManager.enqueueAlbum(
+                                songs = validSongs,
+                                albumTitle = albumTitle,
+                                artistName = artistName,
+                                coverUrl = uiState.coverUrl
+                            )
+                            if (count > 0) {
+                                Toast.makeText(context, "已加入下载队列", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "歌曲已全部下载", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        text = "下载",
+                        color = SongbookColors.BurntOrange,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDownloadAlbumConfirmDialog = false }) {
+                    Text(
+                        text = "取消",
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
         )
     }
 }
@@ -454,6 +678,9 @@ private fun TrackRowItem(
     isPlaying: Boolean,
     isAudioPlaying: Boolean = false,
     hasAudio: Boolean = true,
+    downloadStatus: DownloadStatus? = null,
+    isDownloaded: Boolean = false,
+    isHashOutdated: Boolean = false,
     onClick: () -> Unit,
     onMoreClick: () -> Unit = {}
 ) {
@@ -470,7 +697,7 @@ private fun TrackRowItem(
                 else Color.Transparent
             )
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 曲目序号（轻字重，播放时显示高亮琥珀色）
@@ -486,54 +713,160 @@ private fun TrackRowItem(
             modifier = Modifier.width(32.dp)
         )
 
-        // 歌曲标题（轻字重，播放时显示高亮色）
-        Text(
-            text = song.title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = when {
-                isPlaying -> activeColor
-                !hasAudio -> inactiveColor.copy(alpha = 0.38f)
-                else -> inactiveColor
-            },
-            fontWeight = if (isPlaying) FontWeight.Medium else FontWeight.Normal,
-            fontSize = 15.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        // 动态均衡器跳动动画图标（仿网页端，紧跟标题）
-        if (isPlaying) {
-            Spacer(modifier = Modifier.width(8.dp))
-            AnimatedEqualizer(
-                tint = activeColor,
-                isAnimating = isAudioPlaying
-            )
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // 右侧状态与操作（点击三点唤起收录到手札）
-        if (!hasAudio) {
-            Text(
-                text = "未收录",
-                style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.Outline.copy(alpha = 0.45f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Normal
-            )
-        } else {
-            IconButton(
-                onClick = onMoreClick,
-                modifier = Modifier.size(36.dp)
+        // 歌曲标题与动态下载进度区
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "加入手札",
-                    tint = if (isPlaying) activeColor.copy(alpha = 0.8f) else SongbookColors.Outline.copy(alpha = 0.45f),
-                    modifier = Modifier.size(20.dp)
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = when {
+                        isPlaying -> activeColor
+                        !hasAudio -> inactiveColor.copy(alpha = 0.38f)
+                        else -> inactiveColor
+                    },
+                    fontWeight = if (isPlaying) FontWeight.Medium else FontWeight.Normal,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                // 动态均衡器跳动动画图标（仿网页端，紧跟标题）
+                if (isPlaying) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    AnimatedEqualizer(
+                        tint = activeColor,
+                        isAnimating = isAudioPlaying
+                    )
+                }
+            }
+
+            // 动态横向细长下载进度条与排队状态
+            if (downloadStatus is DownloadStatus.DOWNLOADING) {
+                val progress = downloadStatus.progress
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(end = 12.dp)
+                ) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(1.5.dp)),
+                        color = SongbookColors.BurntOrange,
+                        trackColor = SongbookColors.BurntOrange.copy(alpha = 0.18f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${(progress * 100).toInt()}%",
+                        fontSize = 9.5.sp,
+                        color = SongbookColors.BurntOrange,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            } else if (downloadStatus is DownloadStatus.QUEUED) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "排队下载中...",
+                    fontSize = 9.5.sp,
+                    color = SongbookColors.BurntOrange.copy(alpha = 0.7f)
                 )
             }
         }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // 右侧状态与操作（离线状态微标 + 三点更多菜单）
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isDownloaded) {
+                DownloadedTrackBadge(
+                    isHashOutdated = isHashOutdated
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            if (!hasAudio) {
+                Text(
+                    text = "未收录",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SongbookColors.Outline.copy(alpha = 0.45f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal
+                )
+            } else {
+                IconButton(
+                    onClick = onMoreClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "加入手札",
+                        tint = if (isPlaying) activeColor.copy(alpha = 0.8f) else SongbookColors.Outline.copy(alpha = 0.45f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 现代黑胶唱片风格 — 下载矢量 Canvas 图标
+ */
+@Composable
+fun AlbumDownloadIcon(
+    tint: Color = SongbookColors.BurntOrange,
+    modifier: Modifier = Modifier.size(18.dp)
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+        // 箭头主轴
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.5f, h * 0.15f),
+            end = Offset(w * 0.5f, h * 0.62f),
+            strokeWidth = stroke,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round
+        )
+        // 箭头左羽
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.28f, h * 0.42f),
+            end = Offset(w * 0.5f, h * 0.62f),
+            strokeWidth = stroke,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round
+        )
+        // 箭头右羽
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.72f, h * 0.42f),
+            end = Offset(w * 0.5f, h * 0.62f),
+            strokeWidth = stroke,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round
+        )
+        // 托盘底座
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w * 0.22f, h * 0.65f)
+            lineTo(w * 0.22f, h * 0.85f)
+            lineTo(w * 0.78f, h * 0.85f)
+            lineTo(w * 0.78f, h * 0.65f)
+        }
+        drawPath(
+            path = path,
+            color = tint,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                join = androidx.compose.ui.graphics.StrokeJoin.Round
+            )
+        )
     }
 }
 

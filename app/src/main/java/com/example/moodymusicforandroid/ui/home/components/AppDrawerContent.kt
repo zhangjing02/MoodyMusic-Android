@@ -48,6 +48,7 @@ fun AppDrawerContent(
     onNoticeBoardClick: () -> Unit = {},
     onMessageBoardClick: () -> Unit = {},
     onStylePreferenceClick: () -> Unit = {},
+    onDownloadManagerClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onVersionClick: () -> Unit = {},
     onAboutClick: () -> Unit = {}
@@ -276,7 +277,47 @@ fun AppDrawerContent(
             }
         }
 
-        // ── 4. 系统与设置 Section ───────────────────────────────────
+        // ── 4. 离线曲库 Section ─────────────────────────────────────
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 22.dp, top = 18.dp, bottom = 8.dp)
+        ) {
+            Text(
+                text = "离线曲库",
+                style = MaterialTheme.typography.labelSmall,
+                color = SongbookColors.BurntOrange,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                fontSize = 11.5.sp
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "· OFFLINE STORAGE",
+                style = MaterialTheme.typography.labelSmall,
+                color = SongbookColors.BurntOrange.copy(alpha = 0.45f),
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 1.sp,
+                fontSize = 9.sp
+            )
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = SongbookColors.SurfaceLow),
+            border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.GhostBorder)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                DrawerMenuItem(
+                    title = "下载管理",
+                    onClick = onDownloadManagerClick
+                )
+            }
+        }
+
+        // ── 5. 系统与设置 Section ───────────────────────────────────
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 22.dp, top = 18.dp, bottom = 8.dp)

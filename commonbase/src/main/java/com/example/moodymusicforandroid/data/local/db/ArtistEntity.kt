@@ -53,11 +53,12 @@ fun ArtistEntity.toArtist(): Artist {
  * 转换扩展函数：Domain Model -> Entity
  */
 fun Artist.toEntity(): ArtistEntity {
+    val normalizedCategory = if (name == "乐队的夏天" && category != "音乐综艺") "音乐综艺" else category
     return ArtistEntity(
         id = id,
         name = name,
         group = group,
-        category = category,
+        category = normalizedCategory,
         avatar = avatar,
         albumCount = albumCount
     )

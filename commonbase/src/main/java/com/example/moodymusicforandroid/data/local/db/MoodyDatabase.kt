@@ -11,8 +11,17 @@ import androidx.room.RoomDatabase
  * 数据库文件名 moody_room.db（与旧版 moody_user.db 区分，避免迁移冲突）
  */
 @Database(
-    entities = [UserProfileEntity::class, PlaylistEntity::class, PlaylistSongEntity::class, ArtistEntity::class],
-    version = 4,
+    entities = [
+        UserProfileEntity::class,
+        PlaylistEntity::class,
+        PlaylistSongEntity::class,
+        ArtistEntity::class,
+        FavoriteSongEntity::class,
+        FavoriteAlbumEntity::class,
+        FollowedArtistEntity::class,
+        DownloadedSongEntity::class
+    ],
+    version = 6,
     exportSchema = false
 )
 abstract class MoodyDatabase : RoomDatabase() {
@@ -20,6 +29,8 @@ abstract class MoodyDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun artistDao(): ArtistDao
+    abstract fun favoriteDao(): FavoriteDao
+    abstract fun downloadDao(): DownloadDao
 
     companion object {
         @Volatile

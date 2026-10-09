@@ -15,6 +15,7 @@ data class ArtistDetailUiState(
     val albums: List<AlbumWithSongs> = emptyList(),
     val artistName: String = "",
     val artistAvatar: String? = null,
+    val artistCategory: String? = null,
     val error: String? = null
 )
 
@@ -62,10 +63,18 @@ class ArtistDetailViewModel(
                             yr
                         }
                     )
+                    val category = artistData?.category ?: if (artistData?.name == "乐队的夏天") "音乐综艺" else null
+                    val existingAvatar = _uiState.value.artistAvatar
+                    val resolvedAvatar = if (!existingAvatar.isNullOrBlank() && (existingAvatar.contains("variety") || existingAvatar.contains("pub-") || category == "音乐综艺")) {
+                        existingAvatar
+                    } else {
+                        artistData?.avatar?.takeIf { it.isNotBlank() } ?: existingAvatar
+                    }
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         albums = sortedAlbums,
-                        artistAvatar = artistData?.avatar ?: _uiState.value.artistAvatar
+                        artistAvatar = resolvedAvatar,
+                        artistCategory = category
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(

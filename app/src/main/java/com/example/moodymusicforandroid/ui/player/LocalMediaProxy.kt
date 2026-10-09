@@ -24,6 +24,8 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 /**
@@ -41,7 +43,16 @@ object LocalMediaProxy {
 
     private var serverSocket: ServerSocket? = null
     private var port: Int = 0
-    private val executor = Executors.newCachedThreadPool()
+
+    // A-B1 修复: 将 newCachedThreadPool() 无界线程池替换为有界线程池
+    // 规避极端弱网环境下请求积压导致线程无限制创建引发的 OOM/ANR
+    private val executor = ThreadPoolExecutor(
+        4,                          // 核心线程数
+        16,                         // 最大线程数
+        60L, TimeUnit.SECONDS,      // 空闲线程存活时间
+        LinkedBlockingQueue(64),    // 有界排队队列
+        ThreadPoolExecutor.CallerRunsPolicy() // 队列饱和时由调用线程执行，平滑限流降级
+    )
 
     @Volatile
     private var isRunning = false
@@ -77,6 +88,7 @@ object LocalMediaProxy {
             }
             Log.i(TAG, "LocalMediaProxy cache initialized at: ${cacheDir?.absolutePath}")
         }
+        com.example.moodymusicforandroid.data.manager.OfflineDownloadManager.init(context)
     }
 
     private fun getCacheKey(url: String): String {
@@ -204,6 +216,10 @@ object LocalMediaProxy {
      * 异步预热连接池与 DNS 解析，消灭首曲冷启动 2~3 秒延迟
      */
     fun prewarmConnection(url: String? = null) {
+        if (!url.isNullOrBlank() && com.example.moodymusicforandroid.data.manager.OfflineDownloadManager.isDownloaded(url)) {
+            Log.d(TAG, "Prewarm skipped: audio is already downloaded locally")
+            return
+        }
         executor.execute {
             try {
                 val warmUrl = if (!url.isNullOrBlank()) {
@@ -214,7 +230,10 @@ object LocalMediaProxy {
                 val req = Request.Builder()
                     .url(warmUrl)
                     .head()
-                    .header("User-Agent", "MoodyMusic/1.0 (Prewarm)")
+                    .header("User-Agent", "MoodyMusic-Android/1.0 (Prewarm)")
+                    .header("X-App-Platform", "android")
+                    .header("X-Client-Type", "android")
+                    .header("Referer", AppConfig.apiBaseUrl)
                     .build()
                 okHttpClient.newCall(req).execute().close()
                 Log.d(TAG, "Prewarm connection established to: $warmUrl")
@@ -269,6 +288,15 @@ object LocalMediaProxy {
 
             val safeTargetUrl = AppConfig.safeEncodeUrl(cleanTargetUrl)
 
+            // 0. 本地离线下载安全私有文件命中检查 (Offline-First, 零网络流量秒播)
+            val offlineFile = com.example.moodymusicforandroid.data.manager.OfflineDownloadManager.getDownloadedLocalFile(cleanTargetUrl)
+                ?: com.example.moodymusicforandroid.data.manager.OfflineDownloadManager.getDownloadedLocalFile(rawTargetUrl)
+            if (offlineFile != null && offlineFile.exists() && offlineFile.length() > com.example.moodymusicforandroid.data.manager.SecureAudioStorage.HEADER_SIZE) {
+                Log.i(TAG, "Offline Secure Download HIT for: $cleanTargetUrl, serving from local encrypted file: ${offlineFile.name}")
+                serveFromMoodyFile(clientSocket, offlineFile, method, rangeHeader)
+                return
+            }
+
             // 1. 本地磁盘缓存命中检查 (Cache-First)
             val cacheKey = getCacheKey(safeTargetUrl)
             val cachedFile = cacheDir?.let { File(it, "$cacheKey.mp3") }
@@ -284,7 +312,10 @@ object LocalMediaProxy {
             fun buildRequest(url: String): Request {
                 val reqBuilder = Request.Builder()
                     .url(url)
-                    .header("User-Agent", "MoodyMusic/1.0 (Android Native Player Proxy)")
+                    .header("User-Agent", "MoodyMusic-Android/1.0 (Android Native Player Proxy)")
+                    .header("X-App-Platform", "android")
+                    .header("X-Client-Type", "android")
+                    .header("Referer", AppConfig.apiBaseUrl)
                 if (rangeHeader != null) {
                     reqBuilder.header("Range", rangeHeader)
                 }
@@ -470,6 +501,106 @@ object LocalMediaProxy {
                     }
                 }
             }
+        } finally {
+            isStreamingActive = false
+        }
+    }
+
+    /**
+     * 专属流式输出本地已下载的 .moody 安全混淆文件 (0ms 秒开 + 零网络消耗 + 支持 Range 206 快进)
+     */
+    private fun serveFromMoodyFile(
+        clientSocket: Socket,
+        file: File,
+        method: String,
+        rangeHeader: String?
+    ) {
+        val audioLength = com.example.moodymusicforandroid.data.manager.SecureAudioStorage.getOriginalAudioLength(file)
+        val out = clientSocket.getOutputStream()
+        val writer = OutputStreamWriter(out, Charsets.US_ASCII)
+
+        isStreamingActive = true
+        lastDataTransferTime = System.currentTimeMillis()
+
+        try {
+            if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
+                val rangeSpec = rangeHeader.substring(6).trim()
+                val rangeParts = rangeSpec.split("-")
+                val start = rangeParts[0].toLongOrNull() ?: 0L
+                val end = if (rangeParts.size > 1 && rangeParts[1].isNotEmpty()) {
+                    rangeParts[1].toLongOrNull() ?: (audioLength - 1)
+                } else {
+                    audioLength - 1
+                }
+                val lengthToServe = (end - start + 1).coerceAtLeast(0)
+
+                writer.write("HTTP/1.1 206 Partial Content\r\n")
+                writer.write("Content-Type: audio/mpeg\r\n")
+                writer.write("Content-Length: $lengthToServe\r\n")
+                writer.write("Content-Range: bytes $start-$end/$audioLength\r\n")
+                writer.write("Accept-Ranges: bytes\r\n")
+                writer.write("Connection: close\r\n\r\n")
+                writer.flush()
+
+                if (!method.equals("HEAD", ignoreCase = true)) {
+                    RandomAccessFile(file, "r").use { raf ->
+                        val buffer = ByteArray(65536)
+                        var remaining = lengthToServe
+                        var currentOffset = start
+                        while (remaining > 0) {
+                            val toRead = remaining.coerceAtMost(buffer.size.toLong()).toInt()
+                            val read = com.example.moodymusicforandroid.data.manager.SecureAudioStorage.readAudioRange(
+                                raf = raf,
+                                audioOffset = currentOffset,
+                                buffer = buffer,
+                                bufferOffset = 0,
+                                length = toRead
+                            )
+                            if (read <= 0) break
+                            out.write(buffer, 0, read)
+                            remaining -= read
+                            currentOffset += read
+                            lastDataTransferTime = System.currentTimeMillis()
+                            totalBytesTransferred += read
+                        }
+                        out.flush()
+                    }
+                }
+            } else {
+                writer.write("HTTP/1.1 200 OK\r\n")
+                writer.write("Content-Type: audio/mpeg\r\n")
+                writer.write("Content-Length: $audioLength\r\n")
+                writer.write("Accept-Ranges: bytes\r\n")
+                writer.write("Connection: close\r\n\r\n")
+                writer.flush()
+
+                if (!method.equals("HEAD", ignoreCase = true)) {
+                    RandomAccessFile(file, "r").use { raf ->
+                        val buffer = ByteArray(65536)
+                        var remaining = audioLength
+                        var currentOffset = 0L
+                        while (remaining > 0) {
+                            val toRead = remaining.coerceAtMost(buffer.size.toLong()).toInt()
+                            val read = com.example.moodymusicforandroid.data.manager.SecureAudioStorage.readAudioRange(
+                                raf = raf,
+                                audioOffset = currentOffset,
+                                buffer = buffer,
+                                bufferOffset = 0,
+                                length = toRead
+                            )
+                            if (read <= 0) break
+                            out.write(buffer, 0, read)
+                            remaining -= read
+                            currentOffset += read
+                            lastDataTransferTime = System.currentTimeMillis()
+                            totalBytesTransferred += read
+                        }
+                        out.flush()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Offline streaming client disconnected: ${e.message}")
         } finally {
             isStreamingActive = false
         }

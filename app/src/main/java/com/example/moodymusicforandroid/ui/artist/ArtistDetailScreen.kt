@@ -89,6 +89,9 @@ fun ArtistDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val followedArtistIds by UserManager.followedArtistIds.collectAsState()
     val isFollowing = artistId.isNotBlank() && artistId in followedArtistIds
+    val isVarietyShow = remember(uiState.artistCategory, uiState.artistName) {
+        uiState.artistCategory == "音乐综艺" || uiState.artistCategory == "综艺" || uiState.artistName == "乐队的夏天"
+    }
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("按时间排序", "按热度排序", "录音室专辑")
 
@@ -146,6 +149,7 @@ fun ArtistDetailScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    Spacer(modifier = Modifier.weight(1f))
                 }
                 if (isStickyTitleVisible) {
                     HorizontalDivider(color = SongbookColors.OutlineVariant.copy(alpha = 0.2f))
@@ -161,10 +165,16 @@ fun ArtistDetailScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // 1. 艺术家封面（优先用真实高清头像，失败或无图时优雅降级为专属艺术大图）
+            // 1. 艺术家封面（优先用真实高清头像/综艺海报，失败或无图时优雅降级为专属艺术大图）
             item {
                 val context = LocalContext.current
-                val currentAvatar = uiState.artistAvatar ?: artistAvatar
+                val currentAvatar = remember(uiState.artistAvatar, artistAvatar) {
+                    when {
+                        !artistAvatar.isNullOrBlank() && (artistAvatar.contains("variety") || artistAvatar.contains("pub-")) -> artistAvatar
+                        !uiState.artistAvatar.isNullOrBlank() -> uiState.artistAvatar
+                        else -> artistAvatar
+                    }
+                }
                 val hasCustom = !currentAvatar.isNullOrBlank() &&
                     !currentAvatar.contains("default.png") &&
                     !currentAvatar.contains("landing_cover.png") &&
@@ -173,6 +183,20 @@ fun ArtistDetailScreen(
                 val resolvedHeroUrl = remember(currentAvatar) {
                     if (hasCustom) {
                         AppConfig.resolveUrl(currentAvatar)
+                    } else {
+                        null
+                    }
+                }
+
+                val varietyFallbackRes = remember(isVarietyShow, displayName, currentAvatar) {
+                    if (isVarietyShow) {
+                        when {
+                            displayName.contains("好声音") || currentAvatar?.contains("voice") == true -> R.drawable.variety_voice_of_china
+                            displayName.contains("歌手") || currentAvatar?.contains("singer") == true -> R.drawable.variety_i_am_singer
+                            displayName.contains("蒙面") || currentAvatar?.contains("masked") == true -> R.drawable.variety_masked_singer
+                            displayName.contains("乐队") || currentAvatar?.contains("band") == true -> R.drawable.variety_big_band
+                            else -> R.drawable.variety_voice_of_china
+                        }
                     } else {
                         null
                     }
@@ -200,36 +224,12 @@ fun ArtistDetailScreen(
                         .clip(RoundedCornerShape(4.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
-                    if (resolvedHeroUrl != null) {
-                        val imageRequest = remember(context, resolvedHeroUrl) {
-                            ImageRequest.Builder(context)
-                                .data(resolvedHeroUrl)
-                                .crossfade(true)
-                                .allowHardware(false)
-                                .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                                .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                                .build()
-                        }
-
-                        SubcomposeAsyncImage(
-                            model = imageRequest,
+                    if (resolvedHeroUrl != null || varietyFallbackRes != null) {
+                        SongbookImage(
+                            model = resolvedHeroUrl ?: varietyFallbackRes,
                             contentDescription = displayName,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            loading = {
-                                ArtistHeroFallback(
-                                    displayChar = displayChar,
-                                    palette = palette,
-                                    name = displayName
-                                )
-                            },
-                            error = {
-                                ArtistHeroFallback(
-                                    displayChar = displayChar,
-                                    palette = palette,
-                                    name = displayName
-                                )
-                            }
+                            fallbackRes = varietyFallbackRes ?: R.drawable.artist_abigail_chen,
+                            modifier = Modifier.fillMaxSize()
                         )
                     } else {
                         ArtistHeroFallback(
@@ -253,7 +253,7 @@ fun ArtistDetailScreen(
                         contentAlignment = Alignment.BottomStart
                     ) {
                         Text(
-                            text = "ARTIST",
+                            text = if (isVarietyShow) "VARIETY SHOW" else "ARTIST",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
                             letterSpacing = 2.sp,
@@ -285,14 +285,14 @@ fun ArtistDetailScreen(
                     ) {
                         Column {
                             Text(
-                                text = "专辑数量",
+                                text = if (isVarietyShow) "往季精选" else "专辑数量",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SongbookColors.Outline,
                                 letterSpacing = 1.sp
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "${uiState.albums.size} Albums",
+                                text = if (isVarietyShow) "${uiState.albums.size} Seasons" else "${uiState.albums.size} Albums",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Medium
@@ -339,11 +339,11 @@ fun ArtistDetailScreen(
                         ) {
                             Icon(
                                 imageVector = if (isFollowing) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                contentDescription = null,
+                                contentDescription = if (isFollowing) "已关注" else (if (isVarietyShow) "关注节目" else "关注歌手"),
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = if (isFollowing) "已关注" else "关注歌手", style = MaterialTheme.typography.labelLarge)
+                            Text(text = if (isFollowing) "已关注" else (if (isVarietyShow) "关注节目" else "关注歌手"), style = MaterialTheme.typography.labelLarge)
                         }
                         Button(
                             onClick = onPlayAllClick,
@@ -371,7 +371,7 @@ fun ArtistDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "作品全集",
+                            text = if (isVarietyShow) "历季选辑" else "作品全集",
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Medium
