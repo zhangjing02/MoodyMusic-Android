@@ -10,7 +10,8 @@ local.properties
 # Fonts and other local resources
 *CN/
 temp_fonts/
-scripts/
+scripts/*
+!scripts/upload_pgyer.mjs
 **/build/
 /captures
 .externalNativeBuild
