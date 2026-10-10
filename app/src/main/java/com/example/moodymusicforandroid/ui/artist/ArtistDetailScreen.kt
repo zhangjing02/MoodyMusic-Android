@@ -331,8 +331,8 @@ fun ArtistDetailScreen(
                             },
                             shape = RoundedCornerShape(4.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isFollowing) SongbookColors.MutedOlive else MaterialTheme.colorScheme.primary,
-                                contentColor = Color.White
+                                containerColor = if (isFollowing) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                                contentColor = if (isFollowing) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onPrimary
                             ),
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(vertical = 12.dp)

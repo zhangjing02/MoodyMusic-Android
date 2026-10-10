@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24.0"
+    android:viewportHeight="24.0">
+    <!-- 便签纸主体与折角 (Note paper sheet with folded corner) -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M14,2H6C4.9,2 4,2.9 4,4v16c0,1.1 0.9,2 2,2h7v-2H6V4h8v4h4v3h2V8l-6,-6zm-1,6V3.5L17.5,8H13z"/>
+    <!-- 便签留言横线 (Message lines) -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M7,7h4v1.5H7zM7,11h5v1.5H7zM7,15h3v1.5H7z"/>
+    <!-- 纸笔 / 钢笔 (Pen / Pencil writing) -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M21.71,11.29l-1,-1a1,1 0,0 0,-1.42 0l-5.29,5.29V18h2.42l5.29,-5.29a1,1 0,0 0 0,-1.42z"/>
+</vector>

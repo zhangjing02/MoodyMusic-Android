@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.moodymusicforandroid.R
 import com.example.moodymusicforandroid.ui.components.SongbookImage
-import com.example.moodymusicforandroid.ui.theme.SongbookColors
 
 /**
  * 首页 Hero 深度专题卡片
@@ -112,7 +111,7 @@ fun HeroFeaturedCard(
                 Text(
                     text = tag,
                     style = MaterialTheme.typography.labelSmall,
-                    color = SongbookColors.TerracottaBrown,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -149,8 +148,8 @@ fun HeroFeaturedCard(
                         onClick = onReadArticleClick,
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SongbookColors.TerracottaBrown,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                     ) {
@@ -167,7 +166,7 @@ fun HeroFeaturedCard(
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.primary
                         ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SongbookColors.OutlineVariant),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp)
                     ) {
                         Text(

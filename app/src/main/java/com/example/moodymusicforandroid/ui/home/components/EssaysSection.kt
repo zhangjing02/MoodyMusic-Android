@@ -19,11 +19,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.moodymusicforandroid.data.model.EssayItemData
-import com.example.moodymusicforandroid.ui.theme.SongbookColors
-import androidx.compose.ui.graphics.Color
-
-// 稳定颜色常量 - 避免在EssayItem每次重组时调用 .copy(alpha=...) 创建新Color对象
-private val EssayTimelineColor = Color(0xFFC84B30).copy(alpha = 0.25f) // BurntOrange @ 0.25
 
 /**
  * 兼容旧数据模型（别名）
@@ -126,7 +121,7 @@ fun EssayItem(
             Text(
                 text = essay.date,
                 style = MaterialTheme.typography.labelSmall,
-                color = SongbookColors.TerracottaBrown,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
 

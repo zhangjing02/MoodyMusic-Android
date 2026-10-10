@@ -66,6 +66,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import com.example.moodymusicforandroid.ui.navigation.*
 import com.example.moodymusicforandroid.ui.player.MusicPlayerService
 import com.example.moodymusicforandroid.ui.settings.SettingsScreen
+import com.example.moodymusicforandroid.ui.settings.StylePreferenceScreen
 import com.example.moodymusicforandroid.common.utils.DeviceInfoUtils
 import com.example.moodymusicforandroid.common.update.PgyerUpdateManager
 import com.example.moodymusicforandroid.data.model.AppVersionData
@@ -318,7 +319,7 @@ fun MainScreen(
                     },
                     onStylePreferenceClick = {
                         coroutineScope.launch { drawerState.close() }
-                        android.widget.Toast.makeText(context, "风格喜好设置正在筹备中", android.widget.Toast.LENGTH_SHORT).show()
+                        navigator.navigate(RouteStylePreference)
                     },
                     onDownloadManagerClick = {
                         coroutineScope.launch { drawerState.close() }
@@ -687,6 +688,12 @@ fun MainScreen(
 
                     entry<RouteSettings> {
                         SettingsScreen(
+                            onBackClick = { navigator.goBack() }
+                        )
+                    }
+
+                    entry<RouteStylePreference> {
+                        StylePreferenceScreen(
                             onBackClick = { navigator.goBack() }
                         )
                     }

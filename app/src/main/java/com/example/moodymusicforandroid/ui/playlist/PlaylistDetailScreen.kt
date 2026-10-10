@@ -161,7 +161,7 @@ fun PlaylistDetailScreen(
                     Text(
                         text = "PLAYLIST • ${songs.size} TRACKS",
                         style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.MutedOlive,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontWeight = FontWeight.Normal,
                         letterSpacing = 2.sp
                     )

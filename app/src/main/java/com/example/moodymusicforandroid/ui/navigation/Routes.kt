@@ -49,6 +49,9 @@ data object RouteVersion : NavKey
 data object RouteSettings : NavKey
 
 @Serializable
+data object RouteStylePreference : NavKey
+
+@Serializable
 data class RouteCollectionManager(
     val initialTab: Int = 0 // 0: 歌曲, 1: 专辑, 2: 歌手
 ) : NavKey

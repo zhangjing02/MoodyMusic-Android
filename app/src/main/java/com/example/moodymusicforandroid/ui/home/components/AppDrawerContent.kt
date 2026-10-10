@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -238,7 +240,14 @@ fun AppDrawerContent(
             Column(modifier = Modifier.fillMaxWidth()) {
                 DrawerMenuItem(
                     title = "公告栏",
-                    badge = "公告",
+                    badgeIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "公告栏",
+                            tint = primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
                     primary = primary,
                     onSurface = onSurface,
                     ghostBorder = ghostBorder,
@@ -253,7 +262,14 @@ fun AppDrawerContent(
 
                 DrawerMenuItem(
                     title = "留言板",
-                    badge = null,
+                    badgeIcon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_drawer_note_pen),
+                            contentDescription = "留言板",
+                            tint = primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
                     primary = primary,
                     onSurface = onSurface,
                     ghostBorder = ghostBorder,
@@ -268,7 +284,14 @@ fun AppDrawerContent(
 
                 DrawerMenuItem(
                     title = "风格喜好",
-                    badge = "待开放",
+                    badgeIcon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_palette),
+                            contentDescription = "风格喜好",
+                            tint = primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
                     primary = primary,
                     onSurface = onSurface,
                     ghostBorder = ghostBorder,
@@ -424,6 +447,7 @@ fun AppDrawerContent(
 private fun DrawerMenuItem(
     title: String,
     badge: String? = null,
+    badgeIcon: @Composable (() -> Unit)? = null,
     showRedDot: Boolean = false,
     trailingText: String? = null,
     primary: Color,
@@ -471,7 +495,10 @@ private fun DrawerMenuItem(
             )
         }
 
-        if (badge != null) {
+        if (badgeIcon != null) {
+            badgeIcon()
+            Spacer(modifier = Modifier.width(4.dp))
+        } else if (badge != null) {
             Surface(
                 shape = RoundedCornerShape(100.dp),
                 color = if (badge == "NEW") primary else primary.copy(alpha = 0.08f)

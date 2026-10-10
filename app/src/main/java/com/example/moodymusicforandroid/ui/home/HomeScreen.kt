@@ -739,7 +739,7 @@ private fun SocietyWeeklyTopBar(
                             text = "🎙️ 正在倾听...",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFC85208),
+                            color = MaterialTheme.colorScheme.primary,
                             maxLines = 1
                         )
                     }
@@ -766,7 +766,7 @@ private fun SocietyWeeklyTopBar(
                             text = "🎵 ${state.message}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFC85208),
+                            color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
                             modifier = Modifier.basicMarquee(
                                 iterations = Int.MAX_VALUE,

@@ -76,7 +76,7 @@ fun SectionTitleBlock(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.TerracottaBrown,
+                        color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.2.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -423,8 +423,8 @@ fun ArchiveCardBlock(
                 if (!badge.isNullOrBlank()) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = SongbookColors.TerracottaBrown,
-                        contentColor = Color.White
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ) {
                         Text(
                             text = badge,
@@ -480,7 +480,7 @@ fun ArchiveCardBlock(
                         Text(
                             text = subtitle,
                             style = MaterialTheme.typography.labelSmall,
-                            color = SongbookColors.TerracottaBrown,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -570,7 +570,7 @@ fun ImageFeatureBlock(
                     Text(
                         text = caption,
                         style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.TerracottaBrown,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )

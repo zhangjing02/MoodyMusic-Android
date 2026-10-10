@@ -258,7 +258,7 @@ fun LibraryScreen(
                                     text = "🎙️ 正在倾听...",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFC85208),
+                                    color = MaterialTheme.colorScheme.primary,
                                     maxLines = 1
                                 )
                             }
@@ -272,7 +272,7 @@ fun LibraryScreen(
                                     text = displayText,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF5A524A),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     modifier = Modifier.basicMarquee(
                                         iterations = Int.MAX_VALUE,
@@ -285,7 +285,7 @@ fun LibraryScreen(
                                     text = "🎵 ${state.message}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFC85208),
+                                    color = MaterialTheme.colorScheme.primary,
                                     maxLines = 1,
                                     modifier = Modifier.basicMarquee(
                                         iterations = Int.MAX_VALUE,

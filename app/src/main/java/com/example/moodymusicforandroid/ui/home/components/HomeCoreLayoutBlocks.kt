@@ -81,7 +81,7 @@ fun TopRecommendBannerBlock(
                 Text(
                     text = badge,
                     style = MaterialTheme.typography.labelSmall,
-                    color = SongbookColors.TerracottaBrown,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -120,7 +120,7 @@ fun TopRecommendBannerBlock(
         if (isPlaying) {
             com.example.moodymusicforandroid.ui.theme_detail.CoverEqIndicator(
                 isAnimating = true,
-                barColor = SongbookColors.BurntOrange,
+                barColor = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp)
@@ -291,7 +291,7 @@ fun VarietyShowGridBlock(
                     Text(
                         text = data.subtitle,
                         style = MaterialTheme.typography.labelSmall,
-                        color = SongbookColors.TerracottaBrown,
+                        color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.2.sp,
                         fontWeight = FontWeight.SemiBold
                     )
