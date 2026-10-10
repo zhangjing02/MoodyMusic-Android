@@ -7,6 +7,8 @@ plugins {
 
 import java.util.Properties
 import java.io.FileInputStream
+import java.text.SimpleDateFormat
+import java.util.Date
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -76,6 +78,19 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmm").format(Date())
+            val appName = "音信"
+            val env = variant.buildType.name
+            val vName = variant.versionName
+            val vCode = variant.versionCode
+            output?.outputFileName = "${appName}_${env}_v${vName}_build${vCode}_${timeStamp}.apk"
         }
     }
 }

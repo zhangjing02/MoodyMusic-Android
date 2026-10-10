@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -428,6 +429,20 @@ fun VersionUpdateScreen(
 
 private fun installApk(context: Context, apkFile: File) {
     try {
+        // Android 8.0 (API 26) 及以上需检查未知应用安装权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val hasInstallPermission = context.packageManager.canRequestPackageInstalls()
+            if (!hasInstallPermission) {
+                Toast.makeText(context, "请授予应用“允许安装未知应用”权限以完成升级", Toast.LENGTH_LONG).show()
+                val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(settingsIntent)
+                return
+            }
+        }
+
         val authority = "${context.packageName}.fileprovider"
         val apkUri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             FileProvider.getUriForFile(context, authority, apkFile)
