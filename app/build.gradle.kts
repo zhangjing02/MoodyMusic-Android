@@ -33,7 +33,7 @@ android {
         }
 
         manifestPlaceholders["JPUSH_PKGNAME"] = "com.moodyimusic.app"
-        manifestPlaceholders["JPUSH_APPKEY"] = "cab5e87b9dd9b0acd6df56c3"
+        manifestPlaceholders["JPUSH_APPKEY"] = "0c279e2a4de3471067c84370"
         manifestPlaceholders["JPUSH_CHANNEL"] = "developer-default"
     }
 
