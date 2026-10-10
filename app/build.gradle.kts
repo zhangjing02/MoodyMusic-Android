@@ -5,12 +5,21 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.example.moodymusicforandroid"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.moodymusicforandroid"
+        applicationId = "com.moodyimusic.app"
         minSdk = 24
         targetSdk = 36
         versionCode = 17
@@ -21,16 +30,31 @@ android {
             useSupportLibrary = true
         }
 
-        manifestPlaceholders["JPUSH_PKGNAME"] = "com.example.moodymusicforandroid"
+        manifestPlaceholders["JPUSH_PKGNAME"] = "com.moodyimusic.app"
         manifestPlaceholders["JPUSH_APPKEY"] = "cab5e87b9dd9b0acd6df56c3"
         manifestPlaceholders["JPUSH_CHANNEL"] = "developer-default"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties["keyAlias"] as String?
+                keyPassword = keystoreProperties["keyPassword"] as String?
+                storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+                storePassword = keystoreProperties["storePassword"] as String?
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

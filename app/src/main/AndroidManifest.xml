@@ -12,9 +12,6 @@
     <!-- Android 13+ 通知权限 (前台服务播放控制及通知栏展示) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- 应用内安装 APK 权限 -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
     <!-- 麦克风录音权限（用于 AI 语音点歌/智能漫游） -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 

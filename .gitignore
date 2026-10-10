@@ -42,3 +42,8 @@ nav3/
 nav3ui/
 temp_nav3/
 
+# Keystore and signing secrets
+key.properties
+**/*.keystore
+**/*.jks
+*.bak

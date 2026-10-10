@@ -1,0 +1,6 @@
+# Release signing configuration template
+# Copy this file to key.properties and configure your local release keystore
+storePassword=<your-store-password>
+keyPassword=<your-key-password>
+keyAlias=<your-key-alias>
+storeFile=/path/to/moodyimusic-release.jks
