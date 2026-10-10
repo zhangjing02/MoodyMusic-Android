@@ -57,6 +57,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -168,8 +169,23 @@ fun HomeScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val pullToRefreshState = rememberPullToRefreshState()
     val listState = rememberLazyListState()
+    val todayRecommendListState = rememberLazyListState()
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val playState by playerViewModel.playState.collectAsState()
+
+    // 下拉刷新触发时，今日推荐卡片自动平滑滑回第 1 张卡片
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            todayRecommendListState.animateScrollToItem(0)
+        }
+    }
+
+    // 首次进入或网络数据拉取完成时，若首项发生偏移（且用户当前未在交互滑动中），自动归位至首张卡片
+    LaunchedEffect(feedItems) {
+        if (!todayRecommendListState.isScrollInProgress && todayRecommendListState.firstVisibleItemIndex > 0) {
+            todayRecommendListState.scrollToItem(0)
+        }
+    }
 
     // 订阅全局主题配置，区分浅色暖砂与深色暗调纸质微渐变
     val themeConfig by AppThemeManager.config.collectAsState()
@@ -215,7 +231,12 @@ fun HomeScreen(
 
     SongbookPullToRefreshLayout(
         isRefreshing = isRefreshing,
-        onRefresh = { viewModel.fetchHomeFeed() },
+        onRefresh = {
+            coroutineScope.launch {
+                todayRecommendListState.animateScrollToItem(0)
+            }
+            viewModel.fetchHomeFeed()
+        },
         state = pullToRefreshState,
         headerTopPadding = statusBarTop,
         modifier = modifier
@@ -291,6 +312,7 @@ fun HomeScreen(
                             val scrollData = block.parsedData as? TodayRecommendScrollData ?: block.toTodayRecommendScroll()
                             TodayRecommendScrollBlock(
                                 data = scrollData,
+                                lazyListState = todayRecommendListState,
                                 onItemClick = { item ->
                                     if (item.isTheme) {
                                         val themeId = item.themeId ?: item.id

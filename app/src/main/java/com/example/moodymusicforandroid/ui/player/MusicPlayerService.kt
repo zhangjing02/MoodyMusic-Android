@@ -33,8 +33,11 @@ import com.example.moodymusicforandroid.data.manager.UserManager
 import com.example.moodymusicforandroid.common.eventbus.BaseEvent
 import com.example.moodymusicforandroid.common.eventbus.EventBusManager
 import com.example.moodymusicforandroid.common.eventbus.EventType
+import com.example.moodymusicforandroid.common.utils.SleepTimerManager
 import com.example.moodymusicforandroid.ui.home.activity.MainActivity
 import android.widget.Toast
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 import java.io.IOException
 
 class MusicPlayerService : Service() {
@@ -56,6 +59,7 @@ class MusicPlayerService : Service() {
         const val ACTION_CLEAR_QUEUE = "com.example.moodymusicforandroid.ACTION_CLEAR_QUEUE"
         const val ACTION_ADD_TO_QUEUE = "com.example.moodymusicforandroid.ACTION_ADD_TO_QUEUE"
         const val ACTION_ADD_ALL_TO_QUEUE = "com.example.moodymusicforandroid.ACTION_ADD_ALL_TO_QUEUE"
+        const val ACTION_SLEEP_TIMEOUT = "com.example.moodymusicforandroid.ACTION_SLEEP_TIMEOUT"
 
         const val EXTRA_PLAYLIST = "extra_playlist"
         const val EXTRA_INDEX = "extra_index"
@@ -181,35 +185,50 @@ class MusicPlayerService : Service() {
         mediaSession = MediaSessionCompat(this, "MoodyMusicSession").apply {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
+                    SleepTimerManager.recordUserInteraction()
                     resumePlayback()
                 }
 
                 override fun onPause() {
+                    SleepTimerManager.recordUserInteraction()
                     pausePlayback()
                 }
 
                 override fun onSkipToNext() {
+                    SleepTimerManager.recordUserInteraction()
                     playNext()
                 }
 
                 override fun onSkipToPrevious() {
+                    SleepTimerManager.recordUserInteraction()
                     playPrevious()
                 }
 
                 override fun onSeekTo(pos: Long) {
+                    SleepTimerManager.recordUserInteraction()
                     seekTo(pos.toInt())
                 }
 
                 override fun onStop() {
+                    SleepTimerManager.recordUserInteraction()
                     stopPlayback()
                 }
             })
             isActive = true
         }
+        EventBusManager.register(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.action?.let {
+            if (it != ACTION_SLEEP_TIMEOUT) {
+                SleepTimerManager.recordUserInteraction()
+            }
+        }
         when (intent?.action) {
+            ACTION_SLEEP_TIMEOUT -> {
+                fadeOutAndStop("休眠定时超时")
+            }
             ACTION_PLAY -> {
                 @Suppress("UNCHECKED_CAST")
                 val newPlaylist = intent.getSerializableExtra(EXTRA_PLAYLIST) as? ArrayList<PlayQueueItem>
@@ -277,6 +296,9 @@ class MusicPlayerService : Service() {
         return START_STICKY
     }
 
+    private var isFadingOut: Boolean = false
+    private val fadeHandler = Handler(Looper.getMainLooper())
+
     private var hasPrewarmedNextSong = false // A-B2: 标记当前歌曲是否已对下一首发起过连接预热
 
     private val progressHandler = Handler(Looper.getMainLooper())
@@ -285,6 +307,13 @@ class MusicPlayerService : Service() {
             if (isPlaying()) {
                 broadcastPlayState(isPlaying = true)
                 checkAndPrewarmNextSong()
+                // 🌙 智能夜间闲置守护检查 (处于 23:00~06:00 且连续无操作达到设定时长)
+                if (SleepTimerManager.checkNightIdleTimeout() && !isFadingOut) {
+                    Log.i(TAG, "🌙 Night idle timeout reached! Initiating fadeOutAndStop...")
+                    SleepTimerManager.recordUserInteraction() // 重置，防止重入
+                    fadeOutAndStop("夜间长时间无操作")
+                    return
+                }
                 progressHandler.postDelayed(this, 1000)
             }
         }
@@ -547,6 +576,12 @@ class MusicPlayerService : Service() {
      */
     private fun onSongCompleted() {
         if (playlist.isEmpty()) return
+        // 检查主动休眠定时器是否设定为“播完当前单曲后停止”
+        if (SleepTimerManager.onSongCompletion(applicationContext)) {
+            Log.i(TAG, "[onSongCompleted] 命中播完当前歌曲后停止设定，触发平滑关停")
+            fadeOutAndStop("播完当曲停止")
+            return
+        }
         when (currentPlayMode) {
             PlayMode.SINGLE_LOOP -> {
                 // 单曲循环：从头重播当前歌曲
@@ -1064,8 +1099,65 @@ class MusicPlayerService : Service() {
         }
     }
 
+    /**
+     * 平滑淡出音量并彻底停止播放（休眠定时、夜间防沉睡自动停播专用）
+     * 3 秒内将音量从 1.0f 线性降为 0.0f，避免突然断音惊醒睡眠中的用户，随后完全释放资源并移除常驻通知
+     */
+    fun fadeOutAndStop(reason: String = "休眠定时") {
+        if (!isPlaying() || isFadingOut) {
+            stopPlayback()
+            stopSelf()
+            return
+        }
+
+        isFadingOut = true
+        Log.i(TAG, "fadeOutAndStop initiated, reason: $reason")
+
+        val totalSteps = 20
+        val stepIntervalMs = 150L // 20 * 150ms = 3000ms
+        var currentStep = totalSteps
+
+        val fadeRunnable = object : Runnable {
+            override fun run() {
+                val player = mediaPlayer
+                if (player != null && isMediaPlayerPrepared && currentStep > 0) {
+                    val volume = (currentStep.toFloat() / totalSteps.toFloat()).coerceIn(0f, 1f)
+                    try {
+                        player.setVolume(volume, volume)
+                    } catch (_: Exception) {}
+                    currentStep--
+                    fadeHandler.postDelayed(this, stepIntervalMs)
+                } else {
+                    // 淡出完成，彻底关停
+                    isFadingOut = false
+                    try {
+                        player?.setVolume(1.0f, 1.0f) // 恢复基础音量设置，供下次起播使用
+                    } catch (_: Exception) {}
+                    stopPlayback()
+                    stopSelf()
+                    Handler(Looper.getMainLooper()).post {
+                        val tip = if (reason.contains("夜间")) "🌙 处于夜间深度闲置，已自动停止播放" else "🌙 休眠定时结束，已自动停止播放"
+                        Toast.makeText(applicationContext, tip, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+        fadeHandler.post(fadeRunnable)
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onSleepTimerEvent(event: BaseEvent) {
+        if (event.eventType == EventType.SLEEP_TIMER_PAUSE) {
+            val reason = event.eventMessage.ifBlank { "休眠定时" }
+            Log.i(TAG, "Received SLEEP_TIMER_PAUSE event: $reason")
+            fadeOutAndStop(reason)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        fadeHandler.removeCallbacksAndMessages(null)
+        EventBusManager.unregister(this)
         stopPlayback()
         mediaSession?.release()
         abandonAudioFocus()

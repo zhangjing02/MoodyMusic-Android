@@ -296,7 +296,7 @@ fun AddToPlaylistSheet(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     com.example.moodymusicforandroid.ui.album.AlbumDownloadIcon(
-                        tint = if (isDownloaded) SongbookColors.BurntOrange else MaterialTheme.colorScheme.onSurface,
+                        tint = if (isDownloaded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(22.dp)
                     )
 
@@ -312,7 +312,7 @@ fun AddToPlaylistSheet(
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = null,
-                            tint = SongbookColors.BurntOrange,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }

@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -27,7 +28,7 @@ import com.example.moodymusicforandroid.ui.theme.SongbookColors
  * 核心审美规范：
  * 1. 彻底剔除生硬填色圆盘色块，采用 100% 纯线条几何构造 (Fine-line Minimalist Vector)；
  * 2. 极简空心细线圆环 (1.15dp 笔触) + 抽象悬浮微型下行折线，通透轻盈、留白极佳；
- * 3. 低饱和度素雅配色：正常离线契合排版基准轮廓色 (Outline)，云端有新母带则微显焦橙色 (BurntOrange)；
+ * 3. 低饱和度素雅配色：正常离线契合排版基准轮廓色 (Outline)，云端有新母带则微显主题色 (Primary)；
  * 4. 布局融入右侧操作区，与三点菜单垂直成列对齐，还给曲目名称纯粹的阅读呼吸感。
  */
 @Composable
@@ -35,7 +36,7 @@ fun DownloadedTrackBadge(
     isHashOutdated: Boolean = false,
     modifier: Modifier = Modifier,
     size: Dp = 14.dp,
-    tint: Color = if (isHashOutdated) SongbookColors.BurntOrange else SongbookColors.Outline.copy(alpha = 0.6f),
+    tint: Color = if (isHashOutdated) MaterialTheme.colorScheme.primary else SongbookColors.Outline.copy(alpha = 0.6f),
     onClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current

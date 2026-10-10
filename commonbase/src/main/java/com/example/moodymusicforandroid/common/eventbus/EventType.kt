@@ -77,6 +77,7 @@ object EventType {
     const val PLAYER_MODE_CHANGE = 9003      // 播放模式变化（循环/随机/单曲）
     const val PLAYER_PLAYLIST_CLEARED = 9004 // 播放列表清空
     const val MUSIC_PLAY_STATE_CHANGED = 9005 // 播放状态变化（供 PlayerViewModel 监听）
+    const val SLEEP_TIMER_PAUSE = 9006       // 休眠定时触发停止/暂停
 
     // ========== 通知事件 ==========
     const val NOTIFICATION_RECEIVED = 10001  // 收到通知
@@ -142,6 +143,7 @@ object EventType {
             PLAYER_BUFFERING_END -> "PLAYER_BUFFERING_END"
             PLAYER_MODE_CHANGE -> "PLAYER_MODE_CHANGE"
             PLAYER_PLAYLIST_CLEARED -> "PLAYER_PLAYLIST_CLEARED"
+            SLEEP_TIMER_PAUSE -> "SLEEP_TIMER_PAUSE"
             NOTIFICATION_RECEIVED -> "NOTIFICATION_RECEIVED"
             NOTIFICATION_CLICK -> "NOTIFICATION_CLICK"
             NOTIFICATION_CLEAR -> "NOTIFICATION_CLEAR"

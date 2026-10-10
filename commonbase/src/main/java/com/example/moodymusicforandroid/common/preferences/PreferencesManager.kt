@@ -80,6 +80,15 @@ object PreferencesManager {
     fun isCardClickDirectPlay(): Boolean = getBoolean(KEY_CARD_CLICK_DIRECT_PLAY, true)
     fun saveCardClickDirectPlay(enabled: Boolean) = putBoolean(KEY_CARD_CLICK_DIRECT_PLAY, enabled)
 
+    private const val KEY_NIGHT_IDLE_GUARD_ENABLED = "night_idle_guard_enabled"
+    private const val KEY_NIGHT_IDLE_GUARD_MINUTES = "night_idle_guard_minutes"
+
+    fun isNightIdleGuardEnabled(): Boolean = getBoolean(KEY_NIGHT_IDLE_GUARD_ENABLED, true)
+    fun saveNightIdleGuardEnabled(enabled: Boolean) = putBoolean(KEY_NIGHT_IDLE_GUARD_ENABLED, enabled)
+
+    fun getNightIdleGuardMinutes(): Int = getInt(KEY_NIGHT_IDLE_GUARD_MINUTES, 45)
+    fun saveNightIdleGuardMinutes(minutes: Int) = putInt(KEY_NIGHT_IDLE_GUARD_MINUTES, minutes)
+
 
     /**
      * 初始化，建议在 Application.onCreate() 中调用

@@ -438,7 +438,7 @@ fun AlbumDetailScreen(
                                         modifier = Modifier.size(24.dp)
                                     ) {
                                         AlbumDownloadIcon(
-                                            tint = SongbookColors.BurntOrange,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(17.dp)
                                         )
                                     }
@@ -474,7 +474,7 @@ fun AlbumDetailScreen(
                                         modifier = Modifier.size(24.dp)
                                     ) {
                                         AlbumDownloadIcon(
-                                            tint = SongbookColors.BurntOrange,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(17.dp)
                                         )
                                     }
@@ -654,7 +654,7 @@ fun AlbumDetailScreen(
                 ) {
                     Text(
                         text = "下载",
-                        color = SongbookColors.BurntOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -759,14 +759,14 @@ private fun TrackRowItem(
                             .weight(1f)
                             .height(3.dp)
                             .clip(RoundedCornerShape(1.5.dp)),
-                        color = SongbookColors.BurntOrange,
-                        trackColor = SongbookColors.BurntOrange.copy(alpha = 0.18f)
+                        color = activeColor,
+                        trackColor = activeColor.copy(alpha = 0.18f)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "${(progress * 100).toInt()}%",
                         fontSize = 9.5.sp,
-                        color = SongbookColors.BurntOrange,
+                        color = activeColor,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -775,7 +775,7 @@ private fun TrackRowItem(
                 Text(
                     text = "排队下载中...",
                     fontSize = 9.5.sp,
-                    color = SongbookColors.BurntOrange.copy(alpha = 0.7f)
+                    color = activeColor.copy(alpha = 0.7f)
                 )
             }
         }
@@ -820,7 +820,7 @@ private fun TrackRowItem(
  */
 @Composable
 fun AlbumDownloadIcon(
-    tint: Color = SongbookColors.BurntOrange,
+    tint: Color = MaterialTheme.colorScheme.primary,
     modifier: Modifier = Modifier.size(18.dp)
 ) {
     Canvas(modifier = modifier) {

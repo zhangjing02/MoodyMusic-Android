@@ -833,6 +833,7 @@ private fun ThemeDownloadActionItem(
     downloadStatus: DownloadStatus?,
     onClick: () -> Unit
 ) {
+    val primary = MaterialTheme.colorScheme.primary
     IconButton(
         onClick = onClick,
         modifier = Modifier.size(40.dp)
@@ -847,8 +848,8 @@ private fun ThemeDownloadActionItem(
                     CircularProgressIndicator(
                         progress = { progress },
                         modifier = Modifier.size(18.dp),
-                        color = SongbookColors.BurntOrange,
-                        trackColor = SongbookColors.BurntOrange.copy(alpha = 0.2f),
+                        color = primary,
+                        trackColor = primary.copy(alpha = 0.2f),
                         strokeWidth = 2.dp
                     )
                 }
@@ -860,7 +861,7 @@ private fun ThemeDownloadActionItem(
                 ) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
-                        color = SongbookColors.BurntOrange.copy(alpha = 0.6f),
+                        color = primary.copy(alpha = 0.6f),
                         strokeWidth = 1.5.dp
                     )
                 }
@@ -874,7 +875,7 @@ private fun ThemeDownloadActionItem(
             }
             else -> {
                 AlbumDownloadIcon(
-                    tint = SongbookColors.BurntOrange,
+                    tint = primary,
                     modifier = Modifier.size(18.dp)
                 )
             }

@@ -85,6 +85,8 @@ import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.moodymusicforandroid.common.utils.SleepTimerManager
+import android.view.MotionEvent
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 
@@ -93,6 +95,13 @@ class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
     private val viewModel: MainViewModel by viewModels()
     private val playerViewModel: PlayerViewModel by viewModels()
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        if (ev?.action == MotionEvent.ACTION_DOWN) {
+            SleepTimerManager.recordUserInteraction()
+        }
+        return super.dispatchTouchEvent(ev)
+    }
 
     private var showAudioPermissionRationale by mutableStateOf(false)
 

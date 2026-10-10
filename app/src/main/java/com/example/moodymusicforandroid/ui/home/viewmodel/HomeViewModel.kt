@@ -162,6 +162,18 @@ class HomeViewModel : BaseViewModel() {
                     subtitle = "TODAY'S VINYL SELECTION",
                     items = listOf(
                         TodayRecommendItem(
+                            id = "eason_chan_get_a_life_theme",
+                            title = "《Get A Life》",
+                            artist = "陳奕迅",
+                            year = "2016",
+                            subtitle = "紅館 · 金曲純享",
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/eason_chan_get_a_life_cover.jpg",
+                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/eason_chan_get_a_life_2006.m4a",
+                            isTheme = true,
+                            themeId = "eason_chan_get_a_life_theme",
+                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/eason_chan_get_a_life_theme.json"
+                        ),
+                        TodayRecommendItem(
                             id = "jacky_cheung_classic_tour_theme",
                             title = "《經典之旅》",
                             artist = "張學友",
@@ -210,16 +222,16 @@ class HomeViewModel : BaseViewModel() {
                             storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/wen_4versions_theme_v2.json"
                         ),
                         TodayRecommendItem(
-                            id = "jonathan_lee_theme",
-                            title = "《理性與感性》",
+                            id = "jonathan_lee_youth_theme",
+                            title = "《既然青春留不住》",
                             artist = "李宗盛",
                             year = "2007",
                             subtitle = "30首歲月金曲 · 寫盡悲歡離合",
-                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/album_jonathan_lee.jpg",
-                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/jonathan_lee_30.m4a",
+                            coverUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/covers/albums/jonathan_lee_youth_cover.jpg",
+                            audioUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/music/theme/jonathan_lee_youth_tour_2016.m4a",
                             isTheme = true,
-                            themeId = "jonathan_lee_theme",
-                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/jonathan_lee_theme.json"
+                            themeId = "jonathan_lee_youth_theme",
+                            storyUrl = "https://pub-3951bb1f42a440049b8d1eb0575cfdee.r2.dev/themes/jonathan_lee_youth_theme.json"
                         ),
                         TodayRecommendItem(
                             id = "guofeng_flute_theme_v3",
